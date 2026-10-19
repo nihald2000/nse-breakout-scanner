@@ -10,7 +10,7 @@
 const { FO_INDEX, mapPool, istParts, formatIST } = require("../lib/common");
 const { getUniverse, yahooChart } = require("../lib/common");
 const { parseIdx } = require("./indices")._internals;
-const { OTHER, vwapSeries, lineState, intradayRvol, tenkanKijun, loadDeliveryMap, vwapTrend, swingStructure, orStats, candlePatterns, volSpike, adxRead, rangeVsNormal } = require("../lib/sector");
+const { OTHER, vwapSeries, lineState, intradayRvol, tenkanKijun, loadDeliveryMap, vwapTrend, swingStructure, orStats, candlePatterns, volSpike, adxRead, rangeVsNormal, trendVerdict } = require("../lib/sector");
 
 const TFS = { "15m": { range: "1mo", interval: "15m", step: 900 }, "5m": { range: "5d", interval: "5m", step: 300 } };
 
@@ -146,6 +146,7 @@ module.exports = async function handler(req, res) {
       down: checks.filter((c) => c === "down").length,
       total: checks.filter((c) => c === "up" || c === "down").length,
     };
+    read.trend = trendVerdict(read);
 
     rows.push({
       sym: g.sym,

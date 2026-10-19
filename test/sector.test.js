@@ -241,6 +241,36 @@ test("adxRead sees an up-trend on a rising series", () => {
   assert.equal(S.adxRead(bars.slice(0, 10)), null); // too short for ADX
 });
 
+test("trendVerdict: strong one-sided down when checks, ADX and structure all agree", () => {
+  const rd = {
+    lean: { up: 0, down: 5, total: 5 },
+    adx: { v: 35, dir: "down", pdi: 18, mdi: 26 },
+    structure: { up: 3, down: 8, dir: "down" },
+    volSpike: { mm: 660, mult: 8 },
+    range: { ratio: 1.46 },
+    or: { hi: 100, lo: 99, brokeUp: null, brokeDown: 605 },
+  };
+  const t = S.trendVerdict(rd);
+  assert.equal(t.side, "down");
+  assert.equal(t.tier, "strong");
+  assert.equal(t.helpers, 5);
+});
+
+test("trendVerdict: moderate when a majority leans but ADX is absent, weak when thin", () => {
+  const base = { lean: { up: 1, down: 4, total: 5 }, adx: null, structure: { up: 2, down: 5, dir: "down" }, volSpike: { mm: 600, mult: 2 }, range: { ratio: 1.0 }, or: null };
+  assert.equal(S.trendVerdict(base).tier, "moderate");
+  const weak = { lean: { up: 1, down: 3, total: 4 }, adx: { v: 12, dir: "up" }, structure: { up: 2, down: 2, dir: null }, volSpike: null, range: null, or: null };
+  assert.equal(S.trendVerdict(weak).tier, "weak");
+});
+
+test("trendVerdict: no side when checks are split or too few", () => {
+  const split = { lean: { up: 2, down: 2, total: 4 }, adx: null, structure: null, volSpike: null, range: null, or: null };
+  assert.equal(S.trendVerdict(split).side, null);
+  assert.equal(S.trendVerdict(split).label, "two-way / mixed");
+  const few = { lean: { up: 1, down: 1, total: 2 }, adx: null, structure: null, volSpike: null, range: null, or: null };
+  assert.equal(S.trendVerdict(few).label, "too few checks yet");
+});
+
 // ---------------- delivery file parsing (structure, not network) ----------------
 test("bhav candidates skip weekends and cap the count", () => {
   // Monday 2026-10-19: expects Mon 19, Fri 16, Thu 15, Wed 14, Tue 13.

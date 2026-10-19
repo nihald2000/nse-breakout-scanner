@@ -74,7 +74,11 @@
       </table>
     </div>
     <p class="legend">Sorted by running volume (today's cumulative volume at this clock minute vs the mean of
-    the earlier sessions in the same fetch). Tenkan(9)/Kijun(26) use <b>closed candles of the chosen timeframe</b>;
+    the earlier sessions in the same fetch). <b>CE / PE</b> is the side the checks lean &mdash; CE = the facts point up
+    (call side), PE = down (put side), with how one-sided they are: <i>one-sided</i> = most checks agree <b>and</b> ADX
+    and structure point the same way; <i>building</i> = a majority with partial support; a dash = two-way, no lean.
+    It is a count of agreeing facts, <b>not a probability of profit and not an order</b>.
+    Tenkan(9)/Kijun(26) use <b>closed candles of the chosen timeframe</b>;
     the reference stop is the Kijun of that timeframe and is a fact about the chart, not a stop for you.
     Delivery % is the previous completed session's from NSE's own file. F&amp;O ban is <b>not</b> checked (no free
     source). Option bid/ask is not shown because no free live chain exists &mdash; check your broker before buying.
@@ -277,6 +281,19 @@ function buildRead(r) {
   }
   var rd = r.read;
   if (!rd) { frow("Read", "unavailable \u2014 refresh the page (older cached response)", ""); return pan; }
+  // Trend side verdict: which side the checks lean, and how one-sided. Not a probability.
+  var tv = rd.trend;
+  var tvTxt, tvCls = "";
+  if (!tv) tvTxt = "unavailable \u2014 refresh the page";
+  else if (!tv.side) tvTxt = tv.label + " \u2014 no CE or PE lean yet";
+  else {
+    tvTxt = (tv.side === "up" ? "CE side" : "PE side") + " \u2014 " +
+      (tv.tier === "strong" ? "strong one-sided" : tv.tier === "moderate" ? "one-sided, building" : "weak one-sided") + " " +
+      (tv.side === "up" ? "up" : "down") + " \u00b7 " + tv.agree + "/" + tv.total + " checks" +
+      (tv.helpers ? ", " + tv.helpers + " context signal" + (tv.helpers === 1 ? "" : "s") + " with it" : "");
+    tvCls = tv.side;
+  }
+  frow("Trend side", tvTxt, tvCls);
   // Lean: plain count of directional checks. Facts, not a forecast.
   var lean = rd.lean || { up: 0, down: 0, total: 0 };
   var leanTxt, leanCls = "";
@@ -340,8 +357,8 @@ function buildRead(r) {
 function renderStocks(rows) {
   var thead = $("thead"), tbody = $("tbody");
   thead.textContent = ""; tbody.textContent = "";
-  ["Stock", "LTP", "Chg %", "Running vol", "VWAP", "VWAP dist", "Tenkan/Kijun (" + CURTF + ")", "Line stop", "Delivery %"].forEach(function (h) {
-    var t = document.createElement("th"); t.textContent = h; if (h !== "Stock") t.className = "r"; else t.className = "l"; thead.appendChild(t);
+  ["Stock", "Side", "LTP", "Chg %", "Running vol", "VWAP", "VWAP dist", "Tenkan/Kijun (" + CURTF + ")", "Line stop", "Delivery %"].forEach(function (h) {
+    var t = document.createElement("th"); t.textContent = h; t.className = h === "Stock" || h === "Side" ? "l" : "r"; thead.appendChild(t);
   });
   var _loop = function (i) {
     var r = rows[i];
@@ -350,6 +367,19 @@ function renderStocks(rows) {
     var s1 = document.createElement("span"); s1.className = "sym"; s1.textContent = r.sym;
     c0.appendChild(s1);
     tr.appendChild(c0);
+    var cSide = document.createElement("td"); cSide.className = "l";
+    var tv = r.read && r.read.trend;
+    if (tv && tv.side) {
+      var chip = document.createElement("span");
+      chip.className = "chip " + tv.side;
+      chip.textContent = (tv.side === "up" ? "CE" : "PE") + " \u00b7 " + (tv.tier === "strong" ? "one-sided" : tv.tier === "moderate" ? "building" : "weak");
+      chip.title = "Facts lean " + (tv.side === "up" ? "up (call side)" : "down (put side)") + ": " + tv.agree + "/" + tv.total + " checks, " + tv.helpers + " context signals. Not an order.";
+      cSide.appendChild(chip);
+    } else {
+      cSide.style.color = "var(--muted)";
+      cSide.textContent = "\u2013";
+    }
+    tr.appendChild(cSide);
     tr.appendChild(cell(f2(r.ltp), "num"));
     var chg = cell(pctTxt(r.pchg), "num " + (r.pchg >= 0 ? "up" : "down"));
     tr.appendChild(chg);
@@ -360,7 +390,7 @@ function renderStocks(rows) {
     tr.appendChild(cell(r.lines && r.lines.ok ? f2(r.lines.stop) : "\u2013", "num"));
     tr.appendChild(cell(r.deliveryPct == null ? "\u2013 (file not loaded)" : f2(r.deliveryPct) + "%", "num"));
     var rowBar = document.createElement("tr");
-    var td = document.createElement("td"); td.colSpan = 9; td.style.borderBottom = "1px solid var(--line)";
+    var td = document.createElement("td"); td.colSpan = 10; td.style.borderBottom = "1px solid var(--line)";
     var wrapDiv = document.createElement("div"); wrapDiv.className = "readwrap";
     var cvs = document.createElement("canvas"); cvs.dataset.sym = r.sym;
     wrapDiv.appendChild(cvs);
