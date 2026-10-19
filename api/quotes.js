@@ -2,37 +2,10 @@
 // GET /api/quotes?symbols=TCS,INFY,RELIANCE   (max 60)
 // Prices come from Yahoo Finance (NSE symbols as SYMBOL.NS). Not an exchange feed.
 
-const UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+const { UA, istParts, sessionFraction, expectedVolumeShare, mapPool } = require("../lib/common");
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const fin = (x) => (Number.isFinite(x) ? x : null);
-
-function istParts(date = new Date()) {
-  const p = Object.fromEntries(
-    new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Asia/Kolkata",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      weekday: "short",
-      hourCycle: "h23",
-    })
-      .formatToParts(date)
-      .map((x) => [x.type, x.value])
-  );
-  return { weekday: p.weekday, minutes: Number(p.hour) * 60 + Number(p.minute) + Number(p.second) / 60 };
-}
-
-function sessionFraction(now) {
-  if (now.weekday === "Sat" || now.weekday === "Sun") return 1;
-  const open = 9 * 60 + 15;
-  const close = 15 * 60 + 30;
-  if (now.minutes <= open || now.minutes >= close) return 1;
-  return Math.max((now.minutes - open) / (close - open), 0.05);
-}
-
-const expectedVolumeShare = (frac) => (frac >= 1 ? 1 : Math.pow(frac, 0.7));
 
 async function quote(sym, i) {
   const url = `https://${i % 2 ? "query2" : "query1"}.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}.NS?range=1d&interval=1d`;
@@ -65,19 +38,7 @@ async function quote(sym, i) {
   return null;
 }
 
-async function mapPool(items, limit, fn) {
-  const out = new Array(items.length);
-  let next = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    for (;;) {
-      const k = next++;
-      if (k >= items.length) return;
-      out[k] = await fn(items[k], k);
-    }
-  });
-  await Promise.all(workers);
-  return out;
-}
+
 
 module.exports = async function handler(req, res) {
   const raw = (req.query && req.query.symbols) || "";
