@@ -115,6 +115,8 @@ module.exports = async function handler(req, res) {
       chartBars.forEach((b, k) => {
         b.t9 = lk.tenkan[off + k];
         b.k26 = lk.kijun[off + k];
+        b.hi = day[k].hi;
+        b.lo = day[k].lo;
       });
     }
 
@@ -130,6 +132,7 @@ module.exports = async function handler(req, res) {
       vwapSide,
       prevHi: prev.hi,
       prevLo: prev.lo,
+      prevClose: prev.cl,
       lines: lines.ok
         ? { ok: true, tf: tfKey, tenkan: lines.tenkan, kijun: lines.kijun, pos: lines.pos, linePos: lines.linePos, held: lines.held, stop: lines.stop, dTenkan: lines.dTenkan, dKijun: lines.dKijun }
         : { ok: false, why: lines.why },

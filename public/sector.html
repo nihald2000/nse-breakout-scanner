@@ -18,7 +18,7 @@
   .srow .val { width: 74px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 650; flex: none; }
   .srow .extra { width: 240px; color: var(--muted); font-size: 12px; flex: none; text-align: right; }
   @media (max-width: 700px) { .srow .nm { width: 128px; font-size: 13px; } .srow .extra { display: none; } }
-  canvas { width: 100%; max-width: 560px; height: 150px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); display: block; margin-bottom: 8px; }
+  canvas { width: 100%; max-width: 340px; height: 190px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); display: block; margin-bottom: 8px; }
 </style>
 </head>
 <body>
@@ -162,36 +162,74 @@ function lineTag(l) {
   return t;
 }
 
-function drawChart(cvs, bars) {
+function drawChart(cvs, bars, prevClose) {
+  var dpr = window.devicePixelRatio || 1;
   var ctx = cvs.getContext("2d");
-  var W = cvs.width = cvs.clientWidth * (window.devicePixelRatio || 1);
-  var H = cvs.height = 150 * (window.devicePixelRatio || 1);
-  ctx.scale(1, 1);
+  var W = cvs.width = Math.max(320, cvs.clientWidth) * dpr;
+  var H = cvs.height = 190 * dpr;
   ctx.clearRect(0, 0, W, H);
-  if (!bars || bars.length < 2) { return; }
-  var min = Infinity, max = -Infinity;
-  for (var i = 0; i < bars.length; i++) {
-    min = Math.min(min, bars[i].cl, bars[i].t9 || bars[i].cl, bars[i].k26 || bars[i].cl);
-    max = Math.max(max, bars[i].cl, bars[i].t9 || bars[i].cl, bars[i].k26 || bars[i].cl);
+  ctx.font = (10 * dpr) + "px sans-serif";
+  var GUT = 58 * dpr;          // right gutter for price labels
+  var PADT = 14 * dpr, PADB = 16 * dpr;
+  if (!bars || bars.length < 2) {
+    ctx.fillStyle = "#8a97b8";
+    ctx.fillText("not enough closed candles yet", 10 * dpr, H / 2);
+    return;
   }
+  var min = Infinity, max = -Infinity, i, v;
+  function lo1(b) { return b.lo != null ? b.lo : b.cl; }
+  function hi1(b) { return b.hi != null ? b.hi : b.cl; }
+  for (i = 0; i < bars.length; i++) {
+    min = Math.min(min, lo1(bars[i]), bars[i].t9 != null ? bars[i].t9 : Infinity, bars[i].k26 != null ? bars[i].k26 : Infinity);
+    max = Math.max(max, hi1(bars[i]), bars[i].t9 != null ? bars[i].t9 : -Infinity, bars[i].k26 != null ? bars[i].k26 : -Infinity);
+  }
+  if (prevClose != null && isFinite(prevClose)) { min = Math.min(min, prevClose); max = Math.max(max, prevClose); }
   var pad = (max - min) * 0.08 || 1;
   min -= pad; max += pad;
-  function Y(v) { return H - ((v - min) / (max - min)) * H; }
-  function line(getter, color, dash) {
-    ctx.beginPath(); ctx.setLineDash(dash || []);
+  var plotH = H - PADT - PADB;
+  function Y(px) { return PADT + (1 - (px - min) / (max - min)) * plotH; }
+  function X(i) { return 8 * dpr + (i / (bars.length - 1)) * (W - 16 * dpr - GUT); }
+  function fmt(px) { return (Math.round(px * 100) / 100).toFixed(2); }
+  function stroke(fn, color, width, dash) {
+    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = (width || 1.5) * dpr; ctx.setLineDash(dash || []);
+    var started = false;
     for (var i = 0; i < bars.length; i++) {
-      var v = getter(bars[i]);
-      if (v == null) continue;
-      var x = Math.round((i / (bars.length - 1)) * (W - 8) + 4) + 0.5;
-      if (ctx._started) ctx.lineTo(x, Y(v)); else { ctx.moveTo(x, Y(v)); ctx._started = true; }
+      var val = fn(bars[i]);
+      if (val == null || !isFinite(val)) continue;
+      var x = X(i), y = Y(val);
+      if (started) ctx.lineTo(x, y); else { ctx.moveTo(x, y); started = true; }
     }
-    ctx.strokeStyle = color; ctx.lineWidth = 1.5 * (window.devicePixelRatio || 1); ctx.stroke();
-    ctx.setLineDash([]); ctx._started = false;
+    ctx.stroke(); ctx.setLineDash([]);
   }
-  line(function (b) { return b.k26; }, "#8a97b8", [3, 3]);
-  line(function (b) { return b.t9; }, "#f59e0b", [3, 3]);
-  line(function (b) { return b.cl; }, "#e6ecff", []);
+  // Previous close: the reference the whole day's move is measured against
+  if (prevClose != null && isFinite(prevClose) && Y(prevClose) > 0 && Y(prevClose) < H) {
+    var yp = Y(prevClose);
+    ctx.beginPath(); ctx.setLineDash([5, 4]); ctx.strokeStyle = "#5b6b93"; ctx.lineWidth = 1 * dpr;
+    ctx.moveTo(0, yp); ctx.lineTo(W - GUT, yp); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = "#8a97b8";
+    ctx.fillText("prev " + fmt(prevClose), W - GUT + 4 * dpr, yp + 3 * dpr);
+  }
+  // High-low range per candle (so a sharp drop reads as a sharp drop)
+  ctx.strokeStyle = "#31405f"; ctx.lineWidth = 2 * dpr;
+  for (i = 0; i < bars.length; i++) {
+    var x = X(i);
+    ctx.beginPath(); ctx.moveTo(x, Y(lo1(bars[i]))); ctx.lineTo(x, Y(hi1(bars[i]))); ctx.stroke();
+  }
+  stroke(function (b) { return b.k26; }, "#37d576", 1, [4, 3]);
+  stroke(function (b) { return b.t9; }, "#f59e0b", 1, [4, 3]);
+  stroke(function (b) { return b.cl; }, "#e6ecff", 2);
+  // Axis labels: top/bottom of the visible range, plus first and last clock time
+  ctx.fillStyle = "#8a97b8";
+  ctx.textAlign = "left";
+  ctx.fillText(fmt(max - pad), W - GUT + 4 * dpr, PADT + 4 * dpr);
+  ctx.fillText(fmt(min + pad), W - GUT + 4 * dpr, H - PADB);
+  function tstr(m) { if (m == null) return ""; var h = Math.floor(m / 60), mmn = m % 60; return (h < 10 ? "0" : "") + h + ":" + (mmn < 10 ? "0" : "") + mmn; }
+  ctx.fillText(tstr(bars[0].mm), 8 * dpr, H - 4 * dpr);
+  ctx.textAlign = "right";
+  ctx.fillText(tstr(bars[bars.length - 1].mm), W - GUT, H - 4 * dpr);
+  ctx.textAlign = "left";
 }
+
 
 function renderStocks(rows) {
   var thead = $("thead"), tbody = $("tbody");
@@ -221,7 +259,7 @@ function renderStocks(rows) {
     td.appendChild(cvs); rowBar.appendChild(td); rowBar.hidden = true;
     tr.addEventListener("click", function () {
       rowBar.hidden = !rowBar.hidden;
-      if (!rowBar.hidden) drawChart(cvs, r.chart && r.chart.bars);
+      if (!rowBar.hidden) drawChart(cvs, r.chart && r.chart.bars, r.prevClose);
     });
     tbody.appendChild(tr); tbody.appendChild(rowBar);
   };
