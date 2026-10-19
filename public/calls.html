@@ -74,6 +74,13 @@
         <option value="8">8 sectors</option>
       </select>
     </label>
+    <label class="ctl">Show
+      <select id="showSel">
+        <option value="12">12 rows</option>
+        <option value="20" selected>20 rows</option>
+        <option value="0">All</option>
+      </select>
+    </label>
     <button id="copyBtn">Copy list</button>
     <span class="sub" id="livestate"></span>
     <span class="sub" id="asof"></span>
@@ -105,7 +112,9 @@
 
   <p class="legend">Scanned groups are the hottest F&amp;O industry groups by <b>absolute</b> turnover-weighted % move (2+ stocks), both directions, plus the money ratio.
   <b>CE / PE</b> is the side the checks lean &mdash; CE = the facts point up, PE = down &mdash; strong (most checks agree and ADX + structure agree) or moderate (a majority with partial support);
-  weak reads are counted in the status line but not listed. <b>Ref close</b> is the last closed 15-minute candle at the time of the read, the price the replay entered at.
+  weak reads are counted in the status line but not listed. Rows are ordered strong before moderate, then more agreeing checks,
+  more context signals, then higher running volume; the Show cap hides the tail of that order, not a judgement.
+  <b>Ref close</b> is the last closed 15-minute candle at the time of the read, the price the replay entered at.
   <b>Now</b> is the last traded price, with its drift from the ref close &mdash; if it has already run without you, the levels belong to the old entry, so re-anchor to your fill.
   <b>Target / Stop</b> are the tested &plusmn;0.5% barriers on the <b>stock</b>; on an option the premium moves roughly with delta &times; the stock move, but IV and time decay are not modeled here.
   F&amp;O ban and option bid/ask are <b>not</b> checked (no free source) &mdash; check your broker before buying. Click any row for its candlestick chart and full read.
@@ -374,9 +383,13 @@ function render(secs, c) {
     (m.failed ? " (" + m.failed + " without data)" : "") +
     " \u00b7 signals: " + (m.strong == null ? "?" : m.strong) + " strong, " + (m.moderate == null ? "?" : m.moderate) + " moderate" +
     " \u00b7 weak hidden: " + (m.weakHidden == null ? "?" : m.weakHidden) +
+    " \u00b7 showing " + shown.length + " of " + allCount + " matching" +
     (m.truncated ? " \u00b7 symbol cap reached, some stocks not scanned" : "") + ".";
 
   var shown = visible();
+  var cap = parseInt($("showSel").value, 10) || 0;
+  var allCount = shown.length;
+  if (cap > 0) shown = shown.slice(0, cap);
   var empty = $("empty");
   var wrap = $("wrap");
   $("rows").textContent = "";
@@ -520,9 +533,13 @@ $("pause").addEventListener("click", function () {
 $("refresh").addEventListener("click", function () { load(false); });
 $("sideSel").addEventListener("change", function () { render(LASTSECS, { signals: LAST }); });
 $("strongOnly").addEventListener("change", function () { render(LASTSECS, { signals: LAST }); });
+$("showSel").addEventListener("change", function () { render(LASTSECS, { signals: LAST }); });
 $("topSel").addEventListener("change", function () { load(false); });
 $("copyBtn").addEventListener("click", function () {
-  var lines = visible().map(function (r) {
+  var rows = visible();
+  var cap = parseInt($("showSel").value, 10) || 0;
+  if (cap > 0) rows = rows.slice(0, cap);
+  var lines = rows.map(function (r) {
     var tv = r.read.trend, ref = refInfo(r);
     var tgt = ref.cl != null ? ref.cl * (tv.side === "up" ? 1.005 : 0.995) : null;
     var stp = ref.cl != null ? ref.cl * (tv.side === "up" ? 0.995 : 1.005) : null;
