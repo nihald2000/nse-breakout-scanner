@@ -374,6 +374,11 @@ function render(secs, c) {
   var m = (c && c.meta) || LASTMETA || {};
   LASTMETA = m;
 
+  var shown = visible();
+  var cap = parseInt($("showSel").value, 10) || 0;
+  var allCount = shown.length;
+  if (cap > 0) shown = shown.slice(0, cap);
+
   var info = LASTSECS.map(function (s) {
     var cls = s.pct >= 0 ? "up" : "down";
     return '<span class="chip ' + cls + '">' + s.sector + " " + pctTxt(s.pct) + (s.rvol == null ? "" : " \u00b7 money " + s.rvol.toFixed(2) + "\u00d7 normal") + "</span>";
@@ -386,10 +391,6 @@ function render(secs, c) {
     " \u00b7 showing " + shown.length + " of " + allCount + " matching" +
     (m.truncated ? " \u00b7 symbol cap reached, some stocks not scanned" : "") + ".";
 
-  var shown = visible();
-  var cap = parseInt($("showSel").value, 10) || 0;
-  var allCount = shown.length;
-  if (cap > 0) shown = shown.slice(0, cap);
   var empty = $("empty");
   var wrap = $("wrap");
   $("rows").textContent = "";
