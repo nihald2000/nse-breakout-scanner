@@ -20,6 +20,9 @@
     },
     "api/backtest.js": {
       "maxDuration": 60
+    },
+    "api/candlebacktest.js": {
+      "maxDuration": 30
     }
   }
 }

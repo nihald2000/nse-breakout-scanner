@@ -93,6 +93,38 @@
   </div>
 
   <div class="panel">
+    <h2>Candlestick backtest <span style="color:var(--muted);font-weight:400;font-size:12px">&middot; 15-minute read, underlying moves</span></h2>
+    <form class="jf" id="bf" autocomplete="off">
+      <label class="wide">NSE symbols (F&amp;O stocks, up to 10)
+        <input type="text" id="btSyms" placeholder="e.g. NBCC, LT, RVNL"></label>
+      <label>Watch next
+        <select id="btH">
+          <option value="1">1 candle (15m)</option>
+          <option value="2">2 candles (30m)</option>
+          <option value="3" selected>3 candles (45m)</option>
+          <option value="4">4 candles (1 hour)</option>
+          <option value="6">6 candles (1.5 hours)</option>
+        </select></label>
+      <label>Target %<input type="number" id="btTgt" step="0.1" min="0.1" max="20" value="0.5"></label>
+      <label>Stop %<input type="number" id="btStop" step="0.1" min="0.1" max="20" value="0.5"></label>
+      <div class="wide"><button class="primary" type="submit">Run backtest</button>
+        <span id="btMsg" style="color:var(--muted);font-size:13px;margin-left:8px"></span></div>
+    </form>
+    <div style="display:flex;align-items:center;gap:8px;margin:8px 0 0;font-size:13px">
+      <input type="checkbox" id="btToday" checked><label for="btToday">Today's signals only</label>
+    </div>
+    <div id="btStatus" class="cleg"></div>
+    <div class="stats" id="btStats"></div>
+    <div id="btTier"></div>
+    <div id="btEvents"></div>
+    <p class="cleg">Replays the same CE/PE checks the Sector Scope page uses on <b>closed 15-minute candles</b> over the
+    last month, one bar at a time with no look-ahead, and records what the underlying did over the next few candles.
+    If one candle touches both the target and the stop the order is unknowable and the row says <i>both</i> &mdash; it
+    is neither a win nor a loss. Underlying moves only: an option's premium will differ, and spread, costs and slippage
+    are not modelled. One month is a small in-sample window; this checks the read, it does not prove an edge.</p>
+  </div>
+
+  <div class="panel">
     <h2>Entries <button id="exp" class="tiny" style="margin-left:8px">Export CSV</button> <button id="clr" class="tiny">Clear all</button></h2>
     <div class="wrap"><table class="jt" id="tbl"></table></div>
   </div>
@@ -305,6 +337,162 @@
   window.__journal = { toCsv: toCsv, calc: calc, stats: stats };
   setSkipUi();
   render();
+})();
+
+// ---- Candlestick backtest panel: replays the Sector Scope read on closed 15m candles ----
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var CFG = "bs-bt-candle", LAST = "bs-last-sector-syms", LASTNAME = "bs-last-sector-name";
+  var mem = { rows: [], meta: null };
+
+  function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; }
+  function sgn(v, d, suf) { return Number.isFinite(v) ? (v >= 0 ? "+" : "\u2212") + Math.abs(v).toFixed(d) + (suf || "") : "\u2013"; }
+  function fmtTime(mm) { var h = Math.floor(mm / 60), m = mm % 60; return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m; }
+  function todayIST() { try { return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); } catch (e) { return new Date().toISOString().slice(0, 10); } }
+  function dmy(d) { var p = String(d).split("-"); return p.length === 3 ? p[2] + "-" + p[1] : d; }
+  function cellStat(box, value, label) { var d = el("div", "stat"); d.appendChild(el("b", null, value)); d.appendChild(el("span", null, label)); box.appendChild(d); }
+
+  // Restore the last run; if empty, prefill with the sector the user last opened in Sector Scope.
+  (function () {
+    var cfg = null;
+    try { cfg = JSON.parse(localStorage.getItem(CFG) || "null"); } catch (e) {}
+    if (cfg) {
+      if (cfg.syms) $("btSyms").value = cfg.syms;
+      if (cfg.h) $("btH").value = String(cfg.h);
+      if (cfg.target != null) $("btTgt").value = cfg.target;
+      if (cfg.stop != null) $("btStop").value = cfg.stop;
+    }
+    if (!$("btSyms").value) {
+      try {
+        var last = localStorage.getItem(LAST);
+        if (last) {
+          $("btSyms").value = last;
+          var nm = localStorage.getItem(LASTNAME);
+          if (nm) $("btMsg").textContent = "filled from the last group you opened: " + nm;
+        }
+      } catch (e) {}
+    }
+  })();
+
+  $("bf").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var syms = $("btSyms").value.trim();
+    if (!syms) { $("btMsg").textContent = "Type at least one NSE symbol (e.g. NBCC)."; return; }
+    var h = $("btH").value, target = $("btTgt").value, stop = $("btStop").value;
+    try { localStorage.setItem(CFG, JSON.stringify({ syms: syms, h: h, target: target, stop: stop })); } catch (e) {}
+    $("btMsg").textContent = "Replaying closed candles\u2026";
+    $("btStatus").textContent = "";
+    $("btStats").textContent = ""; $("btTier").textContent = ""; $("btEvents").textContent = "";
+    fetch("/api/candlebacktest?symbols=" + encodeURIComponent(syms) + "&h=" + encodeURIComponent(h) + "&target=" + encodeURIComponent(target) + "&stop=" + encodeURIComponent(stop))
+      .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ("HTTP " + r.status)); return d; }); })
+      .then(function (d) { mem.rows = d.rows || []; mem.meta = d.meta || null; $("btMsg").textContent = ""; render(); })
+      .catch(function (e) { $("btMsg").textContent = ""; $("btStatus").textContent = "Backtest failed: " + e.message; });
+  });
+  $("btToday").addEventListener("change", render);
+
+  function render() {
+    var m = mem.meta;
+    if (!m) return;
+    var all = mem.rows;
+    var today = todayIST();
+    var shown = $("btToday").checked ? all.filter(function (x) { return x.d === today; }) : all;
+
+    var status = m.symbols.join(", ") + " \u00b7 " + m.sessions + " sessions in the fetch \u00b7 " + all.length +
+      " signals (" + shown.length + " shown) \u00b7 " + m.h + " candles ahead \u00b7 +" + m.target + "% / \u2212" + m.stop + "%";
+    if (m.missing && m.missing.length) status += " \u00b7 not loaded: " + m.missing.map(function (x) { return x.sym; }).join(", ");
+    if ($("btToday").checked && !shown.length && all.length) status += " \u00b7 no signals today for these symbols \u2014 untick the box to see the month";
+    $("btStatus").textContent = status;
+
+    // Summary: "both" and "open" are neither wins nor losses.
+    var dec = all.filter(function (x) { return x.result === "target" || x.result === "stop"; });
+    var tgt = dec.filter(function (x) { return x.result === "target"; }).length;
+    var both = all.filter(function (x) { return x.result === "both"; }).length;
+    var open = all.filter(function (x) { return x.result === "open"; }).length;
+    var strong = all.filter(function (x) { return x.tier === "strong"; });
+    var sdec = strong.filter(function (x) { return x.result === "target" || x.result === "stop"; });
+    var stg = sdec.filter(function (x) { return x.result === "target"; }).length;
+    var withFav = all.filter(function (x) { return Number.isFinite(x.fav); });
+    var avgFav = withFav.length ? withFav.reduce(function (s, x) { return s + x.fav; }, 0) / withFav.length : null;
+    var avgAdv = withFav.length ? withFav.reduce(function (s, x) { return s + x.adv; }, 0) / withFav.length : null;
+
+    var st = $("btStats"); st.textContent = "";
+    cellStat(st, String(all.length), "signals replayed (all sessions)");
+    cellStat(st, dec.length ? Math.round((tgt / dec.length) * 100) + "%" : "\u2013", "hit +" + m.target + "% first (" + tgt + " of " + dec.length + " decidable)");
+    cellStat(st, dec.length ? (dec.length - tgt) + " of " + dec.length : "\u2013", "hit \u2212" + m.stop + "% first");
+    cellStat(st, String(both), "both in one candle (not counted)");
+    cellStat(st, sdec.length ? stg + " of " + sdec.length : "\u2013", "strong tier: +" + m.target + "% first" + (sdec.length < 10 ? " (tiny n)" : ""));
+    cellStat(st, avgFav == null ? "\u2013" : sgn(avgFav, 2, "%"), "average best move in signal direction");
+    cellStat(st, avgAdv == null ? "\u2013" : sgn(avgAdv, 2, "%"), "average worst move against");
+    if (open) cellStat(st, String(open), "no candles left before close");
+
+    // Tier table
+    var tw = $("btTier"); tw.textContent = "";
+    var tt = el("table", "jt"), thr = el("tr");
+    ["Tier", "Signals", "+" + m.target + "% first", "\u2212" + m.stop + "% first", "Both in one candle", "No barrier", "Avg best", "Avg worst"].forEach(function (h) { thr.appendChild(el("th", null, h)); });
+    tt.appendChild(el("thead")).appendChild(thr);
+    var tbody = el("tbody");
+    ["strong", "moderate", "weak"].forEach(function (tier) {
+      var rows = all.filter(function (x) { return x.tier === tier; });
+      if (!rows.length) return;
+      var d2 = rows.filter(function (x) { return x.result === "target" || x.result === "stop"; });
+      var t2 = d2.filter(function (x) { return x.result === "target"; }).length;
+      var b2 = rows.filter(function (x) { return x.result === "both"; }).length;
+      var o2 = rows.filter(function (x) { return x.result === "timeout" || x.result === "open"; }).length;
+      var f2 = rows.filter(function (x) { return Number.isFinite(x.fav); });
+      var af = f2.length ? f2.reduce(function (s, x) { return s + x.fav; }, 0) / f2.length : null;
+      var aa = f2.length ? f2.reduce(function (s, x) { return s + x.adv; }, 0) / f2.length : null;
+      var tr = el("tr");
+      tr.appendChild(el("td", "l", tier));
+      tr.appendChild(el("td", "num", String(rows.length)));
+      tr.appendChild(el("td", "num", d2.length ? t2 + " of " + d2.length + " (" + Math.round((t2 / d2.length) * 100) + "%)" : "\u2013"));
+      tr.appendChild(el("td", "num", d2.length ? (d2.length - t2) + " of " + d2.length : "\u2013"));
+      tr.appendChild(el("td", "num", String(b2)));
+      tr.appendChild(el("td", "num", String(o2)));
+      tr.appendChild(el("td", "num", af == null ? "\u2013" : sgn(af, 2, "%")));
+      tr.appendChild(el("td", "num", aa == null ? "\u2013" : sgn(aa, 2, "%")));
+      tbody.appendChild(tr);
+    });
+    tt.appendChild(tbody);
+    var twWrap = el("div", "wrap"); twWrap.appendChild(tt); tw.appendChild(twWrap);
+
+    // Event table
+    var ew = $("btEvents"); ew.textContent = "";
+    var et = el("table", "jt"), ehr = el("tr");
+    ["Date", "Time", "Stock", "Side", "Tier", "Checks", "Entry", "Best", "Worst", "Result"].forEach(function (h, i) {
+      ehr.appendChild(el("th", i < 5 || i === 9 ? "l" : null, h));
+    });
+    et.appendChild(el("thead")).appendChild(ehr);
+    var eb = el("tbody");
+    if (!shown.length) {
+      var er = el("tr"), ec = el("td", "empty", all.length ? "Nothing to show for this filter." : "No signals in the fetched window. Try symbols with more intraday movement.");
+      ec.colSpan = 10; er.appendChild(ec); eb.appendChild(er);
+    }
+    shown.slice(0, 400).forEach(function (x) {
+      var tr = el("tr");
+      tr.appendChild(el("td", "l", dmy(x.d)));
+      tr.appendChild(el("td", "l", fmtTime(x.mm)));
+      var cSym = el("td", "l", x.sym);
+      if (x.pat && x.pat.length) cSym.title = "candle at signal: " + x.pat.join(", ");
+      tr.appendChild(cSym);
+      tr.appendChild(el("td", "l " + x.side, x.side === "up" ? "CE" : "PE"));
+      tr.appendChild(el("td", "l", x.tier));
+      tr.appendChild(el("td", "num", x.agree + "/" + x.total));
+      tr.appendChild(el("td", "num", Number(x.entry).toFixed(2)));
+      tr.appendChild(el("td", "num", sgn(x.fav, 2, "%")));
+      tr.appendChild(el("td", "num", sgn(x.adv, 2, "%")));
+      var label = x.result === "target" ? "hit +" + m.target + "% first" : x.result === "stop" ? "hit \u2212" + m.stop + "% first" : x.result === "both" ? "both in one candle \u2014 unknown order" : x.result === "open" ? "no candles left today" : "no barrier by close";
+      var resCell = el("td", "l", label);
+      if (x.result === "target") resCell.className = "l up";
+      else if (x.result === "stop") resCell.className = "l down";
+      else if (x.result === "both") resCell.style.color = "var(--amber)";
+      tr.appendChild(resCell);
+      eb.appendChild(tr);
+    });
+    et.appendChild(eb);
+    var ewWrap = el("div", "wrap"); ewWrap.appendChild(et); ew.appendChild(ewWrap);
+    if (shown.length > 400) ew.appendChild(el("div", "cleg", "Showing the 400 newest of " + shown.length + " signals."));
+  }
 })();
 </script>
 </body>

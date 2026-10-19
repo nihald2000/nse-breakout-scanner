@@ -515,6 +515,10 @@ function loadStocks(sector, auto) {
   fetch("/api/sectorstocks?sector=" + encodeURIComponent(sector) + "&tf=" + CURTF).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }).then(function (d) {
     if (CUR !== sector) return; // switched away mid-request
     lastStocks = { sector: sector, rows: d.stockRows || [], meta: d.meta || null };
+    try { // the journal's candlestick backtest prefills with the last group opened here
+      localStorage.setItem("bs-last-sector-syms", (d.stockRows || []).map(function (x) { return x.sym; }).join(", "));
+      localStorage.setItem("bs-last-sector-name", sector);
+    } catch (e) {}
     if ((d.warnings || []).length) $("legendText").textContent = d.warnings.join(" ");
     paintStocks(sector, lastStocks);
     stockNext = Date.now() + STOCK_MS;
