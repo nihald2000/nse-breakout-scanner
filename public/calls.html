@@ -131,6 +131,9 @@ var hm = function (mm) { if (mm == null) return "\u2013"; var h = Math.floor(mm 
 var LAST = [];        // last /api/calls signals
 var LASTSECS = [];    // sectors that were scanned
 var LASTMETA = null;  // last /api/calls meta (kept across filter toggles)
+var SECTS_ALL = null; // last /api/sectors ranking
+var SECTS_AT = 0;     // when the ranking was fetched
+var RANK_MS = 300000; // re-rank the sectors every 5 minutes, not every refresh
 var openSym = null;   // chart panel kept open across refreshes
 
 function banner(kind, text) {
@@ -373,6 +376,7 @@ function render(secs, c) {
   LASTSECS = secs || [];
   var m = (c && c.meta) || LASTMETA || {};
   LASTMETA = m;
+  if (m.asOf) $("asof").textContent = "prices as of " + m.asOf;
 
   var shown = visible();
   var cap = parseInt($("showSel").value, 10) || 0;
@@ -389,6 +393,7 @@ function render(secs, c) {
     " \u00b7 signals: " + (m.strong == null ? "?" : m.strong) + " strong, " + (m.moderate == null ? "?" : m.moderate) + " moderate" +
     " \u00b7 weak hidden: " + (m.weakHidden == null ? "?" : m.weakHidden) +
     " \u00b7 showing " + shown.length + " of " + allCount + " matching" +
+    (SECTS_AT ? " \u00b7 sector ranking " + Math.max(0, Math.round((Date.now() - SECTS_AT) / 60000)) + "m old" : "") +
     (m.truncated ? " \u00b7 symbol cap reached, some stocks not scanned" : "") + ".";
 
   var empty = $("empty");
@@ -500,16 +505,18 @@ function getJSON(url) {
 var SEC_MS = 60000, RETRY_MS = 20000;
 var live = true, nextAt = 0, loading = false;
 
-function load(auto) {
+function load(auto, forceRank) {
   if (loading) return;
   loading = true;
   var st = $("status");
   if (!auto) st.innerHTML = '<span class="spin"></span>Screening the hot sectors\u2026';
   var k = parseInt($("topSel").value, 10) || 6;
-  getJSON("/api/sectors").then(function (d) {
-    var secs = selectSectors(d.sectors, k);
+  var rankP = (forceRank || !SECTS_ALL || Date.now() - SECTS_AT > RANK_MS)
+    ? getJSON("/api/sectors").then(function (d) { SECTS_ALL = d.sectors || []; SECTS_AT = Date.now(); })
+    : Promise.resolve();
+  rankP.then(function () {
+    var secs = selectSectors(SECTS_ALL, k);
     if (!secs.length) throw new Error("no sector with 2 or more F&O stocks returned");
-    $("asof").textContent = d.meta && d.meta.asOf ? "prices as of " + d.meta.asOf : "";
     st.innerHTML = '<span class="spin"></span>Reading ' + secs.length + " sectors\u2026";
     var names = secs.map(function (s) { return s.sector; });
     return getJSON("/api/calls?sectors=" + encodeURIComponent(names.join(",")) + "&tf=15m").then(function (c) {
@@ -528,14 +535,14 @@ function load(auto) {
 $("pause").addEventListener("click", function () {
   live = !live;
   this.textContent = live ? "Pause live" : "Resume live";
-  if (live) { nextAt = 0; load(true); }
+  if (live) { nextAt = 0; load(true, false); }
   else $("livestate").textContent = "paused \u2014 the data on screen is frozen";
 });
-$("refresh").addEventListener("click", function () { load(false); });
+$("refresh").addEventListener("click", function () { load(false, true); });
 $("sideSel").addEventListener("change", function () { render(LASTSECS, { signals: LAST }); });
 $("strongOnly").addEventListener("change", function () { render(LASTSECS, { signals: LAST }); });
 $("showSel").addEventListener("change", function () { render(LASTSECS, { signals: LAST }); });
-$("topSel").addEventListener("change", function () { load(false); });
+$("topSel").addEventListener("change", function () { load(false, false); });
 $("copyBtn").addEventListener("click", function () {
   var rows = visible();
   var cap = parseInt($("showSel").value, 10) || 0;
@@ -558,14 +565,14 @@ setInterval(function () {
   var ls = $("livestate"), n = Date.now();
   if (!live) return;
   if (document.hidden) { ls.textContent = "paused \u2014 tab in background"; return; }
-  if (nextAt && n >= nextAt) { load(true); return; }
+  if (nextAt && n >= nextAt) { load(true, false); return; }
   if (nextAt) ls.textContent = "live \u00b7 next update in " + Math.max(0, Math.ceil((nextAt - n) / 1000)) + "s";
 }, 1000);
 document.addEventListener("visibilitychange", function () {
-  if (!document.hidden && live) { nextAt = 0; load(true); }
+  if (!document.hidden && live) { nextAt = 0; load(true, false); }
 });
 
-load(false);
+load(false, true);
 </script>
 </body>
 </html>
