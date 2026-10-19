@@ -3,6 +3,12 @@
     "api/scan.js": {
       "maxDuration": 60
     },
+    "api/sectors.js": {
+      "maxDuration": 60
+    },
+    "api/sectorstocks.js": {
+      "maxDuration": 30
+    },
     "api/ichimoku.js": {
       "maxDuration": 60
     },

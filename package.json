@@ -3,5 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "description": "Intraday breakout scanner on NSE data",
-  "engines": { "node": "22.x" }
+  "engines": { "node": "22.x" },
+  "scripts": { "test": "node --test" }
 }

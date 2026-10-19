@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="NSE Sector Scope - which F&O industry group has the most money behind it today, and the stocks inside it with running volume and Ichimoku Tenkan/Kijun status. Facts, not advice.">
+<title>Sector Scope - NSE F&amp;O sector and stock screener</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230e1628'/><rect x='5' y='17' width='5' height='9' rx='1.5' fill='%23ef4444'/><rect x='13' y='10' width='5' height='16' rx='1.5' fill='%2322c55e'/><rect x='21' y='6' width='5' height='20' rx='1.5' fill='%233b82f6'/></svg>">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .secbar { display: grid; grid-template-columns: 1fr; gap: 5px; }
+  .srow { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--line);
+          border-radius: 10px; background: var(--card); cursor: pointer; }
+  .srow:hover, .srow.sel { border-color: #2a3d6e; background: #131e38; }
+  .srow .nm { width: 200px; font-weight: 600; flex: none; }
+  .srow .tracked { flex: 1 1 0; height: 14px; min-width: 40px; position: relative; background: transparent; }
+  .srow .tracked i { position: absolute; top: 0; bottom: 0; border-radius: 4px; }
+  .srow .val { width: 74px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 650; flex: none; }
+  .srow .extra { width: 240px; color: var(--muted); font-size: 12px; flex: none; text-align: right; }
+  @media (max-width: 700px) { .srow .nm { width: 128px; font-size: 13px; } .srow .extra { display: none; } }
+  canvas { width: 100%; max-width: 560px; height: 150px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); display: block; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <nav class="tabs" aria-label="Scanners">
+    <a href="/">Breakouts</a>
+    <a href="/sector.html" aria-current="page">Sector Scope</a>
+    <a href="/ichimoku.html">Ichimoku Cloud</a>
+    <a href="/indices.html">Index Options</a>
+    <a href="/journal.html">Journal</a>
+  </nav>
+  <h1>Sector Scope</h1>
+  <p class="sub">Which F&amp;O industry group has the most money behind it today, and the stocks inside it with running volume. It shows where things stand &mdash; you make the trade.</p>
+
+  <div class="banner" id="banner"></div>
+
+  <div class="status" id="status"></div>
+
+  <div class="controls">
+    <button class="primary" id="refresh">Refresh</button>
+    <span class="sub" id="asof"></span>
+  </div>
+
+  <p class="legend" id="legendText"></p>
+  <div class="secbar" id="seclist"></div>
+
+  <div id="stockpanel" hidden>
+    <h2 style="font-size:16px;margin:18px 0 6px;">F&amp;O stocks in <span id="selName"></span></h2>
+    <div class="controls">
+      <label class="chk">Ichimoku lines
+        <span class="seg" id="tfSeg">
+          <button data-tf="15m" class="on">15 minute</button>
+          <button data-tf="5m">5 minute</button>
+        </span>
+      </label>
+    </div>
+    <div class="liveinfo" id="sstatus"></div>
+    <div class="wrap">
+      <table id="stockTable">
+        <thead><tr id="thead"></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <p class="legend">Sorted by running volume (today's cumulative volume at this clock minute vs the mean of
+    the earlier sessions in the same fetch). Tenkan(9)/Kijun(26) use <b>closed candles of the chosen timeframe</b>;
+    the reference stop is the Kijun of that timeframe and is a fact about the chart, not a stop for you.
+    Delivery % is the previous completed session's from NSE's own file. F&amp;O ban is <b>not</b> checked (no free
+    source). Option bid/ask is not shown because no free live chain exists &mdash; check your broker before buying.
+    Lines drawn on candles change with the next candle; do not treat a tag as an order.</p>
+  </div>
+
+  <p class="legend">The sector % here is the turnover-weighted average of the F&amp;O stocks in the group &mdash; not the
+  NSE sector index. NSE publishes its own sector levels, but its live sector page is not reachable from cloud servers,
+  so the members' own prices are the source. "Normal" turnover is the mean of the prior 20 sessions scaled by the
+  expected share of the day elapsed.</p>
+</div>
+
+<script>
+"use strict";
+var $ = function (id) { return document.getElementById(id); };
+var f2 = function (v) { return v == null || !isFinite(v) ? "\u2013" : (Math.round(v * 100) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+var f0 = function (v) { return v == null || !isFinite(v) ? "\u2013" : Math.round(v).toLocaleString("en-IN"); };
+var pctTxt = function (v) { return v == null ? "\u2013" : (v > 0 ? "+" : "") + (Math.round(v * 100) / 100).toFixed(2) + "%"; };
+var SECTS = [];
+
+function banner(kind, text) {
+  var b = $("banner");
+  if (!text) { b.className = "banner"; b.textContent = ""; return; }
+  b.className = "banner " + kind;
+  b.textContent = text;
+}
+function dt(txt, cls, value) {
+  var d = document.createElement("td");
+  if (cls) d.className = cls;
+  if (value == null) d.textContent = txt == null ? "\u2013" : txt; else d.textContent = value;
+  return d;
+}
+function cell(txt, cls) {
+  var d = document.createElement("td");
+  if (cls) d.className = cls;
+  d.textContent = txt == null ? "\u2013" : txt;
+  return d;
+}
+
+// ---------- sector bars ----------
+function renderSectors(sectors) {
+  var list = $("seclist");
+  list.textContent = "";
+  var maxAbs = 0;
+  for (var i = 0; i < sectors.length; i++) maxAbs = Math.max(maxAbs, Math.abs(sectors[i].pct || 0));
+  for (var i = 0; i < sectors.length; i++) {
+    var s = sectors[i];
+    var row = document.createElement("div");
+    row.className = "srow"; row.tabIndex = 0; row.setAttribute("role", "button");
+    var nm = document.createElement("span");
+    nm.className = "nm"; nm.textContent = s.sector + " (" + s.n + ")";
+    var tracked = document.createElement("span"); tracked.className = "tracked";
+    var b = document.createElement("i");
+    var w = Math.max(2, Math.round(Math.abs(s.pct) / Math.max(maxAbs, 0.01) * 100));
+    b.style.width = w + "%";
+    b.style.background = s.pct >= 0 ? "var(--green)" : "var(--red)";
+    if (s.pct >= 0) b.style.left = "0"; else b.style.right = "0";
+    tracked.appendChild(b);
+    var val = document.createElement("span"); val.className = "val " + (s.pct >= 0 ? "up" : "down");
+    val.textContent = pctTxt(s.pct);
+    var extra = document.createElement("span"); extra.className = "extra";
+    extra.textContent = "money " + (s.rvol == null ? "n/a" : s.rvol.toFixed(2) + "\u00d7 normal") +
+      " \u00b7 " + (Math.round((s.breadth || 0) * 100)) + "% up \u00b7 top: " + s.leader + " " + pctTxt(s.leaderPct);
+    row.appendChild(nm); row.appendChild(tracked); row.appendChild(val); row.appendChild(extra);
+    row.addEventListener("click", function (name) { return function () { loadStocks(name); }; }(s.sector));
+    row.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); row.click(); } });
+    row._sector = s;
+    list.appendChild(row);
+  }
+}
+
+function loadSectors() {
+  var st = $("status");
+  st.textContent = "Loading sector money map\u2026";
+  banner("");
+  fetch("/api/sectors").then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }).then(function (d) {
+    SECTS = d.sectors || [];
+    st.textContent = "";
+    $("asof").textContent = d.meta && d.meta.asOf ? "prices as of " + d.meta.asOf : "";
+    $("legendText").textContent = (d.warnings || []).join(" ") || "";
+    renderSectors(SECTS);
+  }).catch(function (e) {
+    st.textContent = "";
+    banner("err", "Could not load sectors: " + e.message + ". NSE lists or the price source may be rate-limiting; try again shortly.");
+  });
+}
+
+// ---------- stock list ----------
+var CUR = null, CURTF = "15m";
+
+function lineTag(l) {
+  if (!l || !l.ok) return "lines n/a";
+  var t = l.pos;
+  t += ", " + l.linePos.toLowerCase();
+  if (l.held) t += ", " + l.held;
+  return t;
+}
+
+function drawChart(cvs, bars) {
+  var ctx = cvs.getContext("2d");
+  var W = cvs.width = cvs.clientWidth * (window.devicePixelRatio || 1);
+  var H = cvs.height = 150 * (window.devicePixelRatio || 1);
+  ctx.scale(1, 1);
+  ctx.clearRect(0, 0, W, H);
+  if (!bars || bars.length < 2) { return; }
+  var min = Infinity, max = -Infinity;
+  for (var i = 0; i < bars.length; i++) {
+    min = Math.min(min, bars[i].cl, bars[i].t9 || bars[i].cl, bars[i].k26 || bars[i].cl);
+    max = Math.max(max, bars[i].cl, bars[i].t9 || bars[i].cl, bars[i].k26 || bars[i].cl);
+  }
+  var pad = (max - min) * 0.08 || 1;
+  min -= pad; max += pad;
+  function Y(v) { return H - ((v - min) / (max - min)) * H; }
+  function line(getter, color, dash) {
+    ctx.beginPath(); ctx.setLineDash(dash || []);
+    for (var i = 0; i < bars.length; i++) {
+      var v = getter(bars[i]);
+      if (v == null) continue;
+      var x = Math.round((i / (bars.length - 1)) * (W - 8) + 4) + 0.5;
+      if (ctx._started) ctx.lineTo(x, Y(v)); else { ctx.moveTo(x, Y(v)); ctx._started = true; }
+    }
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5 * (window.devicePixelRatio || 1); ctx.stroke();
+    ctx.setLineDash([]); ctx._started = false;
+  }
+  line(function (b) { return b.k26; }, "#8a97b8", [3, 3]);
+  line(function (b) { return b.t9; }, "#f59e0b", [3, 3]);
+  line(function (b) { return b.cl; }, "#e6ecff", []);
+}
+
+function renderStocks(rows) {
+  var thead = $("thead"), tbody = $("tbody");
+  thead.textContent = ""; tbody.textContent = "";
+  ["Stock", "LTP", "Chg %", "Running vol", "VWAP", "VWAP dist", "Tenkan/Kijun (" + CURTF + ")", "Line stop", "Delivery %"].forEach(function (h) {
+    var t = document.createElement("th"); t.textContent = h; if (h !== "Stock") t.className = "r"; else t.className = "l"; thead.appendChild(t);
+  });
+  var _loop = function (i) {
+    var r = rows[i];
+    var tr = document.createElement("tr");
+    var c0 = document.createElement("td"); c0.className = "l";
+    var s1 = document.createElement("span"); s1.className = "sym"; s1.textContent = r.sym;
+    c0.appendChild(s1);
+    tr.appendChild(c0);
+    tr.appendChild(cell(f2(r.ltp), "num"));
+    var chg = cell(pctTxt(r.pchg), "num " + (r.pchg >= 0 ? "up" : "down"));
+    tr.appendChild(chg);
+    tr.appendChild(cell(r.rvol == null ? r.rvolNote || "\u2013" : r.rvol.toFixed(2) + "\u00d7", "num"));
+    tr.appendChild(cell(r.vwap == null ? r.vwapSide : f2(r.vwap), "num"));
+    tr.appendChild(cell(r.vwapDistPct == null ? r.vwapSide : pctTxt(r.vwapDistPct), "num"));
+    tr.appendChild(cell(lineTag(r.lines), "l"));
+    tr.appendChild(cell(r.lines && r.lines.ok ? f2(r.lines.stop) : "\u2013", "num"));
+    tr.appendChild(cell(r.deliveryPct == null ? "\u2013 (file not loaded)" : f2(r.deliveryPct) + "%", "num"));
+    var rowBar = document.createElement("tr");
+    var td = document.createElement("td"); td.colSpan = 9; td.style.borderBottom = "1px solid var(--line)";
+    var cvs = document.createElement("canvas"); cvs.dataset.sym = r.sym;
+    td.appendChild(cvs); rowBar.appendChild(td); rowBar.hidden = true;
+    tr.addEventListener("click", function () {
+      rowBar.hidden = !rowBar.hidden;
+      if (!rowBar.hidden) drawChart(cvs, r.chart && r.chart.bars);
+    });
+    tbody.appendChild(tr); tbody.appendChild(rowBar);
+  };
+  for (var i = 0; i < rows.length; i++) _loop(i);
+}
+
+function loadStocks(sector) {
+  CUR = sector;
+  Array.prototype.forEach.call($("seclist").children, function (el) {
+    el.classList.toggle("sel", el._sector && el._sector.sector === sector);
+  });
+  $("stockpanel").hidden = false;
+  $("selName").textContent = sector;
+  var st = $("sstatus"); st.className = "liveinfo"; st.textContent = "Loading stocks for " + sector + "\u2026";
+  fetch("/api/sectorstocks?sector=" + encodeURIComponent(sector) + "&tf=" + CURTF).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }).then(function (d) {
+    st.textContent = d.meta && d.meta.asOf ? "as of " + d.meta.asOf + " (" + d.meta.universe + " of " + d.meta.wanted + " loaded)" : "";
+    $("legendText").textContent = (d.warnings || []).join(" ") || $("legendText").textContent;
+    renderStocks(d.stockRows || []);
+  }).catch(function (e) {
+    st.textContent = ""; banner("err", "Could not load stocks: " + e.message);
+  });
+}
+
+$("tfSeg").addEventListener("click", function (e) {
+  var b = e.target.closest("button"); if (!b) return;
+  e.preventDefault();
+  Array.prototype.forEach.call($("tfSeg").children, function (x) { x.classList.toggle("on", x === b); });
+  CURTF = b.dataset.tf;
+  if (CUR) loadStocks(CUR);
+});
+$("refresh").addEventListener("click", loadSectors);
+
+loadSectors();
+</script>
+</body>
+</html>
