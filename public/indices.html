@@ -1,0 +1,1097 @@
+<!doctype html>
+<html lang="en">
+<head>
+<link rel="icon" href="data:,">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#060b18">
+<title>Index Options Rulebook</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+  .page { max-width: 1360px; }
+  .b-none { background: rgba(138,151,184,.15); color: var(--muted); }
+  td.sig { text-align: left; white-space: normal; min-width: 210px; max-width: 330px; line-height: 1.3; }
+  td.sig .st { display: block; margin-top: 4px; font-size: 11.5px; font-weight: 650; letter-spacing: .2px; }
+  td.sig small { display: block; margin-top: 2px; color: var(--muted); font-size: 11.5px; }
+  td.strat { text-align: left; color: var(--muted); font-size: 12.5px; }
+  td.opt { text-align: left; font-size: 12.5px; }
+  td.chk { cursor: help; font-size: 12.5px; }
+  .ok { color: var(--green); } .no { color: var(--red); }
+  tr.grp td { border-top: 2px solid #26365f; }
+  tr.grp:first-child td { border-top: 0; }
+  .subsec { display: block; }
+  .sm { display: none; }
+  .sm .plansm { display: block; margin-top: 3px; font-size: 11.5px; color: var(--muted); font-weight: 400; white-space: normal; }
+  .sm .stsm { display: block; margin-top: 3px; font-size: 11px; font-weight: 650; color: var(--text); white-space: normal; }
+  @media (max-width: 700px) { .sm { display: block; } }
+  @media (min-width: 701px) { th, td { padding-left: 9px; padding-right: 9px; } }
+  .exp { margin-left: 6px; font-size: 10px; font-weight: 700; color: #2b1b00; background: var(--amber); border-radius: 4px; padding: 1px 5px; vertical-align: 1px; }
+  .legend p { margin: 0 0 8px; }
+  .legend ul { margin: 0 0 8px; padding-left: 18px; }
+  .notice { border: 1px solid #5b4516; background: #1c170b; color: #ffd98a; border-radius: 10px; padding: 9px 12px; font-size: 13px; margin: 0 0 10px; }
+  .panel { border: 1px solid var(--line); border-radius: 12px; background: var(--card); padding: 10px 12px; margin: 0 0 12px; }
+  .panel h2 { font-size: 14px; margin: 0 0 8px; letter-spacing: .2px; }
+  .panel .controls { margin-bottom: 6px; }
+  canvas.cv { display: block; width: 100%; height: 380px; touch-action: pan-y; }
+  canvas.eq { display: block; width: 100%; height: 220px; }
+  @media (max-width: 700px) { canvas.cv { height: 300px; } }
+  .cinfo { color: var(--muted); font-size: 12.5px; min-height: 18px; margin: 6px 0 0; font-variant-numeric: tabular-nums; }
+  .cleg { color: var(--muted); font-size: 12px; margin: 4px 0 0; line-height: 1.5; }
+  ul.siglist { margin: 8px 0 0; padding-left: 18px; font-size: 13px; }
+  ul.siglist li { margin: 0 0 5px; }
+  .chain { font-size: 13px; }
+  .chain a { color: var(--blue); }
+  table.mini { min-width: 0; width: auto; }
+  table.mini th, table.mini td { padding: 5px 14px; font-size: 13px; text-align: center; }
+  table.bt { min-width: 0; }
+  table.bt th, table.bt td { padding: 8px 10px; font-size: 13px; }
+  table.bt th { white-space: normal; line-height: 1.25; vertical-align: bottom; }
+  .lowN { color: var(--amber); font-size: 11px; margin-left: 4px; }
+  .guide ul { padding-left: 18px; margin: 6px 0; }
+  .guide li { margin: 0 0 6px; }
+  .costin { width: 78px; background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 8px; font: inherit; min-height: 40px; }
+  .viewseg { margin: 0 0 10px; }
+  #cix { max-width: 100%; overflow-x: auto; }
+  #cix button { white-space: nowrap; }
+  .dim { color: var(--muted); }
+  .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+  .tag { display: inline-block; font-size: 10.5px; font-weight: 650; border-radius: 5px; padding: 1px 6px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .tag.good { color: var(--green); border-color: rgba(34,197,94,.45); }
+  .tag.warn { color: var(--amber); border-color: rgba(245,158,11,.45); }
+  .tag.bad { color: var(--red); border-color: rgba(239,68,68,.5); }
+  tr.inforow td { opacity: .78; }
+  .vixbar { border: 1px solid var(--line); border-radius: 10px; background: var(--card); padding: 8px 12px; font-size: 13px; margin: 0 0 10px; }
+  .vixbar b.blk { color: var(--red); } .vixbar b.okk { color: var(--green); }
+  .trailtxt { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+  .diaggrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+  .diaggrid h3 { font-size: 13px; margin: 0 0 6px; color: var(--muted); font-weight: 600; }
+  .chk2 { color: var(--muted); font-size: 11.5px; margin: 4px 0 0; }
+  tr.nobt td { color: var(--muted); }
+  .labsel { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <nav class="tabs" aria-label="Scanners">
+    <a href="/">Breakouts</a>
+    <a href="/ichimoku.html">Ichimoku Cloud</a>
+    <a href="/indices.html" aria-current="page">Index Options</a>
+    <a href="/journal.html">Journal</a>
+  </nav>
+  <h1>Index Options Rulebook</h1>
+  <p class="sub">NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY and NIFTYNXT50, checked against fixed rule sets (ORB, Ichimoku + Fib, VWAP, expiry-day max pain). Buy CE or buy PE only; nothing here sells options.</p>
+  <div class="notice">These are rule checks on the index price. No option premium, spread or open-interest data is used (Yahoo has none; a broker adapter would be needed). The rules are not proven: the Backtest tab replays them on about 40 recent sessions, which is too few to establish an edge. This is a sanity check on behaviour, not proof. Treat BUY as "all the rules line up, now check the option chain yourself", and paper-trade first (see the Journal tab).</div>
+  <div class="vixbar" id="vixbar">India VIX: loading…</div>
+
+  <div class="seg viewseg" id="view" role="group" aria-label="View">
+    <button data-v="live" class="on">Live rules and chart</button>
+    <button data-v="bt">Backtest on past sessions</button>
+  </div>
+
+<div id="liveView">
+  <div class="panel" id="chartPanel">
+    <div class="controls">
+      <div class="seg" id="cix" role="group" aria-label="Chart index"></div>
+      <select id="cdate" aria-label="Session"></select>
+      <label class="chk"><input type="checkbox" id="cOrb" checked> Opening range</label>
+      <label class="chk"><input type="checkbox" id="cAvg" checked> <span id="cAvgName">Average price</span></label>
+      <label class="chk"><input type="checkbox" id="cSig" checked> Signals</label>
+    </div>
+    <canvas class="cv" id="cv" aria-label="5 minute candles of the selected index"></canvas>
+    <div class="cinfo" id="cinfo">Hover or touch the chart to read a candle.</div>
+    <div class="cleg" id="cleg"></div>
+    <ul class="siglist" id="siglist"></ul>
+  </div>
+
+  <div class="panel chain" id="chainPanel">
+    <h2>Option chain</h2>
+    <div id="chainInfo" class="dim">Loading…</div>
+    <div class="wrap" style="margin-top:8px;display:inline-block;max-width:100%">
+      <table class="mini"><thead><tr><th>Call (CE)</th><th>Strike</th><th>Put (PE)</th></tr></thead><tbody id="ladder"></tbody></table>
+    </div>
+    <p class="cleg">This ladder is strikes only, worked out from the index price. Premiums, bid/ask, volume and open interest are not shown because this app has no option-price feed: NSE blocks requests from cloud servers, and a broker data connection would be needed. Open the live chain, pick the strike above, and check the spread and open interest before using any signal.
+      <a href="https://www.nseindia.com/option-chain" target="_blank" rel="noopener noreferrer">Open the NSE option chain ↗</a></p>
+  </div>
+
+  <div class="controls">
+    <div class="seg" id="strat" role="group" aria-label="Strategy">
+      <button data-v="all" class="on">All</button>
+      <button data-v="orb">ORB</button>
+      <button data-v="ichi">Ichimoku</button>
+      <button data-v="vwap">VWAP</button>
+      <button data-v="expiry">Expiry</button>
+    </div>
+    <select id="ixsel" aria-label="Index">
+      <option value="">All indices</option>
+    </select>
+    <label class="chk"><input type="checkbox" id="act"> Actionable only</label>
+    <button class="primary" id="scan">Refresh</button>
+    <label class="chk"><input type="checkbox" id="live" checked> Auto refresh (60s)</label>
+  </div>
+
+  <div class="status" id="status"></div>
+  <div class="liveinfo" id="liveinfo"></div>
+  <div class="banner" id="banner"></div>
+
+  <div class="wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Index / strategy</th><th class="l hide-sm">Signal</th><th class="hide-sm">LTP</th><th class="hide-sm">Chg %</th>
+          <th class="hide-sm">Entry / level</th><th class="hide-sm">Stop</th><th class="hide-sm">T1</th><th class="hide-sm">T2</th><th class="hide-sm">Risk %</th>
+          <th class="l hide-sm">Option to look at</th><th class="hide-sm">Checks</th>
+        </tr>
+      </thead>
+      <tbody id="rows"><tr><td colspan="11" class="empty">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="legend">
+    <p><b>Signal</b>: <b>BUY CE</b> (bullish) or <b>BUY PE</b> (bearish) appears only when the setup has triggered on a finished candle, the trigger is no more than 2 bars old, every blocking rule passes and India VIX is not elevated. <b>WAIT</b> means a setup is forming; the line under it says what is needed. <b>NO TRADE</b> means a rule rules it out today. <b>INFO</b> rows are information only and never count as a signal. <b>CLOSED</b> shows the state at the end of the last session. Only finished candles are used, so a forming candle never triggers anything. "Actionable only" counts BUY rows and nothing else.</p>
+    <p><b>Data-quality tags</b> on every row: <span class="tag good">true VWAP</span> volume exists so VWAP is real; <span class="tag warn">proxy</span> the line is only a session average; <span class="tag warn">no volume</span> the index feed has no volume, so volume filters are skipped (and say so in the checks); <span class="tag good">VIX ok</span> / <span class="tag bad">VIX blocked</span> / <span class="tag warn">VIX n/a</span> the India VIX filter; <span class="tag good">chain ok</span> / <span class="tag warn">no chain</span> option-chain open interest (needs a broker adapter). A skipped filter is always visible in the checks list (hover the check count) and in these tags.</p>
+    <p><b>Stop, T1, T2</b> are levels on the <i>index</i>, not the option. An index stop does not give a fixed loss on the option: premium moves non-linearly, spreads widen and a stop can fill worse. <b>Risk %</b> is the index stop distance as a share of price. The multiples are starting points to test, not validated edges.</p>
+    <ul>
+      <li><b>ORB breakout (Track 1)</b> (5m): the opening range is the 9:15 to 9:30 high and low. A 5m close above the high plus a buffer of 10% of the range width (below the low for puts) is the trigger, with no retest. The breakout candle needs volume at least 1.5x the mean of up to 20 earlier bars of the session; with no index volume that filter is skipped and says so. Stop: the lowest low (highest high for puts) from the breakout candle to the latest bar, capped at 0.7% of price. Targets 2R and 3R. Trail (information only, not simulated): VWAP, or the 20 EMA when VWAP is only a proxy.</li>
+      <li><b>ORB retest (Track 2)</b>: the earlier retest logic, unchanged: break, a retest within 10% of the width that holds, then a close beyond the retest candle. A close back inside the range cancels it, with no second attempt. Targets 1R and 2R. It is evaluated only when Track 1 has not fired. Both tracks: skipped on chop (both edges broken), after 14:00, or with a stop over 0.7%. The opening-range width no longer blocks; it sets the size hint: <b>full</b> from 0.5x to 2x the recent typical width, <b>half</b> from 2x to 3x (counts as 0.5R in the backtest), <b>skip</b> beyond 3x or under 0.5x (no trade).</li>
+      <li><b>Ichimoku + Fib, intraday</b> (15m): the trend filter is ADX(14) on 15m at least 20 with +DI above -DI (long) or -DI above +DI (short); if ADX is unavailable the 5m 20-EMA slope over 10 bars is used. The 1h cloud is shown for information only and never blocks. On 15m, the last confirmed swing low then high (3 bars each side) is the leg; price must retrace 38.2% to 61.8% of it (deeper is PULLBACK TOO DEEP), then a candle must dip into the zone, close back beyond the 38.2% level and, when volume exists, have volume at least the mean of the prior 3 bars. No entries before 10:00 or after the 14:30 candle. Stop is the retrace extreme (cap 1.0%) and the prior swing must be at least 1R away.</li>
+      <li><b>Ichimoku swing (Daily / 4h)</b>: the same logic one level up: Daily cloud and structure as the trend filter (cloud at least 0.25% wide), 4h pullback and trigger. Stop cap 4.0% (my assumption). It is shown here but not backtested, and it holds for days, so size it as a swing trade.</li>
+      <li><b>VWAP reclaim</b> (5m, needs a true VWAP): at least 9 consecutive closes (45 minutes) on the trend side of VWAP, then 1 to 3 closes across it, then a close back with volume at least the mean of the prior 2 candles. Stop at the dip low, cap 0.5%, targets 2R and 3R. RSI(9) must be 38 to 58 at the dip low for calls (45 to 65 at the dip high for puts); skipped, with a note, if the dip is inside the first 15 bars.</li>
+      <li><b>VWAP pullback</b> (5m, needs a true VWAP): price on the trend side with the last two 5m swing lows rising; a dip to within 0.1% of VWAP that holds after 3 of the previous 6 closes were clear of it; trigger a close beyond that candle. Skipped on 3 or more VWAP crossings, a stop over 0.5%, or after 14:30; starts 9:50. Every VWAP row carries a reliability tag (high, medium, low); low means NO TRADE.</li>
+      <li><b>Expiry max pain</b> (NIFTY and BANKNIFTY, expiry days, 14:00 to 15:30): needs open interest from an option chain, which this app does not have. Without a broker adapter the row says NO TRADE and never guesses. With one: max pain is the strike where option writers lose least; a 5m close toward it while price is 0.5% to 1.5% away triggers; T1 is the max pain level.</li>
+      <li><b>India VIX filter</b>: when India VIX is above its 60th percentile of the previous 60 sessions, every BUY is downgraded to WAIT ("IV elevated"): buying premium when implied volatility is high is a poor trade. If the VIX cannot be fetched the filter is skipped and shown as such.</li>
+    </ul>
+    <p><b>Expiry days</b> are flagged, and ORB, Ichimoku and VWAP stay blocked on them. Expiry is taken as Tuesday: every Tuesday for NIFTY (weekly), the last Tuesday of the month for the others. This follows the schedule NSE moved to in September 2025, but it does not know exchange holidays that shift an expiry, so check the NSE calendar. Lot sizes change from time to time, so none are shown; check the current lot and margin with your broker. Strike steps used for the ATM strike (NIFTY 50, BANKNIFTY 100, FINNIFTY 50, MIDCPNIFTY 25, NIFTYNXT50 100) are typical values; confirm them in the option chain.</p>
+    <p><b>Before any trade</b>: look at the actual option's bid, ask, volume and open interest, and skip it if the spread is wide. Size so that a stop-out loses only a small, fixed share of your account (0.25% to 0.5% is a common simulation range). No averaging down, no revenge trades, a daily loss limit, and exit everything by 15:15. A long option can lose its whole premium. Log 20 to 30 paper-trading sessions in the Journal tab, including the signals you skip, before putting real money behind any of these rules.</p>
+    <p>Prices come from Yahoo Finance index tickers, polled rather than streamed, and may lag NSE. The newest tick time is shown above. This is a screening aid, not trading advice.</p>
+  </div>
+</div>
+
+<div id="btView" hidden>
+  <div class="panel">
+    <div class="controls">
+      <select id="btix" aria-label="Index to test">
+        <option value="ALL">All five indices</option>
+        <option value="NIFTY">NIFTY 50</option>
+        <option value="BANKNIFTY">NIFTY BANK</option>
+        <option value="FINNIFTY">NIFTY FIN SERVICE</option>
+        <option value="MIDCPNIFTY">NIFTY MIDCAP SELECT</option>
+        <option value="NIFTYNXT50">NIFTY NEXT 50</option>
+      </select>
+      <button class="primary" id="btRun">Run backtest</button>
+      <label class="labsel">Exit plan <select id="btPlan" aria-label="Exit plan"><option value="x1">Stop / T1 plan</option><option value="x2">Stop / T2 plan</option></select></label>
+      <label class="labsel">Option strike <select id="btStrike" aria-label="Option strike"><option value="atm">ATM</option><option value="itm">1 ITM</option></select></label>
+      <label class="chk">Index cost <input class="costin" id="btCost" type="number" min="0" max="1" step="0.05" value="0.10" aria-label="Index cost in R"> R</label>
+      <label class="chk">Option cost <input class="costin" id="btOptCost" type="number" min="0" max="10" step="0.1" value="0.5" aria-label="Option cost in percent of premium"> % of premium</label>
+    </div>
+    <div class="status" id="btStatus">Replays the same rules as the live page over the past sessions the data source provides (about 40 per index). All five indices takes about a minute.</div>
+    <div class="banner" id="btBanner"></div>
+  </div>
+
+  <div id="btOut" hidden>
+    <div class="panel">
+      <h2>Results by strategy (all tested indices together)</h2>
+      <div class="wrap"><table class="bt" id="btSum"></table></div>
+      <p class="cleg"><b>Read option R with care.</b> Option R divides the premium change by the premium you would lose at the stop. When the index stop is very tight (some breakout candles close almost on their low), that loss is tiny, so one trade can show &plusmn;40R and drag the average. The premium % beside each R figure is not affected by this. <b>Index R</b> is measured on the index: +1R means the index moved one stop-distance your way. <b>Option P&amp;L</b> columns are a <b>Black-Scholes approximation</b>, not real premiums: India VIX (previous close) stands in for ATM implied volatility, +2 vol points for the 1-ITM strike, 6.5% interest, flat smile, and the option is re-priced at the exit with the same volatility ("no IV change") and with volatility 10% lower ("-10% IV", a crude IV-crush case). Each shows the average in option R (premium change divided by the premium you would lose if the index reached the stop) with its 95% range, and the average % change in premium. Expiry-week gamma is not modelled; assignment and pin risk are not modelled; no bid/ask spread beyond the option-cost box. Half-size trades count 0.5R. "Blocked" counts BUY signals that were held back by the India VIX filter or the opening-range size rule: they are not trades. The range after each average is a 95% confidence range: if it includes zero, this test shows no evidence of an edge.</p>
+    </div>
+    <div class="panel">
+      <h2>Cumulative index R, selected plan, after index cost</h2>
+      <canvas class="eq" id="eq" aria-label="Cumulative R by trade"></canvas>
+      <div class="cleg" id="eqLeg"></div>
+    </div>
+    <div class="panel">
+      <h2>Backtest diagnostics <select id="dgStrat" aria-label="Strategy for diagnostics" style="margin-left:8px;min-height:32px;padding:4px 10px"></select></h2>
+      <div class="diaggrid" id="dgOut"></div>
+      <p class="cleg">Every table below adds up to the trade count shown above it. Outcomes are classed once per trade: stopped before T1, reached T2, reached T1 but not T2, or time exit at 15:15. Use these to see where the losses come from (wide stops, one side, a time of day or weekday), not to retune the rules on 40 sessions.</p>
+    </div>
+    <div class="panel">
+      <h2>By index</h2>
+      <div class="wrap"><table class="bt" id="btIdx"></table></div>
+      <div class="cleg" id="btMeta"></div>
+    </div>
+    <div class="panel">
+      <h2>Every trade <button id="btToggle" style="margin-left:8px;min-height:32px;padding:4px 10px">Show</button></h2>
+      <div class="wrap" id="btTradesWrap" hidden><table class="bt" id="btTrades"></table></div>
+    </div>
+  </div>
+
+  <div class="panel guide">
+    <h2>How to read this, and what it cannot tell you</h2>
+    <ul>
+      <li><b>What is tested.</b> The exact live rules, replayed candle by candle. At each step the engine sees only candles that had finished by then (checked by scrambling every unfinished candle and confirming the rows do not change). One trade per strategy per session: the first BUY. Entry is the close of the trigger candle. Inside a candle the stop is assumed to hit before the target. Everything is flat by 15:15. Expiry days are skipped, as on the live page. The India VIX filter uses the previous session's close against the 60 sessions before it. Ichimoku swing (Daily/4h) and expiry max pain are <b>not backtested</b>: they need history and open-interest data this source does not have.</li>
+      <li><b>The sample is small.</b> Yahoo only provides about 60 days of 5-minute data, roughly 40 sessions per index. Five indices move together, so they are not five independent tests. With under about 30 trades per strategy the confidence range is so wide that almost any result is consistent with luck. Rows with fewer than 30 trades are flagged. A flat or negative result is a valid result.</li>
+      <li><b>Option P&amp;L is a model.</b> It captures the index move and time decay under a flat-volatility Black-Scholes world. It does not capture the real spread, skew, volatility changes, or how premiums behave in expiry week. Treat it as a better guide than index R, and still not as the truth.</li>
+      <li><b>Do not tune on these sessions.</b> The parameters were fixed before testing. Changing them until this table looks good would only fit the noise in 40 sessions. The paper-trading sessions you log in the Journal are the only out-of-sample evidence you will have: 20 to 30 sessions is the minimum, 50 or more is better.</li>
+      <li><b>Hit rate versus the reward.</b> With a 1R target, a strategy must hit more than about half the time just to cover costs; with a 2R target, more than about a third; with 3R, more than a quarter. Compare the hit rate with those break-evens, and look at the maximum drawdown in R against what you could actually tolerate.</li>
+      <li><b>What would be convincing.</b> A few hundred trades per strategy over at least a year or two, covering trending, choppy and high-volatility periods, tested on real option premiums with costs. That needs intraday history longer than Yahoo gives, for example from a broker's historical data API (see lib/broker.js), and a train / test split. Treat this page as a sanity check on behaviour, not as proof.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var REFRESH_MS = 60000;
+  var PREF_KEY = "bs-idx-prefs";
+  var LABEL = {
+    orb_break: "ORB breakout (Track 1)", orb_retest: "ORB retest (Track 2)", ichi: "Ichimoku + Fib (intraday)", ichi_swing: "Ichimoku swing (Daily / 4h)",
+    vwap_reclaim: "VWAP reclaim", vwap_pullback: "VWAP pullback", vwap_info: "Session average (proxy) — information only", expiry_maxpain: "Expiry max-pain"
+  };
+  function lab(id) { return LABEL[id] || id; }
+  var state = { strat: "all", ix: "", actionable: false, live: true, busy: false, data: null, timer: null, failures: 0, last: {}, firstPaint: true };
+
+  try {
+    var saved = JSON.parse(localStorage.getItem(PREF_KEY) || "{}");
+    if (/^(all|orb|ichi|vwap|expiry)$/.test(saved.strat)) state.strat = saved.strat;
+    if (typeof saved.actionable === "boolean") state.actionable = saved.actionable;
+    if (typeof saved.live === "boolean") state.live = saved.live;
+  } catch (e) {}
+  $("act").checked = state.actionable;
+  $("live").checked = state.live;
+  function savePrefs() {
+    try { localStorage.setItem(PREF_KEY, JSON.stringify({ strat: state.strat, actionable: state.actionable, live: state.live })); } catch (e) {}
+  }
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function num(v, d) {
+    return Number.isFinite(v) ? v.toLocaleString("en-IN", { minimumFractionDigits: d, maximumFractionDigits: d }) : "–";
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
+  }
+  function clock(ts) { return new Date(ts).toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour12: false }); }
+  function showBanner(kind, msg) { var b = $("banner"); b.className = "banner " + kind; b.textContent = msg; }
+  function clearBanner() { var b = $("banner"); b.className = "banner"; b.textContent = ""; }
+  function flash(node, dir) {
+    node.classList.remove("flash-up", "flash-dn");
+    void node.offsetWidth;
+    node.classList.add(dir > 0 ? "flash-up" : "flash-dn");
+  }
+  function badgeClass(a) {
+    return a === "BUY CE" ? "b-brk" : a === "BUY PE" ? "b-bdn" : a === "WAIT" ? "b-near" : "b-none";
+  }
+  function isActionable(a) { return a === "BUY CE" || a === "BUY PE"; }
+
+  function flatten() {
+    var out = [];
+    if (!state.data) return out;
+    state.data.indices.forEach(function (ix) {
+      ix.rows.forEach(function (r) { out.push({ ix: ix, r: r }); });
+    });
+    return out;
+  }
+  function visible() {
+    return flatten().filter(function (x) {
+      if (state.strat !== "all" && x.r.group !== state.strat) return false;
+      if (state.ix && x.ix.index !== state.ix) return false;
+      if (state.actionable && !isActionable(x.r.action)) return false;
+      return true;
+    });
+  }
+
+  function planText(r) {
+    var p = [];
+    if (r.level != null) p.push((isActionable(r.action) || r.state === "TRIGGERED" ? "Entry " : "Level ") + num(r.level, 2));
+    if (r.sl != null) p.push("SL " + num(r.sl, 2));
+    if (r.t1 != null) p.push("T1 " + num(r.t1, 2));
+    if (r.t2 != null) p.push("T2 " + num(r.t2, 2));
+    if (r.option && isActionable(r.action)) p.push(r.option);
+    return p.join(" · ");
+  }
+  function checksTip(r) {
+    return (r.checks || []).map(function (c) { return (c.ok ? "✓ " : (c.info ? "– " : "✗ ")) + c.text; }).join("\n");
+  }
+
+  function tagClass(t) {
+    if (t === "true VWAP" || t === "VIX ok" || t === "chain ok") return "good";
+    if (t === "VIX blocked") return "bad";
+    return "warn";
+  }
+  function tagsEl(r) {
+    var d = el("div", "tags");
+    (r.tags || []).forEach(function (t) { d.appendChild(el("span", "tag " + tagClass(t), t)); });
+    if (r.reliability) d.appendChild(el("span", "tag " + (r.reliability === "high" ? "good" : r.reliability === "low" ? "bad" : "warn"), "reliability " + r.reliability));
+    if (r.sizeHint === "skip") d.appendChild(el("span", "tag bad", "size skip"));
+    else if (r.sizeHint && isActionable(r.action)) d.appendChild(el("span", "tag " + (r.sizeHint === "half" ? "warn" : "good"), "size " + r.sizeHint));
+    if (r.trendSource) d.appendChild(el("span", "tag", "trend " + r.trendSource));
+    if (r.blockedBy) d.appendChild(el("span", "tag bad", "held back by " + r.blockedBy));
+    return d;
+  }
+
+  function buildRow(x, first) {
+    var ix = x.ix, r = x.r;
+    var tr = el("tr", (first ? "grp" : "") + (r.info ? " inforow" : ""));
+    tr.dataset.strategy = r.strategy;
+    var c0 = el("td", "sym", ix.name);
+    if (ix.expiry) { var e = el("span", "exp", "EXPIRY"); e.title = "Expiry day: ORB, Ichimoku and VWAP entries are blocked"; c0.appendChild(e); }
+    c0.appendChild(el("div", "subsec", r.label || lab(r.strategy)));
+    var sm = el("div", "sm");
+    var b2 = el("span", "badge " + badgeClass(r.action), r.action);
+    b2.title = checksTip(r);
+    sm.appendChild(b2);
+    sm.appendChild(el("span", "stsm", r.state));
+    var pl = planText(r);
+    if (pl) sm.appendChild(el("span", "plansm", pl));
+    else if (r.note) sm.appendChild(el("span", "plansm", r.note));
+    sm.appendChild(tagsEl(r));
+    c0.appendChild(sm);
+    tr.appendChild(c0);
+
+    var sg = el("td", "sig hide-sm");
+    var bd = el("span", "badge " + badgeClass(r.action), r.action);
+    bd.title = checksTip(r);
+    sg.appendChild(bd);
+    sg.appendChild(el("span", "st", r.state));
+    if (r.note) sg.appendChild(el("small", null, r.note));
+    if (r.levelNote) sg.appendChild(el("small", null, r.levelNote));
+    if (r.trail && isActionable(r.action)) sg.appendChild(el("span", "trailtxt", "Trail (information only, not simulated): " + r.trail));
+    sg.appendChild(tagsEl(r));
+    tr.appendChild(sg);
+
+    tr.appendChild(el("td", "num hide-sm", num(ix.ltp, 2)));
+    var chg = el("td", "num hide-sm " + (ix.chgPct >= 0 ? "up" : "down"), Number.isFinite(ix.chgPct) ? (ix.chgPct >= 0 ? "+" : "") + num(ix.chgPct, 2) : "–");
+    tr.appendChild(chg);
+    tr.appendChild(el("td", "num hide-sm", r.level != null ? num(r.level, 2) : "–"));
+    tr.appendChild(el("td", "num hide-sm", r.sl != null ? num(r.sl, 2) : "–"));
+    tr.appendChild(el("td", "num hide-sm", r.t1 != null ? num(r.t1, 2) : "–"));
+    tr.appendChild(el("td", "num hide-sm", r.t2 != null ? num(r.t2, 2) : "–"));
+    tr.appendChild(el("td", "num hide-sm", r.riskPct != null ? num(r.riskPct, 2) : "–"));
+    tr.appendChild(el("td", "opt hide-sm", r.option && isActionable(r.action) ? r.option : "–"));
+
+    var cks = (r.checks || []).filter(function (c) { return !c.info; });
+    var ok = cks.filter(function (c) { return c.ok; }).length;
+    var ct = el("td", "chk hide-sm");
+    if (cks.length) {
+      var a = el("span", ok === cks.length ? "ok" : "no", ok + "/" + cks.length);
+      ct.appendChild(a);
+      ct.title = checksTip(r);
+    } else { ct.textContent = "–"; }
+    tr.appendChild(ct);
+
+    var k = ix.index + "|" + r.strategy;
+    var prev = state.last[k];
+    if (!state.firstPaint && prev && prev !== r.action) {
+      setTimeout(function () { flash(sg, isActionable(r.action) ? 1 : -1); }, 0);
+    }
+    return tr;
+  }
+
+  function showVix() {
+    var m = state.data && state.data.meta, b = $("vixbar");
+    if (!m) return;
+    b.textContent = "";
+    if (!m.vix || m.vix.unavailable) {
+      b.appendChild(document.createTextNode("India VIX filter SKIPPED (" + ((m.vix && m.vix.unavailable) || "unavailable") + "). BUY signals are shown without the IV check, and every row is tagged VIX n/a."));
+    } else {
+      b.appendChild(document.createTextNode("India VIX " + num(m.vix.value, 2) + " vs its 60th percentile " + num(m.vix.p60, 2) + " over the last " + m.vix.sessions + " sessions: "));
+      b.appendChild(el("b", m.vix.blocked ? "blk" : "okk", m.vix.blocked ? "ELEVATED, so every BUY is held back as WAIT" : "not elevated, the filter passes"));
+    }
+    b.appendChild(document.createTextNode(m.brokerConfigured ? " · Broker data adapter: configured." : " · Broker data adapter: not configured (no true VWAP, no option chain)."));
+  }
+
+  function render() {
+    var tb = $("rows");
+    tb.textContent = "";
+    var rows = visible();
+    if (!rows.length) {
+      var tr = el("tr"), td = el("td", "empty", state.actionable
+        ? "No rule set is signalling a buy right now. Waiting is a valid result; untick Actionable only to see where each setup stands."
+        : "Nothing to show.");
+      td.colSpan = 11; tr.appendChild(td); tb.appendChild(tr);
+    } else {
+      var lastIx = null;
+      rows.forEach(function (x) { tb.appendChild(buildRow(x, x.ix.index !== lastIx)); lastIx = x.ix.index; });
+    }
+    var cur = {};
+    flatten().forEach(function (x) { cur[x.ix.index + "|" + x.r.strategy] = x.r.action; });
+    state.last = cur;
+    state.firstPaint = false;
+    setStatus(rows.length);
+  }
+
+  function setStatus(shown) {
+    var m = state.data && state.data.meta;
+    if (!m) return;
+    var all = flatten();
+    var buys = all.filter(function (x) { return isActionable(x.r.action); }).length;
+    var when = m.marketOpen ? "Market open" : "Market closed, showing the last session";
+    $("status").innerHTML = "<b>" + buys + "</b> buy signal" + (buys === 1 ? "" : "s") + " across " + state.data.indices.length + " indices · " +
+      shown + " rows shown · " + when + " · latest tick " + esc(m.asOf || "n/a");
+  }
+
+  function showLive() {
+    var box = $("liveinfo");
+    box.textContent = "";
+    var m = state.data && state.data.meta;
+    if (!state.live || !m) { box.className = "liveinfo"; return; }
+    var dot = el("span", "dot", "●");
+    if (!m.marketOpen) {
+      box.className = "liveinfo off";
+      box.appendChild(dot);
+      box.appendChild(document.createTextNode("Market closed: not refreshing."));
+      return;
+    }
+    box.className = "liveinfo" + (state.failures > 0 ? " stale" : "");
+    box.appendChild(dot);
+    box.appendChild(document.createTextNode((state.failures > 0 ? "Refresh delayed, retrying" : "Live") + " · updated " + clock(Date.now()) + " IST"));
+  }
+
+  function rebuildIndexOptions() {
+    var sel = $("ixsel");
+    if (sel.options.length > 1 || !state.data) return;
+    state.data.indices.forEach(function (ix) {
+      var o = el("option", null, ix.name); o.value = ix.index; sel.appendChild(o);
+    });
+  }
+
+  function schedule() {
+    clearTimeout(state.timer);
+    state.timer = null;
+    var m = state.data && state.data.meta;
+    if (state.live && !document.hidden && m && m.marketOpen) {
+      state.timer = setTimeout(function () { load(true); }, Math.min(300000, REFRESH_MS * (1 + state.failures)));
+    }
+    showLive();
+  }
+
+  async function load(silent) {
+    if (state.busy) return;
+    state.busy = true;
+    if (!silent) {
+      $("scan").disabled = true;
+      clearBanner();
+      $("status").innerHTML = '<span class="spin"></span>Checking the rules on every index. This usually takes a few seconds.';
+    }
+    var ctrl = new AbortController();
+    var to = setTimeout(function () { ctrl.abort(); }, 40000);
+    try {
+      var res = await fetch("/api/indices", { signal: ctrl.signal });
+      var data = await res.json();
+      if (!res.ok) {
+        state.failures++;
+        if (!silent || !state.data) {
+          showBanner("err", (data.error || "Request failed") + (data.detail ? " [" + data.detail + "]" : "") + (data.hint ? " " + data.hint : ""));
+          if (!state.data) $("status").textContent = "";
+        }
+      } else {
+        state.failures = 0;
+        state.data = data;
+        rebuildIndexOptions();
+        render();
+        showVix();
+        chartTick();
+        if (data.warnings && data.warnings.length) showBanner("warn", data.warnings.join(" ")); else clearBanner();
+      }
+    } catch (e) {
+      state.failures++;
+      if (!silent || !state.data) {
+        showBanner("err", e.name === "AbortError" ? "That took too long. Try again in a moment." : "Could not load results: " + e.message);
+        if (!state.data) $("status").textContent = "";
+      }
+    } finally {
+      clearTimeout(to);
+      state.busy = false;
+      $("scan").disabled = false;
+    }
+    schedule();
+  }
+
+  document.querySelectorAll("#strat button").forEach(function (b) {
+    b.classList.toggle("on", b.dataset.v === state.strat);
+    b.addEventListener("click", function () {
+      state.strat = b.dataset.v;
+      document.querySelectorAll("#strat button").forEach(function (x) { x.classList.toggle("on", x === b); });
+      savePrefs();
+      render();
+    });
+  });
+  $("ixsel").addEventListener("change", function () { state.ix = $("ixsel").value; render(); });
+  $("act").addEventListener("change", function () { state.actionable = $("act").checked; savePrefs(); render(); });
+  $("scan").addEventListener("click", function () { load(false); });
+  $("live").addEventListener("change", function () {
+    state.live = $("live").checked;
+    savePrefs();
+    if (state.live) schedule(); else { clearTimeout(state.timer); showLive(); }
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { clearTimeout(state.timer); } else { schedule(); }
+  });
+
+  // =====================================================================
+  // Chart: 5-minute candles of one index, rule levels and replayed signals
+  // =====================================================================
+  var IXS = [["NIFTY", "NIFTY 50"], ["BANKNIFTY", "BANKNIFTY"], ["FINNIFTY", "FINNIFTY"], ["MIDCPNIFTY", "MIDCPNIFTY"], ["NIFTYNXT50", "NXT 50"]];
+  var STEP = { NIFTY: 50, BANKNIFTY: 100, FINNIFTY: 50, MIDCPNIFTY: 25, NIFTYNXT50: 100 };
+  var SHORT = { orb_break: "ORB-1", orb_retest: "ORB-2", ichi: "ICHI", vwap_reclaim: "VWAP-R", vwap_pullback: "VWAP-P" };
+  var chart = { ix: "NIFTY", date: "", data: null, busy: false, hover: -1, err: "", geo: null };
+  var SLOTS = 75, OPEN_MM = 555;
+
+  function hm(mm) { return ("0" + Math.floor(mm / 60)).slice(-2) + ":" + ("0" + (mm % 60)).slice(-2); }
+  function fr(v) { return Number.isFinite(v) ? (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2) + "R" : "–"; }
+  function css(name, dflt) { var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim(); return v || dflt; }
+
+  IXS.forEach(function (p) {
+    var b = el("button", p[0] === chart.ix ? "on" : "", p[1]);
+    b.dataset.v = p[0];
+    b.addEventListener("click", function () {
+      chart.ix = p[0]; chart.date = ""; chart.hover = -1;
+      document.querySelectorAll("#cix button").forEach(function (x) { x.classList.toggle("on", x === b); });
+      chartLoad(false);
+    });
+    $("cix").appendChild(b);
+  });
+  $("cdate").addEventListener("change", function () { chart.date = $("cdate").value; chartLoad(false); });
+  ["cOrb", "cAvg", "cSig"].forEach(function (id) { $(id).addEventListener("change", drawChart); });
+
+  async function chartLoad(silent) {
+    if (chart.busy) return;
+    chart.busy = true;
+    if (!silent) $("cinfo").textContent = "Loading chart…";
+    try {
+      var res = await fetch("/api/indexchart?index=" + encodeURIComponent(chart.ix) + (chart.date ? "&date=" + encodeURIComponent(chart.date) : ""));
+      var d = await res.json();
+      if (!res.ok) throw new Error((d.error || "HTTP " + res.status) + (d.detail ? " [" + d.detail + "]" : ""));
+      chart.data = d; chart.err = "";
+      chart.date = d.date;
+      var sel = $("cdate");
+      sel.textContent = "";
+      d.dates.forEach(function (x, i) { var o = el("option", null, x + (i === 0 ? " (latest)" : "")); o.value = x; sel.appendChild(o); });
+      sel.value = d.date;
+      $("cAvgName").textContent = d.vwapIsProxy ? "Session average price" : "VWAP";
+      $("cinfo").textContent = "Hover or touch the chart to read a candle. Data to " + d.asOf + (d.live ? " (session in progress, last candle still forming)" : "") + (d.expiry ? " · EXPIRY DAY: signals are blocked" : "");
+    } catch (e) {
+      chart.err = e.name === "AbortError" ? "Timed out" : e.message;
+      if (!chart.data || !silent) $("cinfo").textContent = "Could not load the chart: " + chart.err;
+    } finally {
+      chart.busy = false;
+    }
+    drawChart(); renderSignals(); renderChain();
+  }
+  function chartTick() {
+    if (!$("liveView").hidden && state.live && chart.data && chart.data.live && !document.hidden) chartLoad(true);
+  }
+
+  function drawChart() {
+    var cv = $("cv"), d = chart.data;
+    var w = cv.clientWidth, h = cv.clientHeight;
+    if (!w || !h) return;
+    var dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    var g = cv.getContext("2d");
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, w, h);
+    var C = { green: css("--green", "#22c55e"), red: css("--red", "#ef4444"), amber: css("--amber", "#f59e0b"), blue: css("--blue", "#3b82f6"), muted: css("--muted", "#8a97b8"), line: css("--line", "#1b2742"), text: css("--text", "#e6ecff") };
+    g.font = "11px system-ui, sans-serif";
+    if (!d || !d.bars || !d.bars.length) {
+      g.fillStyle = C.muted; g.fillText(chart.err ? "Chart unavailable: " + chart.err : "No candles yet.", 12, 24);
+      return;
+    }
+    var showOrb = $("cOrb").checked && d.orb, showAvg = $("cAvg").checked, showSig = $("cSig").checked;
+    var L = 6, R = 66, T = 10, B = 22, pw = w - L - R, ph = h - T - B, slot = pw / SLOTS;
+    var lo = Infinity, hi = -Infinity;
+    function ext(v) { if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; } }
+    d.bars.forEach(function (b) { ext(b.hi); ext(b.lo); });
+    if (showOrb) { ext(d.orb.hi); ext(d.orb.lo); }
+    if (showAvg) d.vwap.forEach(ext);
+    if (showSig) d.signals.forEach(function (s) { ext(s.sl); ext(s.t1); });
+    var pad = (hi - lo) * 0.05 || 1;
+    var y0 = hi + pad, span = hi - lo + 2 * pad;
+    function y(v) { return T + (y0 - v) / span * ph; }
+    function xb(mm) { return L + (mm - OPEN_MM) / 5 * slot; }
+    function xc(mm) { return xb(mm) + slot / 2; }
+    chart.geo = { L: L, slot: slot, T: T, ph: ph, w: w, h: h };
+
+    // grid and axes
+    g.strokeStyle = C.line; g.fillStyle = C.muted; g.lineWidth = 1;
+    g.textAlign = "left"; g.textBaseline = "middle";
+    for (var k = 0; k <= 5; k++) {
+      var v = y0 - span * k / 5, yy = Math.round(y(v)) + 0.5;
+      g.beginPath(); g.moveTo(L, yy); g.lineTo(L + pw, yy); g.stroke();
+      g.fillText(v.toLocaleString("en-IN", { maximumFractionDigits: 0 }), L + pw + 6, yy);
+    }
+    g.textAlign = "center"; g.textBaseline = "top";
+    for (var m = 600; m <= 900; m += 60) {
+      var xx = Math.round(xb(m)) + 0.5;
+      g.beginPath(); g.moveTo(xx, T); g.lineTo(xx, T + ph); g.stroke();
+      g.fillText(hm(m), xx, T + ph + 5);
+    }
+    // opening range
+    if (showOrb) {
+      g.fillStyle = "rgba(59,130,246,.10)";
+      g.fillRect(xb(555), y(d.orb.hi), 3 * slot, y(d.orb.lo) - y(d.orb.hi));
+      g.strokeStyle = C.blue; g.setLineDash([5, 4]); g.lineWidth = 1;
+      [d.orb.hi, d.orb.lo].forEach(function (v) { g.beginPath(); g.moveTo(xb(555), y(v)); g.lineTo(L + pw, y(v)); g.stroke(); });
+      g.setLineDash([]);
+      g.fillStyle = C.blue; g.textAlign = "left"; g.textBaseline = "bottom";
+      g.fillText("OR high", L + pw - 44, y(d.orb.hi) - 2);
+      g.textBaseline = "top"; g.fillText("OR low", L + pw - 40, y(d.orb.lo) + 2);
+    }
+    // previous close
+    if (Number.isFinite(d.prevClose) && d.prevClose >= y0 - span && d.prevClose <= y0) {
+      g.strokeStyle = C.muted; g.setLineDash([2, 4]);
+      g.beginPath(); g.moveTo(L, y(d.prevClose)); g.lineTo(L + pw, y(d.prevClose)); g.stroke(); g.setLineDash([]);
+      g.fillStyle = C.muted; g.textAlign = "left"; g.textBaseline = "bottom"; g.fillText("prev close", L + 4, y(d.prevClose) - 2);
+    }
+    // candles
+    var bw = Math.max(1, slot * 0.68);
+    d.bars.forEach(function (b) {
+      var cx = xc(b.mm), up = b.cl >= b.o, col = up ? C.green : C.red;
+      g.strokeStyle = col; g.fillStyle = col; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(Math.round(cx) + 0.5, y(b.hi)); g.lineTo(Math.round(cx) + 0.5, y(b.lo)); g.stroke();
+      var top = y(Math.max(b.o, b.cl)), bh = Math.max(1, Math.abs(y(b.o) - y(b.cl)));
+      g.fillRect(cx - bw / 2, top, bw, bh);
+    });
+    // average price / VWAP
+    if (showAvg) {
+      g.strokeStyle = C.amber; g.lineWidth = 1.5; g.beginPath();
+      d.bars.forEach(function (b, i) { var px = xc(b.mm), py = y(d.vwap[i]); if (i) g.lineTo(px, py); else g.moveTo(px, py); });
+      g.stroke(); g.lineWidth = 1;
+    }
+    // signals
+    if (showSig) d.signals.forEach(function (s) {
+      var long = s.side === "long", col = long ? C.green : C.red;
+      var endMM = Math.min(930, Math.max(s.x1.exitMM || 0, s.x2.exitMM || 0) || (d.bars[d.bars.length - 1].mm + 5));
+      var xa = xb(s.entryMM), xe = xb(endMM);
+      g.lineWidth = 1; g.setLineDash([4, 3]);
+      [[s.sl, C.red, 1], [s.t1, C.green, 1], [s.t2, C.green, 0.45]].forEach(function (p) {
+        g.globalAlpha = p[2]; g.strokeStyle = p[1];
+        g.beginPath(); g.moveTo(xa, y(p[0])); g.lineTo(xe, y(p[0])); g.stroke();
+      });
+      g.globalAlpha = 1; g.setLineDash([]);
+      g.fillStyle = col; g.beginPath();
+      var ey = y(s.entry);
+      if (long) { g.moveTo(xa, ey - 2); g.lineTo(xa - 6, ey + 9); g.lineTo(xa + 6, ey + 9); }
+      else { g.moveTo(xa, ey + 2); g.lineTo(xa - 6, ey - 9); g.lineTo(xa + 6, ey - 9); }
+      g.closePath(); g.fill();
+      g.textAlign = "left"; g.textBaseline = long ? "top" : "bottom";
+      g.fillText(SHORT[s.strategy] + (long ? " CE" : " PE"), xa + 8, long ? ey + 3 : ey - 3);
+      [[s.x1, true], [s.x2, false]].forEach(function (p) {
+        var x = p[0]; if (!x.exitMM || x.outcome === "OPEN") return;
+        g.beginPath(); g.arc(xb(x.exitMM), y(x.exitPrice), p[1] ? 3.5 : 3, 0, 6.2832);
+        g.strokeStyle = x.r > 0 ? C.green : C.red; g.fillStyle = x.r > 0 ? C.green : C.red;
+        if (p[1]) g.fill(); else g.stroke();
+      });
+    });
+    // crosshair
+    if (chart.hover >= 0 && chart.hover < d.bars.length) {
+      var hb = d.bars[chart.hover], hx = Math.round(xc(hb.mm)) + 0.5;
+      g.strokeStyle = C.muted; g.setLineDash([3, 3]);
+      g.beginPath(); g.moveTo(hx, T); g.lineTo(hx, T + ph); g.stroke(); g.setLineDash([]);
+    }
+    // last price tag
+    var lb = d.bars[d.bars.length - 1];
+    g.fillStyle = lb.cl >= lb.o ? C.green : C.red;
+    g.fillRect(L + pw + 2, y(lb.cl) - 8, R - 4, 16);
+    g.fillStyle = "#04120a"; g.textAlign = "left"; g.textBaseline = "middle";
+    g.fillText(lb.cl.toLocaleString("en-IN", { maximumFractionDigits: 1 }), L + pw + 5, y(lb.cl));
+    var lg = $("cleg");
+    lg.textContent = "";
+    lg.appendChild(document.createTextNode("5-minute candles. Blue band: 9:15 to 9:30 opening range. Amber line: " + d.vwapLabel.toLowerCase() + ". "));
+    if (d.vwapIsProxy) lg.appendChild(el("b", null, "This is NOT a true VWAP: the index feed has no volume, so the line is an equal-weighted session average (proxy), and the VWAP rules do not trade on it. "));
+    lg.appendChild(document.createTextNode("Triangle: where a rule would have said BUY. Red dashed: stop. Green dashed: T1 (solid shade) and T2 (faint). Filled dot: exit under the T1 plan, ring: exit under the T2 plan."));
+  }
+
+  function chartPoint(ev) {
+    var cv = $("cv"), r = cv.getBoundingClientRect(), d = chart.data, G = chart.geo;
+    if (!d || !G) return;
+    var i = Math.floor((ev.clientX - r.left - G.L) / G.slot);
+    var idx = -1;
+    for (var k = 0; k < d.bars.length; k++) if ((d.bars[k].mm - OPEN_MM) / 5 === i) { idx = k; break; }
+    chart.hover = idx;
+    if (idx >= 0) {
+      var b = d.bars[idx], n = function (v) { return v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+      $("cinfo").textContent = hm(b.mm) + "  O " + n(b.o) + "  H " + n(b.hi) + "  L " + n(b.lo) + "  C " + n(b.cl) + "  · " + d.vwapLabel.toLowerCase() + " " + n(d.vwap[idx]);
+    }
+    drawChart();
+  }
+  $("cv").addEventListener("pointermove", chartPoint);
+  $("cv").addEventListener("pointerdown", chartPoint);
+  $("cv").addEventListener("pointerleave", function () { chart.hover = -1; drawChart(); });
+
+  function outTxt(x) {
+    if (!x) return "";
+    var w = x.outcome === "TGT" ? "target hit" : x.outcome === "SL" ? "stopped out" : x.outcome === "EOD" ? "time exit" : "still open";
+    return w + " " + fr(x.r) + (x.exitMM ? " at " + hm(x.exitMM) : "");
+  }
+  function renderSignals() {
+    var ul = $("siglist"), d = chart.data;
+    ul.textContent = "";
+    if (!d) return;
+    if (!d.signals.length) {
+      ul.appendChild(el("li", "dim", "No BUY signal from any replayable rulebook " + (d.live ? "so far in this session." : "in this session.")));
+    }
+    if (d.vix) ul.appendChild(el("li", "dim", d.vix.unavailable ? "India VIX filter skipped (" + d.vix.unavailable + ")." : "India VIX (previous close) " + num(d.vix.value, 2) + " vs 60th percentile " + num(d.vix.p60, 2) + (d.vix.blocked ? ": ELEVATED, BUY signals are held back this session." : ": not elevated.")));
+    (d.blocked || []).forEach(function (b) {
+      ul.appendChild(el("li", "dim", lab(b.strategy) + " would have said BUY " + (b.side === "long" ? "CE" : "PE") + " at " + hm(b.entryMM) + " but was held back by " + (b.by === "vix" ? "the India VIX filter" : "the opening-range size rule") + "."));
+    });
+    if (!d.signals.length) return;
+    d.signals.forEach(function (s) {
+      var n = function (v) { return v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+      ul.appendChild(el("li", null,
+        lab(s.strategy) + " · BUY " + (s.side === "long" ? "CE" : "PE") + (s.sizeHint === "half" ? " (HALF SIZE)" : "") + " at " + hm(s.entryMM) + ", index " + n(s.entry) +
+        " · SL " + n(s.sl) + " · T1 " + n(s.t1) + " · T2 " + n(s.t2) +
+        " → T1 plan: " + outTxt(s.x1) + " · T2 plan: " + outTxt(s.x2)));
+    });
+  }
+  function renderChain() {
+    var d = chart.data, info = $("chainInfo"), tb = $("ladder");
+    tb.textContent = "";
+    if (!d || !d.bars.length) { info.textContent = "No price yet."; return; }
+    var step = STEP[chart.ix] || 50, px = d.bars[d.bars.length - 1].cl, atm = Math.round(px / step) * step;
+    info.textContent = d.name + " last " + num(px, 2) + " · ATM strike " + num(atm, 0) + " · strike step " + step + (d.expiry ? " · expiry day (rules block entries)" : "") + (d.live ? "" : " · as of that session's close");
+    for (var k = 3; k >= -3; k--) {
+      var s = atm + k * step, tr = el("tr");
+      tr.appendChild(el("td", null, s === atm ? "ATM" : s < px ? "ITM" : "OTM"));
+      var sc = el("td", null, num(s, 0)); sc.style.fontWeight = s === atm ? "700" : "400"; tr.appendChild(sc);
+      tr.appendChild(el("td", null, s === atm ? "ATM" : s > px ? "ITM" : "OTM"));
+      tb.appendChild(tr);
+    }
+  }
+
+  // =====================================================================
+  // Backtest view
+  // =====================================================================
+  var BT = { rows: {}, running: false };
+  var ALLKEYS = IXS.map(function (p) { return p[0]; });
+  var BT_IDS = ["orb_break", "orb_retest", "ichi", "vwap_reclaim", "vwap_pullback"];
+  var BT_COL = { orb_break: "#3b82f6", orb_retest: "#93c5fd", ichi: "#22c55e", vwap_reclaim: "#f59e0b", vwap_pullback: "#a78bfa" };
+  var SUM_KEY = "bs-bt-summary";
+
+  $("view").querySelectorAll("button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var bt = b.dataset.v === "bt";
+      $("view").querySelectorAll("button").forEach(function (x) { x.classList.toggle("on", x === b); });
+      $("liveView").hidden = bt;
+      $("btView").hidden = !bt;
+      if (bt) btRender(); else { drawChart(); }
+    });
+  });
+  window.addEventListener("resize", function () { if (!$("liveView").hidden) drawChart(); else btDrawEquity(); });
+
+  function btShowBanner(kind, msg) { var b = $("btBanner"); b.className = "banner " + kind; b.textContent = msg; }
+  function btClearBanner() { var b = $("btBanner"); b.className = "banner"; b.textContent = ""; }
+
+  async function btRun() {
+    if (BT.running) return;
+    BT.running = true; BT.rows = {};
+    btClearBanner();
+    $("btRun").disabled = true;
+    var sel = $("btix").value, keys = sel === "ALL" ? ALLKEYS : [sel], fails = [];
+    for (var i = 0; i < keys.length; i++) {
+      $("btStatus").innerHTML = '<span class="spin"></span>Replaying ' + esc(keys[i]) + " (" + (i + 1) + " of " + keys.length + "). Each index takes a few seconds to a minute.";
+      var ctrl = new AbortController(), to = setTimeout(function () { ctrl.abort(); }, 70000);
+      try {
+        var res = await fetch("/api/backtest?index=" + encodeURIComponent(keys[i]), { signal: ctrl.signal });
+        var d = await res.json();
+        if (!res.ok) throw new Error((d.error || "HTTP " + res.status) + (d.detail ? " [" + d.detail + "]" : ""));
+        BT.rows[keys[i]] = d;
+        btRender();
+      } catch (e) {
+        fails.push(keys[i] + ": " + (e.name === "AbortError" ? "timed out" : e.message));
+      } finally { clearTimeout(to); }
+    }
+    BT.running = false;
+    $("btRun").disabled = false;
+    var done = Object.keys(BT.rows).length;
+    $("btStatus").textContent = done ? "Done: " + done + " of " + keys.length + " indices replayed." : "No index could be replayed.";
+    var notes = [];
+    if (fails.length) notes.push("Some indices failed: " + fails.join(" | "));
+    var anyNoVix = Object.keys(BT.rows).some(function (k) { return !BT.rows[k].vix || !BT.rows[k].vix.available; });
+    if (anyNoVix) notes.push("India VIX could not be fetched, so the VIX filter was skipped and option P&L could not be computed.");
+    if (notes.length) btShowBanner("warn", notes.join(" "));
+    btRender();
+  }
+  $("btRun").addEventListener("click", btRun);
+  ["btCost", "btOptCost"].forEach(function (id) { $(id).addEventListener("input", btRender); });
+  ["btPlan", "btStrike", "dgStrat"].forEach(function (id) { $(id).addEventListener("change", btRender); });
+  $("btToggle").addEventListener("click", function () {
+    var w = $("btTradesWrap"); w.hidden = !w.hidden; $("btToggle").textContent = w.hidden ? "Show" : "Hide";
+  });
+
+  function num0(id, d) { var c = parseFloat($(id).value); return Number.isFinite(c) && c >= 0 ? c : d; }
+  function cost() { return num0("btCost", 0); }
+  function optCost() { return num0("btOptCost", 0); }
+  function plan() { return $("btPlan").value === "x2" ? "x2" : "x1"; }
+  function strike() { return $("btStrike").value === "itm" ? "itm" : "atm"; }
+  function allTrades() {
+    var out = [];
+    Object.keys(BT.rows).forEach(function (k) { (BT.rows[k].trades || []).forEach(function (t) { out.push(t); }); });
+    return out;
+  }
+  function chrono(ts) {
+    return ts.slice().sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.entryMM - b.entryMM; });
+  }
+  function meanCI(rs) {
+    var n = rs.length;
+    if (!n) return null;
+    var sum = 0; rs.forEach(function (r) { sum += r; });
+    var avg = sum / n, v = 0;
+    rs.forEach(function (r) { v += (r - avg) * (r - avg); });
+    var se = n > 1 ? Math.sqrt(v / (n - 1) / n) : null;
+    return { n: n, avg: avg, lo: se == null ? null : avg - 1.96 * se, hi: se == null ? null : avg + 1.96 * se };
+  }
+  // Index-R statistics for a plan (x1 or x2). x.r already includes the half-size scaling.
+  function stats(ts, which, c) {
+    var n = ts.length;
+    if (!n) return null;
+    ts = chrono(ts);
+    var rs = ts.map(function (t) { return t[which].r - c; });
+    var sum = 0, gain = 0, loss = 0, hit = 0, cum = 0, peak = 0, dd = 0, run = 0, worst = 0;
+    ts.forEach(function (t, i) {
+      var r = rs[i];
+      sum += r; if (r > 0) gain += r; else loss -= r;
+      if (t[which].outcome === "TGT") hit++;
+      cum += r; if (cum > peak) peak = cum; if (peak - cum > dd) dd = peak - cum;
+      if (r <= 0) { run++; if (run > worst) worst = run; } else run = 0;
+    });
+    var m = meanCI(rs);
+    var p = hit / n, z = 1.96, den = 1 + z * z / n, ctr = (p + z * z / (2 * n)) / den;
+    var half = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / den;
+    return { n: n, avg: m.avg, lo: m.lo, hi: m.hi, total: sum,
+      pf: loss > 0 ? gain / loss : null, dd: dd, worst: worst, hit: p, hitLo: Math.max(0, ctr - half), hitHi: Math.min(1, ctr + half) };
+  }
+  // Option statistics: Black-Scholes premium change, net of the option cost (percent of premium).
+  function optList(ts, which, scen) {
+    var st = strike(), cp = optCost(), out = [];
+    ts.forEach(function (t) {
+      var o = t.opt && t.opt[which] && t.opt[which][st];
+      if (!o || !o[scen]) return;
+      var src = scen === "noIv" && o.real ? o.real : o[scen]; // real broker premium when the adapter supplied one
+      out.push({ r: src.r - (cp / 100) / o.riskFrac * t.scale, pct: src.pct - cp, real: src === o.real });
+    });
+    return out;
+  }
+  function optStats(ts, which, scen) {
+    var l = optList(ts, which, scen);
+    if (!l.length) return null;
+    var m = meanCI(l.map(function (x) { return x.r; }));
+    var pc = 0; l.forEach(function (x) { pc += x.pct; });
+    m.pct = pc / l.length;
+    m.real = l.filter(function (x) { return x.real; }).length;
+    m.of = ts.length;
+    return m;
+  }
+  function pct(v) { return Number.isFinite(v) ? Math.round(v * 100) + "%" : "–"; }
+  function rng(s) { return s.lo == null ? "" : " (" + fr(s.lo).replace("R", "") + " to " + fr(s.hi).replace("R", "") + ")"; }
+  function th(tr, labels) { labels.forEach(function (t) { tr.appendChild(el("th", null, t)); }); }
+  function td(tr, text, cls) { var c = el("td", cls || "num", text); tr.appendChild(c); return c; }
+  function lowN(c, n) { if (n < 30) c.appendChild(el("span", "lowN", "few trades")); }
+  function tone(m) { return m && m.lo != null && m.lo > 0 ? "num up" : m && m.hi != null && m.hi < 0 ? "num down" : "num"; }
+  function optCell(tr, ts, which, scen) {
+    var m = optStats(ts, which, scen);
+    if (!m) { td(tr, ts.length ? "n/a (no VIX)" : "–"); return; }
+    var c = td(tr, fr(m.avg) + rng(m) + " · " + (m.pct >= 0 ? "+" : "−") + Math.abs(m.pct).toFixed(1) + "% premium", tone(m));
+    if (m.n < m.of) c.appendChild(el("span", "lowN", m.n + " of " + m.of + " priced"));
+    if (m.real) c.appendChild(el("span", "lowN", m.real + " with real broker premium"));
+  }
+  function ctable(parent, head, rows, foot) {
+    var t = el("table", "bt mini"), hr = el("tr");
+    th(hr, head); t.appendChild(el("thead")).appendChild(hr);
+    var tb = el("tbody");
+    rows.forEach(function (r) { var tr = el("tr"); r.forEach(function (v, i) { td(tr, v, i === 0 ? "l" : "num"); }); tb.appendChild(tr); });
+    if (foot) { var f = el("tr"); foot.forEach(function (v, i) { var c = td(f, v, i === 0 ? "l" : "num"); c.style.fontWeight = "700"; }); tb.appendChild(f); }
+    t.appendChild(tb);
+    var w = el("div", "wrap"); w.appendChild(t); parent.appendChild(w);
+  }
+
+  function btRender() {
+    var keys = Object.keys(BT.rows), all = allTrades(), c = cost(), W = plan();
+    $("btOut").hidden = !keys.length;
+    if (!keys.length) return;
+    var first = BT.rows[keys[0]];
+
+    var sum = $("btSum"); sum.textContent = "";
+    var hr = el("tr"); th(hr, ["Strategy", "Trades", "Target hit", "Index R", "Option P&L (BS, no IV change)", "Option P&L (BS, −10% IV)", "Profit factor (index)", "Max drawdown R", "Longest losing run", "Blocked (VIX / size)"]);
+    sum.appendChild(el("thead")).appendChild(hr);
+    var sb = el("tbody");
+    BT_IDS.forEach(function (s) {
+      var ts = all.filter(function (t) { return t.strategy === s; }), a = stats(ts, W, c), tr = el("tr");
+      tr.dataset.strategy = s;
+      td(tr, lab(s), "l");
+      var bl = 0, bz = 0;
+      keys.forEach(function (k) { var b = (BT.rows[k].blocked || {})[s]; if (b) { bl += b.vix || 0; bz += b.size || 0; } });
+      if (!a) { td(tr, "0"); td(tr, "–"); td(tr, "–"); td(tr, "–"); td(tr, "–"); td(tr, "–"); td(tr, "–"); td(tr, "–"); td(tr, bl + " / " + bz); sb.appendChild(tr); return; }
+      lowN(td(tr, String(a.n)), a.n);
+      td(tr, pct(a.hit) + " (" + pct(a.hitLo) + " to " + pct(a.hitHi) + ")");
+      td(tr, fr(a.avg) + rng(a), tone(a));
+      optCell(tr, ts, W, "noIv");
+      optCell(tr, ts, W, "crush");
+      td(tr, a.pf == null ? "–" : a.pf.toFixed(2));
+      td(tr, a.dd.toFixed(2) + "R");
+      td(tr, String(a.worst));
+      td(tr, bl + " / " + bz);
+      sb.appendChild(tr);
+    });
+    (first.notBacktested || []).forEach(function (nb) {
+      var tr = el("tr", "nobt"); tr.dataset.strategy = nb.strategy;
+      td(tr, nb.label, "l");
+      var cc = td(tr, "Not backtested: " + nb.why, "l"); cc.colSpan = 9; cc.style.whiteSpace = "normal";
+      sb.appendChild(tr);
+    });
+    sum.appendChild(sb);
+
+    var ix = $("btIdx"); ix.textContent = "";
+    var h2 = el("tr"); th(h2, ["Index", "Strategy", "Trades", "Target hit", "Index R", "Option P&L (BS, no IV change)"]);
+    ix.appendChild(el("thead")).appendChild(h2);
+    var ib = el("tbody");
+    keys.forEach(function (k) {
+      BT_IDS.forEach(function (s) {
+        var ts = (BT.rows[k].trades || []).filter(function (t) { return t.strategy === s; }), a = stats(ts, W, c), tr = el("tr");
+        td(tr, BT.rows[k].name, "l"); td(tr, lab(s), "l");
+        if (!a) { td(tr, "0"); td(tr, "–"); td(tr, "–"); td(tr, "–"); ib.appendChild(tr); return; }
+        td(tr, String(a.n)); td(tr, pct(a.hit));
+        td(tr, fr(a.avg), a.avg >= 0 ? "num up" : "num down");
+        optCell(tr, ts, W, "noIv");
+        ib.appendChild(tr);
+      });
+    });
+    ix.appendChild(ib);
+    $("btMeta").textContent = keys.map(function (k) {
+      var r = BT.rows[k];
+      return r.name + ": " + r.sessions + " sessions " + (r.from || "?") + " to " + (r.to || "?") + ", " + r.expiryDays + " expiry days skipped" +
+        (r.skippedShort ? ", " + r.skippedShort + " short or incomplete days skipped" : "") + (r.truncated ? ", STOPPED EARLY (time limit)" : "") +
+        (r.volumeInFeed ? "" : ", no volume in the feed (VWAP rules cannot trade, volume filters skipped)") +
+        (r.vix && r.vix.available ? "" : ", India VIX unavailable (filter skipped, no option P&L)") + ", data: " + r.source + ", option P&L: " + (r.option && r.option.premiumSource);
+    }).join(" · ");
+
+    var tt = $("btTrades"); tt.textContent = "";
+    var h3 = el("tr"); th(h3, ["Date", "Index", "Strategy", "Side", "Entry time", "Entry", "Stop", "Size", "Exit", "Index R", "Option R (BS, no IV change)", "Option R (BS, −10% IV)"]);
+    tt.appendChild(el("thead")).appendChild(h3);
+    var tbd = el("tbody"), cp = optCost();
+    chrono(all).reverse().slice(0, 400).forEach(function (t) {
+      var tr = el("tr"), x = t[W], o = t.opt && t.opt[W] && t.opt[W][strike()];
+      td(tr, t.date, "l"); td(tr, t.index, "l"); td(tr, lab(t.strategy), "l"); td(tr, t.side === "long" ? "CE" : "PE", "l");
+      td(tr, hm(t.entryMM)); td(tr, num(t.entry, 2)); td(tr, num(t.sl, 2)); td(tr, t.sizeHint || "full", "l");
+      td(tr, outTxt(x), "l");
+      td(tr, fr(x.r - c), x.r - c > 0 ? "num up" : "num down");
+      [["noIv"], ["crush"]].forEach(function (sc) {
+        if (!o || !o[sc[0]]) { td(tr, "–"); return; }
+        var v = (sc[0] === "noIv" && o.real ? o.real.r : o[sc[0]].r) - (cp / 100) / o.riskFrac * t.scale;
+        td(tr, fr(v), v > 0 ? "num up" : "num down");
+      });
+      tbd.appendChild(tr);
+    });
+    tt.appendChild(tbd);
+    btDiag(all);
+    btDrawEquity();
+    saveSummary(all);
+  }
+
+  // ---- diagnostics: every table adds up to the trade count ----
+  var HB = ["9:30–10:30", "10:30–11:30", "11:30–13:00", "13:00–14:30"];
+  var WD = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  function hourBucket(mm) { return mm < 630 ? 0 : mm < 690 ? 1 : mm < 780 ? 2 : 3; }
+  function weekday(iso) { var d = new Date(iso + "T00:00:00Z").getUTCDay(); return Math.min(4, Math.max(0, d - 1)); }
+  function klass(t) { return t.x1.outcome === "SL" ? "Stopped before T1" : t.x2.outcome === "TGT" ? "Reached T2" : t.x1.outcome === "TGT" ? "Reached T1, not T2" : t.x1.outcome === "EOD" ? "Time exit (15:15)" : "Still open"; }
+  function btDiag(all) {
+    var sel = $("dgStrat");
+    if (!sel.options.length) {
+      var o0 = el("option", null, "All strategies"); o0.value = "all"; sel.appendChild(o0);
+      BT_IDS.forEach(function (id) { var o = el("option", null, lab(id)); o.value = id; sel.appendChild(o); });
+    }
+    var ts = sel.value === "all" ? all : all.filter(function (t) { return t.strategy === sel.value; });
+    var out = $("dgOut"); out.textContent = "";
+    var W = plan(), c = cost(), N = ts.length;
+    function block(title, head, rows, foot, check) {
+      var d = el("div"); d.appendChild(el("h3", null, title));
+      ctable(d, head, rows, foot);
+      d.appendChild(el("div", "chk2", check));
+      out.appendChild(d);
+    }
+    function avgR(a) { return a.length ? fr(a.reduce(function (s, t) { return s + t[W].r - c; }, 0) / a.length) : "–"; }
+    function hitR(a) { return a.length ? pct(a.filter(function (t) { return t[W].r - c > 0; }).length / a.length) : "–"; }
+    function group(names, key) {
+      var g = names.map(function () { return []; });
+      ts.forEach(function (t) { g[key(t)].push(t); });
+      return g;
+    }
+    // outcomes
+    var oc = ["Stopped before T1", "Reached T1, not T2", "Reached T2", "Time exit (15:15)", "Still open"], og = {};
+    oc.forEach(function (k) { og[k] = []; });
+    ts.forEach(function (t) { og[klass(t)].push(t); });
+    var cnt = oc.map(function (k) { return og[k].length; }), tot = cnt.reduce(function (a, b) { return a + b; }, 0);
+    block("Outcomes", ["Outcome", "Trades", "Share", "Avg R (" + (W === "x1" ? "T1" : "T2") + " plan)"], oc.map(function (k) { return [k, String(og[k].length), N ? pct(og[k].length / N) : "–", avgR(og[k])]; }), ["Total", String(tot), N ? "100%" : "–", avgR(ts)], "Adds up: " + tot + " of " + N);
+    // stops
+    var sp = 0, spp = 0; ts.forEach(function (t) { sp += Math.abs(t.entry - t.sl); spp += t.riskPct; });
+    var byIx = {}; ts.forEach(function (t) { (byIx[t.index] = byIx[t.index] || []).push(t); });
+    var ixr = Object.keys(byIx).map(function (k) { var a = byIx[k]; var p = 0, q = 0; a.forEach(function (t) { p += Math.abs(t.entry - t.sl); q += t.riskPct; }); return [k, String(a.length), num(p / a.length, 1), num(q / a.length, 2) + "%"]; });
+    var ixt = Object.keys(byIx).reduce(function (s, k) { return s + byIx[k].length; }, 0);
+    block("Average stop distance", ["Index", "Trades", "Avg stop (points)", "Avg stop (% of price)"], ixr, ["All", String(N), N ? num(sp / N, 1) : "–", N ? num(spp / N, 2) + "%" : "–"], "Adds up: " + ixt + " of " + N);
+    // side
+    var sg = group(["CE", "PE"], function (t) { return t.side === "long" ? 0 : 1; });
+    block("By side", ["Side", "Trades", "Win rate", "Avg index R"], [["CE (long)", String(sg[0].length), hitR(sg[0]), avgR(sg[0])], ["PE (short)", String(sg[1].length), hitR(sg[1]), avgR(sg[1])]], ["Total", String(sg[0].length + sg[1].length), hitR(ts), avgR(ts)], "Adds up: " + (sg[0].length + sg[1].length) + " of " + N);
+    // hour
+    var hg = group(HB, function (t) { return hourBucket(t.entryMM); }), hn = hg.reduce(function (s, a) { return s + a.length; }, 0);
+    block("By entry time", ["Entry time (IST)", "Trades", "Win rate", "Avg index R"], HB.map(function (k, i) { return [k, String(hg[i].length), hitR(hg[i]), avgR(hg[i])]; }), ["Total", String(hn), hitR(ts), avgR(ts)], "Adds up: " + hn + " of " + N);
+    // weekday
+    var wg = group(WD, function (t) { return weekday(t.date); }), wn = wg.reduce(function (s, a) { return s + a.length; }, 0);
+    block("By day of week", ["Day", "Trades", "Win rate", "Avg index R"], WD.map(function (k, i) { return [k, String(wg[i].length), hitR(wg[i]), avgR(wg[i])]; }), ["Total", String(wn), hitR(ts), avgR(ts)], "Adds up: " + wn + " of " + N);
+    out.dataset.total = String(N);
+  }
+
+  // The Journal page compares these numbers with your paper trades.
+  function saveSummary(all) {
+    try {
+      var c = cost(), o = { at: new Date().toISOString(), indices: Object.keys(BT.rows), strike: strike(), indexCostR: c, optCostPct: optCost(), byStrategy: {} };
+      BT_IDS.forEach(function (s) {
+        var ts = all.filter(function (t) { return t.strategy === s; }), e = { n: ts.length };
+        ["x1", "x2"].forEach(function (w) {
+          var a = stats(ts, w, c), m = optStats(ts, w, "noIv");
+          e[w] = { idxR: a ? a.avg : null, optR: m ? m.avg : null, optN: m ? m.n : 0 };
+        });
+        o.byStrategy[s] = e;
+      });
+      localStorage.setItem(SUM_KEY, JSON.stringify(o));
+    } catch (e) {}
+  }
+
+  function btDrawEquity() {
+    var cv = $("eq");
+    if (!cv || $("btView").hidden || $("btOut").hidden) return;
+    var w = cv.clientWidth, h = cv.clientHeight;
+    if (!w || !h) return;
+    var dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    var g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+    g.font = "11px system-ui, sans-serif";
+    var muted = css("--muted", "#8a97b8"), line = css("--line", "#1b2742"), c = cost(), W = plan();
+    var series = {}, lo = 0, hi = 0, maxN = 1;
+    BT_IDS.forEach(function (s) {
+      var cum = 0, arr = [0];
+      chrono(allTrades().filter(function (t) { return t.strategy === s; })).forEach(function (t) { cum += t[W].r - c; arr.push(cum); });
+      series[s] = arr; maxN = Math.max(maxN, arr.length - 1);
+      arr.forEach(function (v) { if (v < lo) lo = v; if (v > hi) hi = v; });
+    });
+    var L = 36, R = 8, T = 8, B = 20, pw = w - L - R, ph = h - T - B, span = (hi - lo) || 1;
+    function px(i) { return L + (maxN ? i / maxN : 0) * pw; }
+    function py(v) { return T + (hi - v) / span * ph; }
+    g.strokeStyle = line; g.fillStyle = muted; g.textAlign = "right"; g.textBaseline = "middle";
+    for (var k = 0; k <= 4; k++) {
+      var v = hi - span * k / 4, yy = Math.round(py(v)) + 0.5;
+      g.beginPath(); g.moveTo(L, yy); g.lineTo(L + pw, yy); g.stroke(); g.fillText(v.toFixed(1), L - 4, yy);
+    }
+    g.strokeStyle = muted; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(L, py(0)); g.lineTo(L + pw, py(0)); g.stroke(); g.setLineDash([]);
+    g.textAlign = "center"; g.textBaseline = "top"; g.fillText("trade number (oldest to newest, per strategy)", L + pw / 2, T + ph + 5);
+    var lg = $("eqLeg"); lg.textContent = "";
+    BT_IDS.forEach(function (s) {
+      var a = series[s];
+      var sp = el("span", null, "● "); sp.style.color = BT_COL[s];
+      lg.appendChild(sp); lg.appendChild(document.createTextNode(lab(s) + " " + fr(a[a.length - 1]) + " in " + (a.length - 1) + " trades   "));
+      if (a.length < 2) return;
+      g.strokeStyle = BT_COL[s]; g.lineWidth = 2; g.beginPath();
+      a.forEach(function (v, i) { if (i) g.lineTo(px(i), py(v)); else g.moveTo(px(i), py(v)); });
+      g.stroke(); g.lineWidth = 1;
+    });
+  }
+
+  chartLoad(false);
+  load(false);
+})();
+</script>
+</body>
+</html>

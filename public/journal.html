@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<link rel="icon" href="data:,">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#060b18">
+<title>Paper Trade Journal</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+  .page { max-width: 1180px; }
+  .panel { border: 1px solid var(--line); border-radius: 12px; background: var(--card); padding: 12px; margin: 0 0 12px; }
+  .panel h2 { font-size: 14px; margin: 0 0 8px; letter-spacing: .2px; }
+  .notice { border: 1px solid #5b4516; background: #1c170b; color: #ffd98a; border-radius: 10px; padding: 9px 12px; font-size: 13px; margin: 0 0 10px; }
+  form.jf { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: end; }
+  form.jf label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+  form.jf input[type=text], form.jf input[type=date], form.jf input[type=number], form.jf select {
+    background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; font: inherit; min-height: 40px; width: 100%; }
+  form.jf .wide { grid-column: 1 / -1; }
+  form.jf label.chkl { flex-direction: row; align-items: center; gap: 8px; color: var(--text); font-size: 14px; min-height: 40px; }
+  .bar { height: 8px; border-radius: 4px; background: #1a2440; overflow: hidden; margin: 6px 0 2px; max-width: 420px; }
+  .bar i { display: block; height: 100%; background: var(--blue); }
+  table.jt { min-width: 0; }
+  table.jt th, table.jt td { padding: 8px 10px; font-size: 13px; }
+  table.jt th { white-space: normal; line-height: 1.25; vertical-align: bottom; }
+  table.jt td.l { text-align: left; white-space: normal; }
+  tr.skipped td { color: var(--muted); }
+  .cleg { color: var(--muted); font-size: 12.5px; margin: 6px 0 0; line-height: 1.5; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 0 0 8px; }
+  .stat { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+  .stat b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--muted); font-size: 11.5px; }
+  .lowN { color: var(--amber); font-size: 11px; margin-left: 4px; }
+  .labsel { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+  .tiny { min-height: 32px; padding: 4px 10px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <nav class="tabs" aria-label="Scanners">
+    <a href="/">Breakouts</a>
+    <a href="/ichimoku.html">Ichimoku Cloud</a>
+    <a href="/indices.html">Index Options</a>
+    <a href="/journal.html" aria-current="page">Journal</a>
+  </nav>
+  <h1>Paper Trade Journal</h1>
+  <p class="sub">Log the option trades you would take from the Index Options page, using the real option premiums you see in your broker. Everything stays in this browser (local storage); nothing is sent anywhere.</p>
+  <div class="notice" id="honest"><b>Paper results are the only out-of-sample evidence you will have.</b> 20–30 sessions is the minimum; 50+ is better. Log the signals you skipped too, otherwise the record only shows the trades you liked. This is a record of your own trades, not proof of an edge.</div>
+  <div class="banner" id="banner"></div>
+
+  <div class="panel">
+    <h2>Add an entry</h2>
+    <form class="jf" id="jf" autocomplete="off">
+      <label>Date (IST)<input type="date" id="fDate" required></label>
+      <label>Index
+        <select id="fIx"><option>NIFTY</option><option>BANKNIFTY</option><option>FINNIFTY</option><option>MIDCPNIFTY</option><option>NIFTYNXT50</option></select></label>
+      <label>Strategy
+        <select id="fStrat">
+          <option value="orb_break">ORB breakout (Track 1)</option>
+          <option value="orb_retest">ORB retest (Track 2)</option>
+          <option value="ichi">Ichimoku + Fib (intraday)</option>
+          <option value="ichi_swing">Ichimoku swing (Daily / 4h)</option>
+          <option value="vwap_reclaim">VWAP reclaim</option>
+          <option value="vwap_pullback">VWAP pullback</option>
+          <option value="expiry_maxpain">Expiry max-pain</option>
+          <option value="manual">Other / manual</option>
+        </select></label>
+      <label>Side<select id="fSide"><option value="CE">Buy CE</option><option value="PE">Buy PE</option></select></label>
+      <label>Strike<input type="number" id="fStrike" step="any" min="0" placeholder="e.g. 24500"></label>
+      <label>Entry premium (₹)<input type="number" id="fEntry" step="any" min="0"></label>
+      <label>Planned stop premium (₹)<input type="number" id="fStop" step="any" min="0"></label>
+      <label>Exit premium (₹)<input type="number" id="fExit" step="any" min="0"></label>
+      <label class="chkl"><input type="checkbox" id="fSkip"> Skipped signal (I did not take it)</label>
+      <label class="wide">Notes<input type="text" id="fNote" maxlength="200" placeholder="Why taken or skipped, spread seen, anything odd"></label>
+      <div class="wide"><button class="primary" type="submit">Save entry</button> <span id="fMsg" class="dim" style="color:var(--muted);font-size:13px;margin-left:8px"></span></div>
+    </form>
+    <p class="cleg">Option R = (exit − entry) ÷ (entry − planned stop premium). Leave the stop blank if you have none; the % result still counts. Leave the exit blank while a trade is open. For a skipped signal only the date, index, strategy and side are needed.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Progress and statistics (option premium)</h2>
+    <div id="prog"></div>
+    <div class="stats" id="stats"></div>
+    <p class="cleg" id="statNote"></p>
+  </div>
+
+  <div class="panel">
+    <h2>Backtest vs paper <label class="labsel" style="margin-left:10px">Exit plan <select id="cmpPlan" class="tiny"><option value="x1">Stop / T1 plan</option><option value="x2">Stop / T2 plan</option></select></label></h2>
+    <div id="cmp"></div>
+    <p class="cleg">Backtest index R and option R (Black-Scholes approximation, no IV change) come from the last backtest run in this browser on the Index Options page. Paper option R comes from your entries above. They are not the same thing: the backtest is a model over about 40 sessions, and a paper log of a few trades is mostly noise. Do not read a gap as proof either way; read it as a prompt to look at your trades one by one.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Entries <button id="exp" class="tiny" style="margin-left:8px">Export CSV</button> <button id="clr" class="tiny">Clear all</button></h2>
+    <div class="wrap"><table class="jt" id="tbl"></table></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var KEY = "bs-journal-v1", SUM_KEY = "bs-bt-summary";
+  var NAMES = { orb_break: "ORB breakout (Track 1)", orb_retest: "ORB retest (Track 2)", ichi: "Ichimoku + Fib (intraday)", ichi_swing: "Ichimoku swing (Daily / 4h)", vwap_reclaim: "VWAP reclaim", vwap_pullback: "VWAP pullback", expiry_maxpain: "Expiry max-pain", manual: "Other / manual" };
+  var mem = [], memOnly = false;
+
+  function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; }
+  function nf(v, d) { return Number.isFinite(v) ? v.toLocaleString("en-IN", { minimumFractionDigits: d, maximumFractionDigits: d }) : "–"; }
+  function sgn(v, d, suf) { return Number.isFinite(v) ? (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(d) + (suf || "") : "–"; }
+  function banner(msg) { var b = $("banner"); b.className = msg ? "banner warn" : "banner"; b.textContent = msg || ""; }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      var a = raw ? JSON.parse(raw) : [];
+      return Array.isArray(a) ? a : [];
+    } catch (e) { memOnly = true; return mem; }
+  }
+  function save(a) {
+    mem = a;
+    try { localStorage.setItem(KEY, JSON.stringify(a)); memOnly = false; } catch (e) { memOnly = true; }
+    banner(memOnly ? "This browser is blocking local storage (private window or blocked site data). Entries are kept only until you close or reload the page: export the CSV before leaving." : "");
+  }
+  function istToday() { try { return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); } catch (e) { return new Date().toISOString().slice(0, 10); } }
+  $("fDate").value = istToday();
+
+  // ---- per-entry results ----
+  function calc(e) {
+    if (e.skipped) return { kind: "skipped" };
+    var en = e.entry, ex = e.exit;
+    if (!(en > 0)) return { kind: "incomplete" };
+    if (!(ex >= 0) || ex === null) return { kind: "open" };
+    var pct = (ex - en) / en * 100;
+    var r = e.stop != null && en - e.stop > 0 ? (ex - en) / (en - e.stop) : null;
+    return { kind: "closed", pct: pct, r: r };
+  }
+  function meanCI(a) {
+    var n = a.length; if (!n) return null;
+    var s = 0; a.forEach(function (x) { s += x; });
+    var m = s / n, v = 0; a.forEach(function (x) { v += (x - m) * (x - m); });
+    var se = n > 1 ? Math.sqrt(v / (n - 1) / n) : null;
+    return { n: n, avg: m, lo: se == null ? null : m - 1.96 * se, hi: se == null ? null : m + 1.96 * se };
+  }
+  function sorted(a) { return a.slice().sort(function (x, y) { return x.date < y.date ? -1 : x.date > y.date ? 1 : x.id - y.id; }); }
+
+  function stats(entries) {
+    var closed = sorted(entries).map(function (e) { return { e: e, c: calc(e) }; }).filter(function (x) { return x.c.kind === "closed"; });
+    var o = { traded: closed.length };
+    if (!closed.length) return o;
+    var pcts = closed.map(function (x) { return x.c.pct; });
+    var rs = closed.filter(function (x) { return x.c.r != null; }).map(function (x) { return x.c.r; });
+    var gain = 0, loss = 0, cum = 0, peak = 0, dd = 0, run = 0, worst = 0, wins = 0;
+    pcts.forEach(function (p) {
+      if (p > 0) { gain += p; wins++; } else loss -= p;
+      cum += p; if (cum > peak) peak = cum; if (peak - cum > dd) dd = peak - cum;
+      if (p <= 0) { run++; if (run > worst) worst = run; } else run = 0;
+    });
+    o.win = wins / closed.length; o.pctM = meanCI(pcts); o.rM = meanCI(rs);
+    o.total = cum; o.pf = loss > 0 ? gain / loss : null; o.dd = dd; o.worst = worst;
+    return o;
+  }
+
+  // ---- rendering ----
+  function render() {
+    var all = load(), s = stats(all);
+    // progress
+    var dates = {}; all.forEach(function (e) { dates[e.date] = 1; });
+    var nd = Object.keys(dates).length, skipped = all.filter(function (e) { return e.skipped; }).length;
+    var prog = $("prog"); prog.textContent = "";
+    prog.appendChild(el("div", null, nd + " session" + (nd === 1 ? "" : "s") + " logged · " + s.traded + " closed trade" + (s.traded === 1 ? "" : "s") + " · " + skipped + " skipped signal" + (skipped === 1 ? "" : "s") + " · " + all.filter(function (e) { return calc(e).kind === "open"; }).length + " open"));
+    var bar = el("div", "bar"), fill = el("i"); fill.style.width = Math.min(100, nd / 50 * 100) + "%"; bar.appendChild(fill); prog.appendChild(bar);
+    prog.appendChild(el("div", "cleg", nd < 20 ? "Under 20 sessions: too few to say anything. Keep logging." : nd < 30 ? "20 to 29 sessions: still thin. The minimum is 30." : nd < 50 ? "30 to 49 sessions: the minimum is met; 50 or more is better." : "50 or more sessions logged."));
+
+    var st = $("stats"); st.textContent = "";
+    function box(v, l) { var d = el("div", "stat"); d.appendChild(el("b", null, v)); d.appendChild(el("span", null, l)); st.appendChild(d); }
+    if (!s.traded) {
+      box("–", "No closed trades yet");
+    } else {
+      box(Math.round(s.win * 100) + "%", "Win rate (premium up)");
+      box(sgn(s.pctM.avg, 1, "%"), "Average premium change per trade" + (s.pctM.lo != null ? " (95% range " + sgn(s.pctM.lo, 1) + " to " + sgn(s.pctM.hi, 1) + ")" : ""));
+      box(sgn(s.total, 1, "%"), "Sum of premium changes");
+      box(s.rM ? sgn(s.rM.avg, 2, "R") : "–", "Average option R" + (s.rM ? " (" + s.rM.n + " with a stop)" : " (add stop premiums)"));
+      box(s.pf == null ? "–" : s.pf.toFixed(2), "Profit factor (on % moves)");
+      box(s.dd.toFixed(1) + "%", "Max drawdown (sum of % moves)");
+      box(String(s.worst), "Longest losing run");
+    }
+    $("statNote").textContent = s.traded && s.traded < 30 ? "Fewer than 30 closed trades: the ranges are wide and almost any result is consistent with luck. Percent moves are added up, not compounded, and ignore position size." : "Percent moves are added up, not compounded, and ignore position size.";
+
+    // table
+    var t = $("tbl"); t.textContent = "";
+    var hr = el("tr");
+    ["Date", "Index", "Strategy", "Side", "Strike", "Entry ₹", "Stop ₹", "Exit ₹", "Premium %", "Option R", "Notes", ""].forEach(function (h) { hr.appendChild(el("th", null, h)); });
+    t.appendChild(el("thead")).appendChild(hr);
+    var tb = el("tbody");
+    if (!all.length) {
+      var er = el("tr"), ec = el("td", "empty", "No entries yet. Add one above."); ec.colSpan = 12; er.appendChild(ec); tb.appendChild(er);
+    }
+    sorted(all).reverse().forEach(function (e) {
+      var c = calc(e), tr = el("tr", e.skipped ? "skipped" : "");
+      function cell(v, cls) { var d = el("td", cls || "num", v); tr.appendChild(d); return d; }
+      cell(e.date, "l"); cell(e.ix, "l"); cell(NAMES[e.strat] || e.strat, "l"); cell(e.side === "CE" ? "CE" : "PE", "l");
+      if (e.skipped) {
+        cell("–"); cell("–"); cell("–"); cell("–");
+        cell("skipped signal", "l"); cell("–");
+      } else {
+        cell(e.strike != null ? nf(e.strike, 0) : "–"); cell(nf(e.entry, 2)); cell(e.stop != null ? nf(e.stop, 2) : "–"); cell(e.exit != null ? nf(e.exit, 2) : "–");
+        cell(c.kind === "closed" ? sgn(c.pct, 1, "%") : c.kind === "open" ? "open" : "–", c.kind === "closed" ? (c.pct >= 0 ? "num up" : "num down") : "num");
+        cell(c.kind === "closed" && c.r != null ? sgn(c.r, 2, "R") : "–", c.kind === "closed" && c.r != null ? (c.r >= 0 ? "num up" : "num down") : "num");
+      }
+      cell(e.note || "", "l");
+      var del = el("button", "tiny", "Delete"); del.type = "button"; del.setAttribute("aria-label", "Delete entry " + e.date + " " + e.ix);
+      del.addEventListener("click", function () { save(load().filter(function (x) { return x.id !== e.id; })); render(); });
+      var dc = el("td", "num"); dc.appendChild(del); tr.appendChild(dc);
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+    renderCmp(all);
+  }
+
+  function renderCmp(all) {
+    var box = $("cmp"); box.textContent = "";
+    var raw = null;
+    try { raw = JSON.parse(localStorage.getItem(SUM_KEY) || "null"); } catch (e) {}
+    if (!raw || !raw.byStrategy) {
+      box.appendChild(el("div", "empty", "No backtest summary in this browser yet. Open Index Options, run the backtest, then come back."));
+      return;
+    }
+    var W = $("cmpPlan").value === "x2" ? "x2" : "x1";
+    var t = el("table", "jt"), hr = el("tr");
+    ["Strategy", "Backtest: index R (avg, n)", "Backtest: option R (BS, no IV change, " + (raw.strike === "itm" ? "1 ITM" : "ATM") + ")", "Paper: option R (avg, n)", "Paper: avg premium %"].forEach(function (h) { hr.appendChild(el("th", null, h)); });
+    t.appendChild(el("thead")).appendChild(hr);
+    var tb = el("tbody");
+    ["orb_break", "orb_retest", "ichi", "vwap_reclaim", "vwap_pullback"].forEach(function (id) {
+      var b = raw.byStrategy[id], tr = el("tr");
+      var mine = all.filter(function (e) { return e.strat === id; }), s = stats(mine);
+      function cell(v, cls) { tr.appendChild(el("td", cls || "num", v)); }
+      cell(NAMES[id], "l");
+      cell(b && b[W] && b[W].idxR != null ? sgn(b[W].idxR, 2, "R") + "  (n=" + b.n + ")" : "–  (n=" + (b ? b.n : 0) + ")");
+      cell(b && b[W] && b[W].optR != null ? sgn(b[W].optR, 2, "R") + "  (n=" + b[W].optN + ")" : "–");
+      cell(s.rM ? sgn(s.rM.avg, 2, "R") + "  (n=" + s.rM.n + ")" : "–  (n=0)");
+      cell(s.pctM ? sgn(s.pctM.avg, 1, "%") + "  (n=" + s.pctM.n + ")" : "–");
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+    var w = el("div", "wrap"); w.appendChild(t); box.appendChild(w);
+    box.appendChild(el("div", "cleg", "Backtest saved " + (raw.at ? raw.at.replace("T", " ").slice(0, 16) + " UTC" : "earlier") + " for " + (raw.indices || []).join(", ") + ". Index cost " + raw.indexCostR + "R, option cost " + raw.optCostPct + "% of premium."));
+  }
+
+  // ---- form ----
+  function setSkipUi() {
+    var sk = $("fSkip").checked;
+    ["fStrike", "fEntry", "fStop", "fExit"].forEach(function (id) { $(id).disabled = sk; });
+  }
+  $("fSkip").addEventListener("change", setSkipUi);
+  $("cmpPlan").addEventListener("change", function () { renderCmp(load()); });
+  function numOrNull(id) { var v = $(id).value; if (v === "" || v == null) return null; var x = parseFloat(v); return Number.isFinite(x) ? x : NaN; }
+
+  $("jf").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var msg = $("fMsg"); msg.textContent = "";
+    var e = { id: Date.now() + Math.floor(Math.random() * 1000), date: $("fDate").value, ix: $("fIx").value, strat: $("fStrat").value, side: $("fSide").value, skipped: $("fSkip").checked, note: $("fNote").value.trim().slice(0, 200) };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(e.date)) { msg.textContent = "Pick a date."; return; }
+    if (!e.skipped) {
+      e.strike = numOrNull("fStrike"); e.entry = numOrNull("fEntry"); e.stop = numOrNull("fStop"); e.exit = numOrNull("fExit");
+      if (![e.strike, e.entry, e.stop, e.exit].every(function (v) { return v === null || Number.isFinite(v); })) { msg.textContent = "Numbers only in the price boxes."; return; }
+      if (!(e.entry > 0)) { msg.textContent = "Enter the entry premium, or tick \"Skipped signal\"."; return; }
+      if (e.stop != null && e.stop >= e.entry) { msg.textContent = "The planned stop premium must be below the entry premium."; return; }
+    }
+    var a = load(); a.push(e); save(a);
+    msg.textContent = e.skipped ? "Skipped signal saved." : "Entry saved.";
+    $("fEntry").value = ""; $("fStop").value = ""; $("fExit").value = ""; $("fNote").value = ""; $("fSkip").checked = false; setSkipUi();
+    render();
+  });
+
+  // ---- CSV export (Blob) ----
+  function csvCell(v, isText) {
+    var s = v == null ? "" : String(v);
+    if (isText && /^[=+\-@\t\r]/.test(s)) s = "'" + s; // do not let a spreadsheet run a note as a formula (numbers stay numbers)
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function toCsv(all) {
+    var head = ["date", "index", "strategy", "side", "skipped_signal", "strike", "entry_premium", "stop_premium", "exit_premium", "premium_change_pct", "option_R", "notes"];
+    var lines = [head.join(",")];
+    sorted(all).forEach(function (e) {
+      var c = calc(e);
+      lines.push([e.date, e.ix, e.strat, e.side, e.skipped ? "yes" : "no", e.strike, e.entry, e.stop, e.exit,
+        c.kind === "closed" ? c.pct.toFixed(2) : "", c.kind === "closed" && c.r != null ? c.r.toFixed(3) : "", e.note].map(function (v, i) { return csvCell(v, i === 11 || i < 4); }).join(","));
+    });
+    return lines.join("\r\n") + "\r\n";
+  }
+  $("exp").addEventListener("click", function () {
+    var blob = new Blob([toCsv(load())], { type: "text/csv;charset=utf-8" });
+    var url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url; a.download = "paper-trades-" + istToday() + ".csv";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  });
+  $("clr").addEventListener("click", function () {
+    if (!load().length) return;
+    if (window.confirm("Delete every entry in this journal? Export the CSV first if you want a copy.")) { save([]); render(); }
+  });
+
+  window.__journal = { toCsv: toCsv, calc: calc, stats: stats };
+  setSkipUi();
+  render();
+})();
+</script>
+</body>
+</html>

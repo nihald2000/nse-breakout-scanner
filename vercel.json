@@ -1,0 +1,19 @@
+{
+  "functions": {
+    "api/scan.js": {
+      "maxDuration": 60
+    },
+    "api/ichimoku.js": {
+      "maxDuration": 60
+    },
+    "api/indices.js": {
+      "maxDuration": 30
+    },
+    "api/indexchart.js": {
+      "maxDuration": 30
+    },
+    "api/backtest.js": {
+      "maxDuration": 60
+    }
+  }
+}

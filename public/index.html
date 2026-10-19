@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<link rel="icon" href="data:,">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#060b18">
+<title>Breakout Scanner</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="page">
+  <nav class="tabs" aria-label="Scanners">
+    <a href="/" aria-current="page">Breakouts</a>
+    <a href="/ichimoku.html">Ichimoku Cloud</a>
+    <a href="/indices.html">Index Options</a>
+    <a href="/journal.html">Journal</a>
+  </nav>
+  <h1>Breakout Scanner</h1>
+  <p class="sub">NSE stocks breaking their 20-day high or low, with volume confirmation.</p>
+
+  <div class="controls">
+    <select id="index" aria-label="Stock universe">
+      <option>NIFTY 500</option>
+      <option>NIFTY 200</option>
+      <option>NIFTY 100</option>
+      <option>NIFTY NEXT 50</option>
+      <option>NIFTY MIDCAP 100</option>
+      <option>NIFTY SMALLCAP 100</option>
+      <option value="SECURITIES IN F&amp;O">F&amp;O stocks</option>
+    </select>
+    <div class="seg" id="side" role="group" aria-label="Direction">
+      <button data-v="long" class="on">Long</button>
+      <button data-v="short">Short</button>
+      <button data-v="both">Both</button>
+    </div>
+    <select id="rvol" aria-label="Minimum relative volume">
+      <option value="1">Vol ≥ 1.0x</option>
+      <option value="1.2" selected>Vol ≥ 1.2x</option>
+      <option value="1.5">Vol ≥ 1.5x</option>
+      <option value="2">Vol ≥ 2.0x</option>
+    </select>
+    <select id="sector" aria-label="Sector filter" hidden>
+      <option value="">All sectors</option>
+    </select>
+    <button class="primary" id="scan">Scan</button>
+    <label class="chk"><input type="checkbox" id="live" checked> Live prices</label>
+  </div>
+
+  <div class="status" id="status"></div>
+  <div class="liveinfo" id="liveinfo"></div>
+  <div class="banner" id="banner"></div>
+
+  <div class="wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Symbol</th><th class="l hide-sm">Sector</th><th class="hide-sm">Side</th><th>LTP</th><th>Chg %</th><th>Level</th><th>Dist %</th>
+          <th>Rel vol</th><th>Range pos</th><th>Score</th><th>Status</th><th>Ref stop</th><th class="l hide-sm">Notes</th>
+        </tr>
+      </thead>
+      <tbody id="rows"><tr><td colspan="13" class="empty">Press Scan to load stocks.</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="legend">
+    <b>Live prices</b> refresh every 10 seconds while the market is open: LTP, Chg %, Dist %, Rel vol, Range pos, Status and Ref stop update in place.
+    The list of stocks and the Score are refreshed by a full scan every 3 minutes, and new entries are tagged NEW.
+    <b>Level</b>: 20-day high (long) or low (short). <b>Dist %</b>: how far price is beyond it (negative = still below).
+    <b>Status</b>: BREAKOUT/BREAKDOWN past the level, NEAR within 0.5% of it, FADED if it has dropped back more than 0.5% under it.
+    <b>Rel vol</b>: today's volume vs the 20-day average, projected to a full day (rough during market hours).
+    <b>Range pos</b>: 1.00 means price is at the day's extreme. <b>Ref stop</b>: today's low (long) or high (short), a reference only.
+    Stock lists come from NSE; prices come from Yahoo Finance, polled rather than streamed, and may lag NSE. The "last tick" time shows how fresh the newest price is.
+    This is a screening aid, not trading advice.
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var POLL_MS = 10000;     // live price refresh
+  var RESCAN_MS = 180000;  // full re-scan while live
+  var state = {
+    side: "long", busy: false, live: true, sector: "",
+    rows: [], meta: null, share: 1, els: {},
+    lastScanAt: 0, pollTimer: null, failures: 0, lastTick: 0, serverTime: 0
+  };
+
+  try {
+    var saved = JSON.parse(localStorage.getItem("bs-prefs") || "{}");
+    if (saved.index) $("index").value = saved.index;
+    if (saved.rvol) $("rvol").value = saved.rvol;
+    if (saved.side) state.side = saved.side;
+    if (typeof saved.live === "boolean") state.live = saved.live;
+  } catch (e) {}
+  $("live").checked = state.live;
+
+  // ---------- helpers ----------
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function f(v, d) { return Number.isFinite(v) ? v.toFixed(d) : "–"; }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function clock(ts) {
+    return new Date(ts).toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour12: false });
+  }
+  function key(r) { return r.symbol + "|" + r.side; }
+  function setText(node, v) {
+    if (node.textContent === v) return false;
+    node.textContent = v;
+    return true;
+  }
+  function flash(node, dir) {
+    node.classList.remove("flash-up", "flash-dn");
+    void node.offsetWidth; // restart the animation
+    node.classList.add(dir > 0 ? "flash-up" : "flash-dn");
+  }
+  function showBanner(kind, msg) { var b = $("banner"); b.className = "banner " + kind; b.textContent = msg; }
+  function clearBanner() { var b = $("banner"); b.className = "banner"; b.textContent = ""; }
+
+  // ---------- live values derived from the latest price ----------
+  function derive(r) {
+    var isLong = r.side === "long";
+    var rng = r.dayHigh - r.dayLow;
+    var dist = isLong ? (r.ltp - r.level) / r.level * 100 : (r.level - r.ltp) / r.level * 100;
+    return {
+      chg: (r.ltp - r.prevClose) / r.prevClose * 100,
+      dist: dist,
+      pos: rng > 0 ? (isLong ? (r.ltp - r.dayLow) / rng : (r.dayHigh - r.ltp) / rng) : 0.5,
+      rvol: r.avgVol > 0 ? r.volume / (r.avgVol * state.share) : 0,
+      stop: isLong ? r.dayLow : r.dayHigh,
+      status: dist > 0 ? (isLong ? "BREAKOUT" : "BREAKDOWN") : dist >= -0.5 ? "NEAR" : "FADED"
+    };
+  }
+  function badgeClass(s) {
+    return s === "BREAKOUT" ? "b-brk" : s === "BREAKDOWN" ? "b-bdn" : s === "NEAR" ? "b-near" : "b-fade";
+  }
+
+  // ---------- table ----------
+  function visibleRows() {
+    return state.rows.filter(function (r) { return !state.sector || r.industry === state.sector; });
+  }
+
+  function paintRow(r, doFlash) {
+    var e = state.els[key(r)];
+    if (!e) return;
+    var d = derive(r);
+    if (setText(e.ltp, f(r.ltp, 2)) && doFlash && r._prev != null && r.ltp !== r._prev) {
+      flash(e.ltp, r.ltp > r._prev ? 1 : -1);
+    }
+    r._prev = r.ltp;
+    e.chg.className = "num " + (d.chg >= 0 ? "up" : "down");
+    setText(e.chg, (d.chg >= 0 ? "+" : "") + f(d.chg, 2));
+    setText(e.dist, (d.dist >= 0 ? "+" : "") + f(d.dist, 2));
+    setText(e.rvol, f(d.rvol, 1) + "x");
+    setText(e.pos, f(d.pos, 2));
+    setText(e.stop, f(d.stop, 2));
+    if (setText(e.badge, d.status)) {
+      e.badge.className = "badge " + badgeClass(d.status);
+      if (doFlash) flash(e.badgeCell, d.status === "FADED" || d.status === "NEAR" ? -1 : 1);
+    }
+  }
+
+  function buildRow(r, isNew) {
+    var tr = el("tr");
+    var c0 = el("td", "sym", r.symbol);
+    var a = el("a", null, "chart ↗");
+    a.href = "https://www.tradingview.com/chart/?symbol=NSE%3A" + encodeURIComponent(r.symbol.replace(/[&-]/g, "_"));
+    a.target = "_blank"; a.rel = "noopener noreferrer";
+    c0.appendChild(a);
+    if (isNew) c0.appendChild(el("span", "new", "NEW"));
+    c0.appendChild(el("div", "subsec", (r.side === "long" ? "LONG" : "SHORT") + (r.industry ? " · " + r.industry : "")));
+    tr.appendChild(c0);
+
+    tr.appendChild(el("td", "sector hide-sm", r.industry || ""));
+    tr.appendChild(el("td", "hide-sm " + (r.side === "long" ? "up" : "down"), r.side === "long" ? "LONG" : "SHORT"));
+
+    var e = {
+      ltp: el("td", "num"), chg: el("td", "num"), dist: el("td", "num"),
+      rvol: el("td", "num"), pos: el("td", "num"), stop: el("td", "num"),
+      badge: el("span", "badge"), badgeCell: el("td")
+    };
+    var level = el("td", "num", f(r.level, 2));
+    tr.appendChild(e.ltp); tr.appendChild(e.chg); tr.appendChild(level); tr.appendChild(e.dist);
+    tr.appendChild(e.rvol); tr.appendChild(e.pos);
+
+    var sc = el("td"), box = el("span", "score");
+    box.appendChild(el("span", "num", String(r.score)));
+    var bar = el("span", "bar"), fill = el("i");
+    fill.style.width = Math.min(100, r.score) + "%";
+    bar.appendChild(fill); box.appendChild(bar); sc.appendChild(box);
+    tr.appendChild(sc);
+
+    e.badgeCell.appendChild(e.badge);
+    tr.appendChild(e.badgeCell);
+    tr.appendChild(e.stop);
+    tr.appendChild(el("td", "notes hide-sm", r.notes || ""));
+
+    state.els[key(r)] = e;
+    paintRow(r, false);
+    return tr;
+  }
+
+  function render(prevKeys) {
+    var tb = $("rows");
+    tb.textContent = "";
+    state.els = {};
+    var rows = visibleRows();
+    if (!rows.length) {
+      var tr = el("tr");
+      var td = el("td", "empty", state.rows.length
+        ? "No matches in this sector. Pick All sectors to see everything."
+        : "No stocks meet the filters right now. Try a lower volume threshold, or scan again after 9:45 AM IST.");
+      td.colSpan = 13; tr.appendChild(td); tb.appendChild(tr);
+    } else {
+      rows.forEach(function (r) { tb.appendChild(buildRow(r, !!prevKeys && !prevKeys[key(r)])); });
+    }
+    setScanStatus(rows.length);
+  }
+
+  function rebuildSectorOptions() {
+    var sel = $("sector");
+    var seen = {};
+    state.rows.forEach(function (r) { if (r.industry) seen[r.industry] = 1; });
+    var names = Object.keys(seen).sort();
+    if (state.sector && !seen[state.sector]) state.sector = "";
+    sel.textContent = "";
+    var all = el("option", null, "All sectors"); all.value = ""; sel.appendChild(all);
+    names.forEach(function (n) { var o = el("option", null, n); o.value = n; sel.appendChild(o); });
+    sel.value = state.sector;
+    sel.hidden = names.length === 0;
+  }
+
+  function setScanStatus(shown) {
+    var m = state.meta;
+    if (!m) return;
+    var total = state.rows.length;
+    var when = m.marketOpen ? "Market open (" + Number(m.sessionPct) + "% of session)" : "Market closed, showing last session";
+    var count = state.sector && shown !== total ? shown + " of " + total : String(total);
+    $("status").innerHTML = "<b>" + esc(count) + "</b> matches from " + Number(m.candidates) + " candidates in " +
+      Number(m.universe) + " stocks · " + when + " · scanned at " + esc(m.asOf || "n/a");
+  }
+
+  // ---------- live prices ----------
+  function applyQuotes(resp) {
+    var q = resp.quotes || {};
+    if (typeof resp.share === "number") state.share = resp.share;
+    if (resp.serverTime) state.serverTime = resp.serverTime;
+    state.rows.forEach(function (r) {
+      var x = q[r.symbol];
+      if (!x || !Number.isFinite(x.ltp)) return;
+      r.ltp = x.ltp;
+      r.dayHigh = Math.max(r.dayHigh, x.ltp, Number.isFinite(x.hi) ? x.hi : 0);
+      r.dayLow = Math.min(r.dayLow, x.ltp, Number.isFinite(x.lo) ? x.lo : Infinity);
+      if (Number.isFinite(x.vol)) r.volume = Math.max(r.volume, x.vol);
+      if (Number.isFinite(x.t)) state.lastTick = Math.max(state.lastTick, x.t);
+    });
+    state.rows.forEach(function (r) { paintRow(r, true); });
+  }
+
+  function showLive() {
+    var box = $("liveinfo");
+    box.textContent = "";
+    if (!state.live || !state.meta) { box.className = "liveinfo"; return; }
+    var dot = el("span", "dot", "●");
+    if (!state.meta.marketOpen) {
+      box.className = "liveinfo off";
+      box.appendChild(dot);
+      box.appendChild(document.createTextNode("Market closed: prices are not updating."));
+      return;
+    }
+    var age = state.serverTime && state.lastTick ? state.serverTime - state.lastTick : 0;
+    var stale = state.failures > 0 || age > 120;
+    box.className = "liveinfo" + (stale ? " stale" : "");
+    box.appendChild(dot);
+    var txt = state.failures > 0 ? "Live updates delayed, retrying" : "Live";
+    if (state.lastTick) {
+      txt += " · last tick " + clock(state.lastTick * 1000) + " IST";
+      if (age > 120) txt += " (" + Math.round(age / 60) + " min old)";
+    }
+    txt += " · refreshed " + clock(Date.now());
+    box.appendChild(document.createTextNode(txt));
+  }
+
+  function stopLive() { clearTimeout(state.pollTimer); state.pollTimer = null; }
+
+  function startLive() {
+    stopLive();
+    showLive();
+    if (state.live && !document.hidden && state.meta && state.meta.marketOpen && state.rows.length) {
+      state.pollTimer = setTimeout(tick, 1500);
+    }
+  }
+
+  async function tick() {
+    state.pollTimer = null;
+    if (!state.live || document.hidden || !state.meta || !state.meta.marketOpen || !state.rows.length) { showLive(); return; }
+    if (Date.now() - state.lastScanAt > RESCAN_MS && !state.busy) { await scan(true); return; } // scan() restarts live mode
+    var seen = {}, syms = [];
+    state.rows.forEach(function (r) { if (!seen[r.symbol] && syms.length < 60) { seen[r.symbol] = 1; syms.push(r.symbol); } });
+    try {
+      var res = await fetch("/api/quotes?symbols=" + encodeURIComponent(syms.join(",")));
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.error || "HTTP " + res.status);
+      state.failures = 0;
+      applyQuotes(data);
+      if (data.marketOpen === false) state.meta.marketOpen = false;
+    } catch (e) {
+      state.failures++;
+    }
+    showLive();
+    if (state.live && !document.hidden && state.meta && state.meta.marketOpen) {
+      state.pollTimer = setTimeout(tick, Math.min(60000, POLL_MS * (1 + state.failures)));
+    }
+  }
+
+  // ---------- full scan ----------
+  async function scan(silent) {
+    if (state.busy) return;
+    state.busy = true;
+    if (silent) {
+      state.lastScanAt = Date.now(); // avoid a retry storm if this scan fails
+    } else {
+      $("scan").disabled = true;
+      clearBanner();
+      $("status").innerHTML = '<span class="spin"></span>Scanning NSE stocks. This usually takes 5 to 20 seconds.';
+    }
+    try { localStorage.setItem("bs-prefs", JSON.stringify({ index: $("index").value, rvol: $("rvol").value, side: state.side, live: state.live })); } catch (e) {}
+    var ctrl = new AbortController();
+    var to = setTimeout(function () { ctrl.abort(); }, 75000);
+    var ok = false;
+    try {
+      var url = "/api/scan?index=" + encodeURIComponent($("index").value) + "&side=" + state.side + "&minRvol=" + encodeURIComponent($("rvol").value);
+      var res = await fetch(url, { signal: ctrl.signal });
+      var data = await res.json();
+      if (!res.ok) {
+        if (!silent) {
+          showBanner("err", (data.error || "Request failed") + (data.detail ? " [" + data.detail + "]" : "") + (data.hint ? " " + data.hint : ""));
+          $("status").textContent = "";
+        }
+      } else {
+        ok = true;
+        var prevKeys = null;
+        if (silent) { prevKeys = {}; state.rows.forEach(function (r) { prevKeys[key(r)] = 1; }); }
+        state.meta = data.meta;
+        state.share = typeof data.meta.volShare === "number" ? data.meta.volShare : 1;
+        state.rows = data.results.map(function (r) { r._prev = r.ltp; return r; });
+        state.lastScanAt = Date.now();
+        state.failures = 0;
+        rebuildSectorOptions();
+        render(prevKeys);
+        if (data.warnings && data.warnings.length) showBanner("warn", data.warnings.join(" ")); else clearBanner();
+      }
+    } catch (e) {
+      if (!silent) {
+        showBanner("err", e.name === "AbortError" ? "The scan took too long. Try again in a moment." : "Could not load results: " + e.message);
+        $("status").textContent = "";
+      }
+    } finally {
+      clearTimeout(to);
+      state.busy = false;
+      $("scan").disabled = false;
+    }
+    startLive();
+    return ok;
+  }
+
+  // ---------- events ----------
+  document.querySelectorAll("#side button").forEach(function (b) {
+    b.classList.toggle("on", b.dataset.v === state.side);
+    b.addEventListener("click", function () {
+      state.side = b.dataset.v;
+      document.querySelectorAll("#side button").forEach(function (x) { x.classList.toggle("on", x === b); });
+      scan(false);
+    });
+  });
+  $("index").addEventListener("change", function () { scan(false); });
+  $("rvol").addEventListener("change", function () { scan(false); });
+  $("scan").addEventListener("click", function () { scan(false); });
+  $("sector").addEventListener("change", function () { state.sector = $("sector").value; render(null); });
+  $("live").addEventListener("change", function () {
+    state.live = $("live").checked;
+    try { localStorage.setItem("bs-prefs", JSON.stringify({ index: $("index").value, rvol: $("rvol").value, side: state.side, live: state.live })); } catch (e) {}
+    if (state.live) startLive(); else { stopLive(); showLive(); }
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) stopLive(); else startLive();
+  });
+
+  scan(false);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="en">
+<head>
+<link rel="icon" href="data:,">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#060b18">
+<title>Ichimoku Cloud Scanner</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+  .b-rec { background: rgba(59,130,246,.16); color: #7fb0ff; }
+  .pips { display: inline-flex; gap: 3px; }
+  .pips i { font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: .2px; padding: 2px 5px;
+    border-radius: 4px; background: #16203a; color: #52608a; cursor: default; }
+  .pips.long i.on { background: rgba(34,197,94,.18); color: var(--green); }
+  .pips.short i.on { background: rgba(239,68,68,.18); color: var(--red); }
+  td.edge { cursor: help; }
+  .page { max-width: 1360px; }
+  td.call { text-align: left; white-space: normal; min-width: 150px; max-width: 215px; line-height: 1.3; }
+  td.call small { display: block; margin-top: 3px; color: var(--muted); font-size: 11.5px; }
+  .callsm { display: none; margin-top: 3px; }
+  @media (max-width: 700px) { .callsm { display: inline-block; } }
+  @media (min-width: 701px) { th, td { padding-left: 9px; padding-right: 9px; } }
+  .legend p { margin: 0 0 8px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <nav class="tabs" aria-label="Scanners">
+    <a href="/">Breakouts</a>
+    <a href="/ichimoku.html" aria-current="page">Ichimoku Cloud</a>
+    <a href="/indices.html">Index Options</a>
+    <a href="/journal.html">Journal</a>
+  </nav>
+  <h1>Ichimoku Cloud Scanner</h1>
+  <p class="sub">NSE stocks that have just closed above (or below) the Ichimoku cloud, with Tenkan/Kijun, Chikou and future-cloud confirmation.</p>
+  <p class="sub"><b>Note:</b> the 15 min and 1 hour scans here are informational only. The Call is a checklist on the cloud, not a forecast; the intraday index rules (ADX trend filter, no entries before 10:00) live on the Index Options page.</p>
+
+  <div class="controls">
+    <select id="index" aria-label="Stock universe">
+      <option>NIFTY 500</option>
+      <option>NIFTY 200</option>
+      <option>NIFTY 100</option>
+      <option>NIFTY NEXT 50</option>
+      <option>NIFTY MIDCAP 100</option>
+      <option>NIFTY SMALLCAP 100</option>
+      <option value="SECURITIES IN F&amp;O">F&amp;O stocks</option>
+    </select>
+    <div class="seg" id="tf" role="group" aria-label="Timeframe">
+      <button data-v="1d" class="on">Daily</button>
+      <button data-v="1h">1 hour</button>
+      <button data-v="15m">15 min</button>
+    </div>
+    <div class="seg" id="side" role="group" aria-label="Direction">
+      <button data-v="long" class="on">Long</button>
+      <button data-v="short">Short</button>
+      <button data-v="both">Both</button>
+    </div>
+    <select id="show" aria-label="How fresh the signal should be">
+      <option value="fresh">Just broke (latest bar)</option>
+      <option value="recent" selected>Broke within 3 bars</option>
+      <option value="week">Broke within 5 bars</option>
+      <option value="near">Plus near the cloud</option>
+    </select>
+    <select id="sector" aria-label="Sector filter" hidden>
+      <option value="">All sectors</option>
+    </select>
+    <button class="primary" id="scan">Scan</button>
+    <label class="chk"><input type="checkbox" id="live" checked> Live prices</label>
+  </div>
+
+  <div class="status" id="status"></div>
+  <div class="liveinfo" id="liveinfo"></div>
+  <div class="banner" id="banner"></div>
+
+  <div class="wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Symbol</th><th class="l hide-sm">Sector</th><th class="hide-sm">Side</th><th class="l hide-sm">Call</th><th>LTP</th><th>Chg %</th><th>Cloud edge</th><th>Dist %</th>
+          <th>Confirms</th><th>Rel vol</th><th>Score</th><th>Status</th><th>Ref stop</th>
+        </tr>
+      </thead>
+      <tbody id="rows"><tr><td colspan="13" class="empty">Press Scan to load stocks.</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="legend">
+    <p><b>What this finds</b>: stocks whose latest close is beyond the Ichimoku cloud (settings 9 / 26 / 52) after being at or inside it on the previous bar.
+    <b>Cloud edge</b> is the top of the cloud for longs and the bottom for shorts, as drawn at the latest bar (hover for the full range).
+    <b>Dist %</b> is how far price is beyond that edge; negative means still short of it.</p>
+    <p><b>Status</b>: BREAKOUT / BREAKDOWN = the latest bar made the break. RECENT = broke 1 to 5 bars ago and is still beyond the cloud. NEAR = close to the edge but not through it. FADED = has dropped back since the scan.</p>
+    <p><b>Confirms</b> (lit = agrees with the trade direction): <b>TK</b> Tenkan beyond Kijun, <b>KJ</b> price beyond Kijun, <b>CH</b> Chikou clear (today's close is beyond the candles and the cloud of 26 bars ago), <b>FC</b> the cloud 26 bars ahead is coloured the same way.
+    <b>Score</b> weighs freshness and these confirmations, plus relative volume on Daily. <b>Rel vol</b> is Daily only; 1 hour and 15 min bars carry no volume reading here.
+    <b>Ref stop</b>: for a fresh break, the Kijun or the far side of the cloud, whichever is closer; for NEAR, the last 5 bars' swing low or high. A reference only. Hover a Cloud edge value to see the whole cloud, its width and where the break came from.</p>
+    <p><b>Call</b> is a checklist, not a forecast. It shows BUY (long) or SELL (short sale) only when all five checks pass, otherwise WAIT: (1) price is 0.3% to 2.5% beyond the cloud, (2) the break is 3 bars old or less, (3) at least 3 of the 4 confirms are lit, (4) Daily only: relative volume is 1.2x or more, (5) the reference stop is within 5% of price.
+    The % is how many checks pass, and hovering the badge lists them. For BUY / SELL the line underneath gives the plan as % moves from the current price: SL at the reference stop, T1 at 2x and T2 at 3x that risk. For WAIT it says what is missing, or the close you are waiting for.
+    The Call updates with the live price, so it can flip. It is built for the Daily timeframe; on 1 hour and 15 min the same rules apply to those bars. A SELL held overnight needs an F&amp;O stock, since cash-segment shorts must be closed the same day.</p>
+    <p>The latest bar is still forming while the market is open, so a break can reverse before it closes. On Daily the latest bar is today's.
+    <b>Live prices</b> refresh every 10 seconds and update LTP, Chg %, Dist %, Rel vol and Status against the cloud as drawn at the last scan. Confirmations and score refresh with a full scan every 3 minutes, and new entries are tagged NEW.</p>
+    <p>Stock lists come from NSE; prices come from Yahoo Finance, polled rather than streamed, and may lag NSE. Only stocks priced at ₹50 or more with average daily turnover of ₹5 crore or more are scanned. This is a screening aid, not trading advice.</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var POLL_MS = 10000;     // live price refresh
+  var RESCAN_MS = 180000;  // full re-scan while live
+  var CHUNK = 60;          // /api/quotes limit per request
+  var PREF_KEY = "bs-ich-prefs";
+  var state = {
+    side: "long", tf: "1d", show: "recent", busy: false, live: true, sector: "",
+    rows: [], meta: null, share: 1, els: {},
+    lastScanAt: 0, pollTimer: null, failures: 0, lastTick: 0, serverTime: 0
+  };
+
+  try {
+    var saved = JSON.parse(localStorage.getItem(PREF_KEY) || "{}");
+    if (saved.index) $("index").value = saved.index;
+    if (saved.show && /^(fresh|recent|week|near)$/.test(saved.show)) { state.show = saved.show; }
+    if (saved.side) state.side = saved.side;
+    if (saved.tf && /^(1d|1h|15m)$/.test(saved.tf)) state.tf = saved.tf;
+    if (typeof saved.live === "boolean") state.live = saved.live;
+  } catch (e) {}
+  $("show").value = state.show;
+  $("live").checked = state.live;
+
+  function savePrefs() {
+    try { localStorage.setItem(PREF_KEY, JSON.stringify({ index: $("index").value, show: state.show, side: state.side, tf: state.tf, live: state.live })); } catch (e) {}
+  }
+
+  // ---------- helpers ----------
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function f(v, d) { return Number.isFinite(v) ? v.toFixed(d) : "–"; }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function clock(ts) {
+    return new Date(ts).toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour12: false });
+  }
+  function key(r) { return r.symbol + "|" + r.side; }
+  function setText(node, v) {
+    if (node.textContent === v) return false;
+    node.textContent = v;
+    return true;
+  }
+  function flash(node, dir) {
+    node.classList.remove("flash-up", "flash-dn");
+    void node.offsetWidth; // restart the animation
+    node.classList.add(dir > 0 ? "flash-up" : "flash-dn");
+  }
+  function showBanner(kind, msg) { var b = $("banner"); b.className = "banner " + kind; b.textContent = msg; }
+  function clearBanner() { var b = $("banner"); b.className = "banner"; b.textContent = ""; }
+  function ageText(age) {
+    if (state.meta && state.meta.unit === "d") return age + "d";
+    return age + (age === 1 ? " bar" : " bars");
+  }
+
+  // ---------- live values derived from the latest price ----------
+  function derive(r) {
+    var isLong = r.side === "long";
+    var edge = isLong ? r.top : r.bot;
+    var dist = isLong ? (r.ltp - edge) / edge * 100 : (edge - r.ltp) / edge * 100;
+    var near = state.meta ? state.meta.nearPct : 1;
+    var status, label;
+    if (dist > 0) {
+      var age = r.age == null ? 0 : r.age; // was NEAR at scan time and has broken through since
+      status = age === 0 ? (isLong ? "BREAKOUT" : "BREAKDOWN") : "RECENT";
+      label = age === 0 ? status : "RECENT · " + ageText(age);
+    } else if (dist >= -near) {
+      status = label = "NEAR";
+    } else {
+      status = label = "FADED";
+    }
+    var d = {
+      chg: (r.ltp - r.prevClose) / r.prevClose * 100,
+      dist: dist,
+      rvol: r.avgVol > 0 && r.volume != null ? r.volume / (r.avgVol * state.share) : null,
+      status: status,
+      label: label,
+      age: dist > 0 ? (r.age == null ? 0 : r.age) : null
+    };
+    d.call = callFor(r, d, edge);
+    return d;
+  }
+
+  // ---------- BUY / WAIT / SELL ----------
+  // A checklist, not a forecast. BUY/SELL only when every check passes; the % is how many pass.
+  var RULE = { minDist: 0.3, maxDist: 2.5, maxAge: 3, minConf: 3, minRvol: 1.2, maxRisk: 5 };
+
+  function callFor(r, d, edge) {
+    var isLong = r.side === "long";
+    var intraday = !!(state.meta && state.meta.intraday);
+    var conf = (r.tk ? 1 : 0) + (r.kj ? 1 : 0) + (r.chikou ? 1 : 0) + (r.future ? 1 : 0);
+    var risk = Math.abs(r.ltp - r.refStop) / r.ltp * 100;
+    var checks = [];
+    var parts = [];
+
+    var inZone = d.dist >= RULE.minDist && d.dist <= RULE.maxDist;
+    checks.push({ ok: inZone, text: "Price " + RULE.minDist + "% to " + RULE.maxDist + "% beyond the cloud" });
+    if (d.dist < 0) parts.push("Needs a close " + (isLong ? "above " : "below ") + f(edge, 2));
+    else if (d.dist < RULE.minDist) parts.push("thin break (" + (d.dist >= 0 ? "+" : "") + f(d.dist, 2) + "%), needs follow-through");
+    else if (d.dist > RULE.maxDist) parts.push("extended (+" + f(d.dist, 1) + "%), wait for a pullback");
+
+    var fresh = d.age != null && d.age <= RULE.maxAge;
+    checks.push({ ok: fresh, text: "Broke within the last " + RULE.maxAge + " bars" });
+    if (!fresh && d.dist > 0) parts.push("break is " + ageText(d.age) + " old");
+
+    var confOk = conf >= RULE.minConf;
+    checks.push({ ok: confOk, text: "At least " + RULE.minConf + " of 4 confirms (" + conf + " now)" });
+    if (!confOk) parts.push("only " + conf + " of 4 confirms");
+
+    if (!intraday && d.rvol != null) {
+      var vOk = d.rvol >= RULE.minRvol;
+      checks.push({ ok: vOk, text: "Relative volume " + RULE.minRvol + "x or more (" + f(d.rvol, 1) + "x now)" });
+      if (!vOk) parts.push("weak volume (" + f(d.rvol, 1) + "x)");
+    }
+
+    var riskOk = risk <= RULE.maxRisk;
+    checks.push({ ok: riskOk, text: "Reference stop within " + RULE.maxRisk + "% (" + f(risk, 1) + "% now)" });
+    if (!riskOk) parts.push("stop too wide (" + f(risk, 1) + "%)");
+
+    var pass = checks.filter(function (c) { return c.ok; }).length;
+    var pct = Math.round(pass / checks.length * 100);
+    var action = pass === checks.length ? (isLong ? "BUY" : "SELL") : "WAIT";
+    var plan;
+    if (action === "WAIT") {
+      plan = parts.slice(0, 3).join(" · ");
+      plan = plan.charAt(0).toUpperCase() + plan.slice(1);
+    } else {
+      var s = isLong ? -1 : 1; // price moves against a long downward, against a short upward
+      var sg = function (v) { return (v >= 0 ? "+" : "-") + f(Math.abs(v), 1) + "%"; };
+      plan = "SL " + sg(s * risk) + " · T1 " + sg(-s * 2 * risk) + " · T2 " + sg(-s * 3 * risk);
+    }
+    var tip = action + " " + pct + "%: " + pass + " of " + checks.length + " checks pass\n" +
+      checks.map(function (c) { return (c.ok ? "✓ " : "✗ ") + c.text; }).join("\n");
+    return { action: action, pct: pct, label: action + " · " + pct + "%", plan: plan, tip: tip };
+  }
+  function callClass(a) { return a === "BUY" ? "b-brk" : a === "SELL" ? "b-bdn" : "b-near"; }
+  function badgeClass(s) {
+    return s === "BREAKOUT" ? "b-brk" : s === "BREAKDOWN" ? "b-bdn" : s === "RECENT" ? "b-rec" : s === "NEAR" ? "b-near" : "b-fade";
+  }
+
+  // ---------- table ----------
+  function passShow(r) {
+    if (state.show === "fresh") return r.age === 0;
+    if (state.show === "recent") return r.age != null && r.age <= 3;
+    if (state.show === "week") return r.age != null;
+    return true; // near: everything, including NEAR
+  }
+  function visibleRows() {
+    return state.rows.filter(function (r) { return passShow(r) && (!state.sector || r.industry === state.sector); });
+  }
+
+  function paintRow(r, doFlash) {
+    var e = state.els[key(r)];
+    if (!e) return;
+    var d = derive(r);
+    if (setText(e.ltp, f(r.ltp, 2)) && doFlash && r._prev != null && r.ltp !== r._prev) {
+      flash(e.ltp, r.ltp > r._prev ? 1 : -1);
+    }
+    r._prev = r.ltp;
+    e.chg.className = "num " + (d.chg >= 0 ? "up" : "down");
+    setText(e.chg, (d.chg >= 0 ? "+" : "") + f(d.chg, 2));
+    setText(e.dist, (d.dist >= 0 ? "+" : "") + f(d.dist, 2));
+    setText(e.rvol, d.rvol == null ? "–" : f(d.rvol, 1) + "x");
+    if (setText(e.badge, d.label) || e.badge.dataset.s !== d.status) {
+      var changed = e.badge.dataset.s !== undefined && e.badge.dataset.s !== d.status;
+      e.badge.dataset.s = d.status;
+      e.badge.className = "badge " + badgeClass(d.status);
+      if (doFlash && changed) flash(e.badgeCell, d.status === "FADED" || d.status === "NEAR" ? -1 : 1);
+    }
+    var c = d.call;
+    setText(e.callPlan, c.plan);
+    e.callBadge.title = c.tip;
+    e.callSm.title = c.tip;
+    setText(e.callSm, c.label);
+    if (setText(e.callBadge, c.label) || e.callBadge.dataset.a !== c.action) {
+      var cChanged = e.callBadge.dataset.a !== undefined && e.callBadge.dataset.a !== c.action;
+      e.callBadge.dataset.a = c.action;
+      e.callBadge.className = "badge " + callClass(c.action);
+      e.callSm.className = "badge callsm " + callClass(c.action);
+      if (doFlash && cChanged) flash(e.callCell, c.action === "WAIT" ? -1 : 1);
+    }
+  }
+
+  function pip(text, on, title) {
+    var i = el("i", on ? "on" : "", text);
+    i.title = title + (on ? ": yes" : ": no");
+    return i;
+  }
+
+  function buildRow(r, isNew) {
+    var isLong = r.side === "long";
+    var tr = el("tr");
+    var c0 = el("td", "sym", r.symbol);
+    var a = el("a", null, "chart ↗");
+    a.href = "https://www.tradingview.com/chart/?symbol=NSE%3A" + encodeURIComponent(r.symbol.replace(/[&-]/g, "_"));
+    a.target = "_blank"; a.rel = "noopener noreferrer";
+    c0.appendChild(a);
+    if (isNew) c0.appendChild(el("span", "new", "NEW"));
+    c0.appendChild(el("div", "subsec", (isLong ? "LONG" : "SHORT") + (r.industry ? " · " + r.industry : "")));
+    var e = {
+      ltp: el("td", "num"), chg: el("td", "num"), dist: el("td", "num"), rvol: el("td", "num"),
+      badge: el("span", "badge"), badgeCell: el("td"),
+      callBadge: el("span", "badge"), callPlan: el("small"), callCell: el("td", "call hide-sm"),
+      callSm: el("span", "badge callsm")
+    };
+    c0.appendChild(e.callSm); // phone layout: the call sits under the symbol
+    tr.appendChild(c0);
+
+    tr.appendChild(el("td", "sector hide-sm", r.industry || ""));
+    tr.appendChild(el("td", "hide-sm " + (isLong ? "up" : "down"), isLong ? "LONG" : "SHORT"));
+    e.callCell.appendChild(e.callBadge);
+    e.callCell.appendChild(e.callPlan);
+    tr.appendChild(e.callCell);
+    tr.appendChild(e.ltp); tr.appendChild(e.chg);
+
+    var edge = el("td", "num edge", f(isLong ? r.top : r.bot, 2));
+    edge.title = "Cloud " + f(r.bot, 2) + " to " + f(r.top, 2) + " (" + f((r.top - r.bot) / r.ltp * 100, 1) + "% wide)" +
+      (r.from ? ", broke from " + r.from + " the cloud" : "");
+    tr.appendChild(edge);
+    tr.appendChild(e.dist);
+
+    var cf = el("td"), pips = el("span", "pips " + r.side);
+    var dir = isLong ? "bullish" : "bearish";
+    pips.appendChild(pip("TK", r.tk, "Tenkan vs Kijun " + dir));
+    pips.appendChild(pip("KJ", r.kj, "Price vs Kijun " + dir));
+    pips.appendChild(pip("CH", r.chikou, "Chikou span clear"));
+    pips.appendChild(pip("FC", r.future, "Future cloud " + dir));
+    cf.appendChild(pips);
+    tr.appendChild(cf);
+
+    tr.appendChild(e.rvol);
+
+    var sc = el("td"), box = el("span", "score");
+    box.appendChild(el("span", "num", String(r.score)));
+    var bar = el("span", "bar"), fill = el("i");
+    fill.style.width = Math.min(100, r.score) + "%";
+    bar.appendChild(fill); box.appendChild(bar); sc.appendChild(box);
+    tr.appendChild(sc);
+
+    e.badgeCell.appendChild(e.badge);
+    tr.appendChild(e.badgeCell);
+    tr.appendChild(el("td", "num", f(r.refStop, 2)));
+
+    state.els[key(r)] = e;
+    paintRow(r, false);
+    return tr;
+  }
+
+  function emptyMessage() {
+    if (!state.rows.length) {
+      return "No stocks have a cloud signal right now. Try another timeframe, or scan again when the market is open.";
+    }
+    if (state.sector) return "No matches in this sector. Pick All sectors to see everything.";
+    return "Nothing matches this freshness setting. Try 'Broke within 5 bars' or 'Plus near the cloud'.";
+  }
+
+  function render(prevKeys) {
+    var tb = $("rows");
+    tb.textContent = "";
+    state.els = {};
+    var rows = visibleRows();
+    if (!rows.length) {
+      var tr = el("tr");
+      var td = el("td", "empty", emptyMessage());
+      td.colSpan = 13; tr.appendChild(td); tb.appendChild(tr);
+    } else {
+      rows.forEach(function (r) { tb.appendChild(buildRow(r, !!prevKeys && !prevKeys[key(r)])); });
+    }
+    setScanStatus(rows.length);
+  }
+
+  function rebuildSectorOptions() {
+    var sel = $("sector");
+    var seen = {};
+    state.rows.forEach(function (r) { if (r.industry) seen[r.industry] = 1; });
+    var names = Object.keys(seen).sort();
+    if (state.sector && !seen[state.sector]) state.sector = "";
+    sel.textContent = "";
+    var all = el("option", null, "All sectors"); all.value = ""; sel.appendChild(all);
+    names.forEach(function (n) { var o = el("option", null, n); o.value = n; sel.appendChild(o); });
+    sel.value = state.sector;
+    sel.hidden = names.length === 0;
+  }
+
+  function setScanStatus(shown) {
+    var m = state.meta;
+    if (!m) return;
+    var total = state.rows.length;
+    var when = m.marketOpen ? "Market open (" + Number(m.sessionPct) + "% of session)" : "Market closed, showing last session";
+    var count = shown !== total ? shown + " of " + total : String(total);
+    $("status").innerHTML = "<b>" + esc(count) + "</b> cloud signals in " + Number(m.universe) + " stocks · " +
+      esc(m.tfLabel) + " · " + when + " · scanned at " + esc(m.asOf || "n/a");
+  }
+
+  // ---------- live prices ----------
+  function applyQuotes(resp) {
+    var q = resp.quotes || {};
+    if (typeof resp.share === "number") state.share = resp.share;
+    if (resp.serverTime) state.serverTime = resp.serverTime;
+    state.rows.forEach(function (r) {
+      var x = q[r.symbol];
+      if (!x || !Number.isFinite(x.ltp)) return;
+      r.ltp = x.ltp;
+      if (r.volume != null && Number.isFinite(x.vol)) r.volume = Math.max(r.volume, x.vol);
+      if (Number.isFinite(x.t)) state.lastTick = Math.max(state.lastTick, x.t);
+    });
+    visibleRows().forEach(function (r) { paintRow(r, true); });
+  }
+
+  function showLive() {
+    var box = $("liveinfo");
+    box.textContent = "";
+    if (!state.live || !state.meta) { box.className = "liveinfo"; return; }
+    var dot = el("span", "dot", "●");
+    if (!state.meta.marketOpen) {
+      box.className = "liveinfo off";
+      box.appendChild(dot);
+      box.appendChild(document.createTextNode("Market closed: prices are not updating."));
+      return;
+    }
+    var age = state.serverTime && state.lastTick ? state.serverTime - state.lastTick : 0;
+    var stale = state.failures > 0 || age > 120;
+    box.className = "liveinfo" + (stale ? " stale" : "");
+    box.appendChild(dot);
+    var txt = state.failures > 0 ? "Live updates delayed, retrying" : "Live";
+    if (state.lastTick) {
+      txt += " · last tick " + clock(state.lastTick * 1000) + " IST";
+      if (age > 120) txt += " (" + Math.round(age / 60) + " min old)";
+    }
+    txt += " · refreshed " + clock(Date.now());
+    box.appendChild(document.createTextNode(txt));
+  }
+
+  function stopLive() { clearTimeout(state.pollTimer); state.pollTimer = null; }
+
+  function startLive() {
+    stopLive();
+    showLive();
+    if (state.live && !document.hidden && state.meta && state.meta.marketOpen && state.rows.length) {
+      state.pollTimer = setTimeout(tick, 1500);
+    }
+  }
+
+  async function fetchQuotes(syms) {
+    var res = await fetch("/api/quotes?symbols=" + encodeURIComponent(syms.join(",")));
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || "HTTP " + res.status);
+    return data;
+  }
+
+  async function tick() {
+    state.pollTimer = null;
+    if (!state.live || document.hidden || !state.meta || !state.meta.marketOpen || !state.rows.length) { showLive(); return; }
+    if (Date.now() - state.lastScanAt > RESCAN_MS && !state.busy) { await scan(true); return; } // scan() restarts live mode
+    var seen = {}, syms = [];
+    visibleRows().forEach(function (r) { if (!seen[r.symbol]) { seen[r.symbol] = 1; syms.push(r.symbol); } });
+    try {
+      if (syms.length) {
+        var chunks = [];
+        for (var i = 0; i < syms.length; i += CHUNK) chunks.push(syms.slice(i, i + CHUNK));
+        var parts = await Promise.all(chunks.map(fetchQuotes));
+        var merged = { quotes: {}, serverTime: 0, share: undefined, marketOpen: true };
+        parts.forEach(function (p) {
+          Object.keys(p.quotes || {}).forEach(function (k) { merged.quotes[k] = p.quotes[k]; });
+          merged.serverTime = Math.max(merged.serverTime, p.serverTime || 0);
+          if (typeof p.share === "number") merged.share = p.share;
+          if (p.marketOpen === false) merged.marketOpen = false;
+        });
+        state.failures = 0;
+        applyQuotes(merged);
+        if (merged.marketOpen === false) state.meta.marketOpen = false;
+      }
+    } catch (e) {
+      state.failures++;
+    }
+    showLive();
+    if (state.live && !document.hidden && state.meta && state.meta.marketOpen) {
+      state.pollTimer = setTimeout(tick, Math.min(60000, POLL_MS * (1 + state.failures)));
+    }
+  }
+
+  // ---------- full scan ----------
+  async function scan(silent) {
+    if (state.busy) return;
+    state.busy = true;
+    if (silent) {
+      state.lastScanAt = Date.now(); // avoid a retry storm if this scan fails
+    } else {
+      $("scan").disabled = true;
+      clearBanner();
+      $("status").innerHTML = '<span class="spin"></span>Scanning NSE stocks. This usually takes 5 to 25 seconds.';
+    }
+    savePrefs();
+    var ctrl = new AbortController();
+    var to = setTimeout(function () { ctrl.abort(); }, 75000);
+    var ok = false;
+    try {
+      var url = "/api/ichimoku?index=" + encodeURIComponent($("index").value) + "&tf=" + state.tf + "&side=" + state.side;
+      var res = await fetch(url, { signal: ctrl.signal });
+      var data = await res.json();
+      if (!res.ok) {
+        if (!silent) {
+          showBanner("err", (data.error || "Request failed") + (data.detail ? " [" + data.detail + "]" : "") + (data.hint ? " " + data.hint : ""));
+          $("status").textContent = "";
+        }
+      } else {
+        ok = true;
+        var prevKeys = null;
+        if (silent) { prevKeys = {}; state.rows.forEach(function (r) { prevKeys[key(r)] = 1; }); }
+        state.meta = data.meta;
+        state.share = typeof data.meta.volShare === "number" ? data.meta.volShare : 1;
+        state.rows = data.results.map(function (r) { r._prev = r.ltp; return r; });
+        state.lastScanAt = Date.now();
+        state.failures = 0;
+        rebuildSectorOptions();
+        render(prevKeys);
+        if (data.warnings && data.warnings.length) showBanner("warn", data.warnings.join(" ")); else clearBanner();
+      }
+    } catch (e) {
+      if (!silent) {
+        showBanner("err", e.name === "AbortError" ? "The scan took too long. Try again in a moment." : "Could not load results: " + e.message);
+        $("status").textContent = "";
+      }
+    } finally {
+      clearTimeout(to);
+      state.busy = false;
+      $("scan").disabled = false;
+    }
+    startLive();
+    return ok;
+  }
+
+  // ---------- events ----------
+  function wireSeg(id, prop) {
+    document.querySelectorAll("#" + id + " button").forEach(function (b) {
+      b.classList.toggle("on", b.dataset.v === state[prop]);
+      b.addEventListener("click", function () {
+        state[prop] = b.dataset.v;
+        document.querySelectorAll("#" + id + " button").forEach(function (x) { x.classList.toggle("on", x === b); });
+        scan(false);
+      });
+    });
+  }
+  wireSeg("side", "side");
+  wireSeg("tf", "tf");
+  $("index").addEventListener("change", function () { scan(false); });
+  $("scan").addEventListener("click", function () { scan(false); });
+  $("show").addEventListener("change", function () {
+    state.show = $("show").value;
+    savePrefs();
+    render(null);
+    startLive();
+  });
+  $("sector").addEventListener("change", function () { state.sector = $("sector").value; render(null); startLive(); });
+  $("live").addEventListener("change", function () {
+    state.live = $("live").checked;
+    savePrefs();
+    if (state.live) startLive(); else { stopLive(); showLive(); }
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) stopLive(); else startLive();
+  });
+
+  scan(false);
+})();
+</script>
+</body>
+</html>

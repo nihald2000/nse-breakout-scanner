@@ -1,0 +1,7 @@
+{
+  "name": "nse-breakout-scanner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Intraday breakout scanner on NSE data",
+  "engines": { "node": "22.x" }
+}
