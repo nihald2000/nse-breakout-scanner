@@ -10,7 +10,7 @@
 const { FO_INDEX, mapPool, istParts, formatIST } = require("../lib/common");
 const { getUniverse, yahooChart } = require("../lib/common");
 const { parseIdx } = require("./indices")._internals;
-const { OTHER, vwapSeries, lineState, intradayRvol, tenkanKijun, loadDeliveryMap } = require("../lib/sector");
+const { OTHER, vwapSeries, lineState, intradayRvol, tenkanKijun, loadDeliveryMap, vwapTrend, swingStructure, orStats, candlePatterns, volSpike, adxRead, rangeVsNormal } = require("../lib/sector");
 
 const TFS = { "15m": { range: "1mo", interval: "15m", step: 900 }, "5m": { range: "5d", interval: "5m", step: 300 } };
 
@@ -85,7 +85,7 @@ module.exports = async function handler(req, res) {
     }
     newestTs = Math.max(newestTs, m.regularMarketTime || 0);
     const pchg = ((ltp - prev.cl) / prev.cl) * 100;
-    const closed5 = all5.filter((b) => b.d === liveISO && b.t + tf.step <= Math.floor(Date.now() / 1000));
+    const closed5 = all5.filter((b) => b.d === liveISO && b.t + 300 <= Math.floor(Date.now() / 1000));
 
     // Intraday RVOL: cumulative volume so far vs the same clock minute on the earlier sessions.
     const prevMap = new Map();
@@ -105,11 +105,13 @@ module.exports = async function handler(req, res) {
     // Tenkan / Kijun on the chosen timeframe's closed bars.
     let lines = { ok: false, why: "no data for this timeframe" };
     let chartBars = [];
-    if (g.ptf && g.ptf.bars.length) {
-      const closedTf = g.ptf.bars.filter((b) => b.mm != null && b.t + tf.step <= Math.floor(Date.now() / 1000));
+    const closedTf = g.ptf && g.ptf.bars.length
+      ? g.ptf.bars.filter((b) => b.mm != null && b.t + tf.step <= Math.floor(Date.now() / 1000))
+      : [];
+    if (closedTf.length) {
       lines = lineState(closedTf);
       const day = closedTf.filter((b) => b.d === closedTf[closedTf.length - 1].d);
-      chartBars = day.map((b) => ({ mm: b.mm, cl: b.cl, t9: null, k26: null }));
+      chartBars = day.map((b) => ({ mm: b.mm, cl: b.cl, vol: b.vol, t9: null, k26: null }));
       const lk = tenkanKijun(closedTf);
       const off = closedTf.length - day.length;
       chartBars.forEach((b, k) => {
@@ -119,6 +121,31 @@ module.exports = async function handler(req, res) {
         b.lo = day[k].lo;
       });
     }
+
+    // Intraday read: candles, volume behaviour, structure and levels - facts only.
+    const read = {};
+    read.vwapTrend = vwapTrend(vw);
+    read.structure = swingStructure(closed5);
+    read.or = orStats(closed5);
+    read.patterns = candlePatterns(closed5);
+    read.volSpike = volSpike(closed5, prevMap);
+    read.adx = adxRead(closedTf);
+    read.range = g.ptf ? rangeVsNormal(g.ptf.bars) : null;
+    const checks = [];
+    if (vwapNow != null) checks.push(ltp > vwapNow ? "up" : ltp < vwapNow ? "down" : null);
+    if (read.vwapTrend && read.vwapTrend.dir !== "flat") checks.push(read.vwapTrend.dir);
+    if (lines.ok) {
+      if (/above both/.test(lines.pos)) checks.push("up");
+      else if (/below both/.test(lines.pos)) checks.push("down");
+    }
+    if (read.structure && read.structure.dir) checks.push(read.structure.dir);
+    if (read.or) checks.push(read.or.brokeUp && (!read.or.brokeDown || read.or.brokeUp < read.or.brokeDown) ? "up" : read.or.brokeDown ? "down" : null);
+    if (read.adx && read.adx.v >= 18 && read.adx.dir) checks.push(read.adx.dir);
+    read.lean = {
+      up: checks.filter((c) => c === "up").length,
+      down: checks.filter((c) => c === "down").length,
+      total: checks.filter((c) => c === "up" || c === "down").length,
+    };
 
     rows.push({
       sym: g.sym,
@@ -136,6 +163,7 @@ module.exports = async function handler(req, res) {
       lines: lines.ok
         ? { ok: true, tf: tfKey, tenkan: lines.tenkan, kijun: lines.kijun, pos: lines.pos, linePos: lines.linePos, held: lines.held, stop: lines.stop, dTenkan: lines.dTenkan, dKijun: lines.dKijun }
         : { ok: false, why: lines.why },
+      read,
       chart: { tf: tfKey, bars: chartBars },
       deliveryPct: delivery.map[g.sym] == null ? null : delivery.map[g.sym],
       liquidityNote: "option bid/ask not available here; check your broker before buying",

@@ -151,6 +151,96 @@ test("intradayRvol returns null under 3 prior sessions", () => {
   assert.equal(intradayRvol([], prev), null);
 });
 
+// ---------------- intraday read functions ----------------
+const S = require("../lib/sector");
+
+test("candlePatterns finds a bullish engulfing and skips the neutral bar", () => {
+  const bars = [
+    { mm: 555, o: 102, hi: 103, lo: 100.5, cl: 101, vol: 1 },
+    { mm: 560, o: 100.9, hi: 103, lo: 100.5, cl: 102.5, vol: 1 },
+  ];
+  const out = S.candlePatterns(bars);
+  assert.equal(out.length, 1);
+  assert.deepEqual([out[0].mm, out[0].name, out[0].dir], [560, "bullish engulfing", "up"]);
+});
+
+test("candlePatterns finds a hammer and a bearish engulfing", () => {
+  const hammer = S.candlePatterns([{ mm: 555, o: 100, hi: 100.7, lo: 98, cl: 100.5, vol: 1 }]);
+  assert.equal(hammer[0].name, "hammer");
+  const bear = S.candlePatterns([
+    { mm: 555, o: 100, hi: 101, lo: 99.5, cl: 100.8, vol: 1 },
+    { mm: 560, o: 101, hi: 101.2, lo: 99, cl: 99.4, vol: 1 },
+  ]);
+  assert.equal(bear[0].name, "bearish engulfing");
+  assert.equal(bear[0].dir, "down");
+});
+
+test("swingStructure counts rising and falling 30-minute buckets", () => {
+  const mk = () => {
+    const b = [];
+    const seg = (lo, hi) => { for (let k = 0; k < 6; k++) b.push({ hi, lo, cl: (hi + lo) / 2 }); };
+    seg(0, 10); seg(5, 15); seg(10, 20); // two rising steps
+    return b;
+  };
+  const s = S.swingStructure(mk());
+  assert.deepEqual([s.up, s.down, s.dir], [2, 0, "up"]);
+});
+
+test("orStats finds the 9:15-9:30 range and the breakout time", () => {
+  const bars = [
+    { mm: 555, hi: 101, lo: 99, cl: 100 },
+    { mm: 560, hi: 102, lo: 100, cl: 101 },
+    { mm: 565, hi: 101, lo: 99, cl: 100 },
+    { mm: 575, hi: 103.5, lo: 101.5, cl: 103 },
+  ];
+  const or = S.orStats(bars);
+  assert.deepEqual([or.hi, or.lo, or.brokeUp, or.brokeDown], [102, 99, 575, null]);
+  assert.equal(S.orStats(bars.slice(0, 2)), null); // fewer than 3 OR candles
+});
+
+test("vwapTrend: rising, falling and flat", () => {
+  const flat = new Array(13).fill(100);
+  assert.equal(S.vwapTrend(flat).dir, "flat");
+  const up = flat.slice(); up[up.length - 1] = 101;
+  assert.equal(S.vwapTrend(up).dir, "up");
+  const dn = flat.slice(); dn[dn.length - 1] = 99;
+  assert.equal(S.vwapTrend(dn).dir, "down");
+});
+
+test("volSpike finds the biggest same-slot volume multiple", () => {
+  const day = [{ mm: 555, vol: 500 }, { mm: 560, vol: 100 }];
+  const prev = new Map([
+    ["2026-10-15", [{ mm: 555, vol: 100 }, { mm: 560, vol: 200 }]],
+    ["2026-10-16", [{ mm: 555, vol: 100 }, { mm: 560, vol: 200 }]],
+    ["2026-10-17", [{ mm: 555, vol: 100 }, { mm: 560, vol: 200 }]],
+  ]);
+  const sp = S.volSpike(day, prev);
+  assert.deepEqual([sp.mm, sp.mult], [555, 5]);
+  assert.equal(S.volSpike([{ mm: 555, vol: 100 }], prev), null); // 1x is not a spike
+});
+
+test("rangeVsNormal compares today's range with the earlier sessions", () => {
+  const bars = [];
+  for (let d = 0; d < 8; d++) {
+    const range = d === 7 ? 15 : 10;
+    bars.push({ d: "2026-10-" + String(10 + d), hi: 100 + range, lo: 100 });
+    bars.push({ d: "2026-10-" + String(10 + d), hi: 100 + range, lo: 100 });
+  }
+  const r = S.rangeVsNormal(bars);
+  assert.equal(r.today, 15);
+  assert.equal(r.avg, 10);
+  assert.equal(r.ratio, 1.5);
+});
+
+test("adxRead sees an up-trend on a rising series", () => {
+  const bars = [];
+  for (let i = 0; i < 40; i++) bars.push({ hi: i + 2, lo: i, cl: i + 1 });
+  const a = S.adxRead(bars);
+  assert.ok(a && a.v > 0);
+  assert.equal(a.dir, "up");
+  assert.equal(S.adxRead(bars.slice(0, 10)), null); // too short for ADX
+});
+
 // ---------------- delivery file parsing (structure, not network) ----------------
 test("bhav candidates skip weekends and cap the count", () => {
   // Monday 2026-10-19: expects Mon 19, Fri 16, Thu 15, Wed 14, Tue 13.

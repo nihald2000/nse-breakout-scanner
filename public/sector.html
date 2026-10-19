@@ -19,6 +19,17 @@
   .srow .extra { width: 240px; color: var(--muted); font-size: 12px; flex: none; text-align: right; }
   @media (max-width: 700px) { .srow .nm { width: 128px; font-size: 13px; } .srow .extra { display: none; } }
   canvas { width: 100%; max-width: 340px; height: 190px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); display: block; margin-bottom: 8px; }
+  .readwrap { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; padding: 6px 0 10px; }
+  .readpan { flex: 1 1 420px; min-width: 300px; font-size: 13px; }
+  .readpan h4 { margin: 0 0 6px; font-size: 13px; letter-spacing: .3px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+  .frow { display: flex; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+  .frow .fl { width: 92px; flex: none; color: var(--muted); }
+  .frow .fv { flex: 1 1 0; }
+  .chip { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; margin: 2px 5px 2px 0; font-size: 12px; white-space: nowrap; }
+  .chip.up { border-color: #1d7a44; color: var(--green); }
+  .chip.down { border-color: #8a2b2b; color: var(--red); }
+  .chip.flat { color: var(--muted); }
+  .readnote { color: var(--muted); font-size: 12px; margin-top: 6px; }
 </style>
 </head>
 <body>
@@ -170,7 +181,7 @@ function drawChart(cvs, bars, prevClose) {
   ctx.clearRect(0, 0, W, H);
   ctx.font = (10 * dpr) + "px sans-serif";
   var GUT = 58 * dpr;          // right gutter for price labels
-  var PADT = 14 * dpr, PADB = 16 * dpr;
+  var PADT = 14 * dpr, PADB = 46 * dpr; // bottom 46px: volume strip + time labels
   if (!bars || bars.length < 2) {
     ctx.fillStyle = "#8a97b8";
     ctx.fillText("not enough closed candles yet", 10 * dpr, H / 2);
@@ -200,6 +211,20 @@ function drawChart(cvs, bars, prevClose) {
       if (started) ctx.lineTo(x, y); else { ctx.moveTo(x, y); started = true; }
     }
     ctx.stroke(); ctx.setLineDash([]);
+  }
+  // Volume strip: how much traded on each candle, against the day's own biggest candle
+  var maxVol = 0;
+  for (i = 0; i < bars.length; i++) if ((bars[i].vol || 0) > maxVol) maxVol = bars[i].vol;
+  if (maxVol > 0) {
+    var volBase = H - 20 * dpr, volH = 24 * dpr;
+    for (i = 0; i < bars.length; i++) {
+      var vv = bars[i].vol || 0;
+      if (!vv) continue;
+      var bh2 = Math.max(1, (vv / maxVol) * volH);
+      var upv = i === 0 || bars[i].cl >= bars[i - 1].cl;
+      ctx.fillStyle = upv ? "rgba(34,197,94,.45)" : "rgba(239,68,68,.45)";
+      ctx.fillRect(X(i) - 1.5 * dpr, volBase - bh2, 3 * dpr, bh2);
+    }
   }
   // Previous close: the reference the whole day's move is measured against
   if (prevClose != null && isFinite(prevClose) && Y(prevClose) > 0 && Y(prevClose) < H) {
@@ -231,6 +256,87 @@ function drawChart(cvs, bars, prevClose) {
 }
 
 
+function hm(mm) {
+  if (mm == null) return "\u2013";
+  var h = Math.floor(mm / 60), m = mm % 60;
+  return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
+}
+
+// The intraday read: closed-candle facts assembled in the free space next to the chart.
+function buildRead(r) {
+  var pan = document.createElement("div");
+  pan.className = "readpan";
+  var h4 = document.createElement("h4"); h4.textContent = "Intraday read \u00b7 " + (r.chart && r.chart.tf || "15m") + " candles + 5m volume";
+  pan.appendChild(h4);
+  function frow(label, value, cls) {
+    var row = document.createElement("div"); row.className = "frow";
+    var l = document.createElement("span"); l.className = "fl"; l.textContent = label;
+    var v = document.createElement("span"); v.className = "fv" + (cls ? " " + cls : ""); v.textContent = value;
+    row.appendChild(l); row.appendChild(v); pan.appendChild(row);
+    return v;
+  }
+  var rd = r.read;
+  if (!rd) { frow("Read", "unavailable \u2014 refresh the page (older cached response)", ""); return pan; }
+  // Lean: plain count of directional checks. Facts, not a forecast.
+  var lean = rd.lean || { up: 0, down: 0, total: 0 };
+  var leanTxt, leanCls = "";
+  if (!lean.total) leanTxt = "no directional checks yet (early session or no data)";
+  else if (lean.down > lean.up) { leanTxt = lean.down + " of " + lean.total + " checks lean down"; leanCls = "down"; }
+  else if (lean.up > lean.down) { leanTxt = lean.up + " of " + lean.total + " checks lean up"; leanCls = "up"; }
+  else leanTxt = "split \u2014 " + lean.down + " down, " + lean.up + " up";
+  frow("Lean", leanTxt, leanCls);
+  // VWAP position + slope
+  var vt = rd.vwapTrend;
+  frow("VWAP", (r.vwapSide || "\u2013") + (vt ? ", " + vt.dir + " " + Math.abs(vt.pct).toFixed(2) + "%/hr" : ""),
+    r.vwapSide === "above VWAP" ? "up" : r.vwapSide === "below VWAP" ? "down" : "");
+  // Tenkan / Kijun
+  frow("Lines", lineTag(r.lines), r.lines && r.lines.ok ? (/above both/.test(r.lines.pos) ? "up" : /below both/.test(r.lines.pos) ? "down" : "") : "");
+  // 30-minute structure
+  if (rd.structure) frow("30m structure", rd.structure.up + " higher \u00b7 " + rd.structure.down + " lower swings", rd.structure.dir || "");
+  // Opening range
+  if (rd.or) {
+    var orTxt = hm(555) + "\u2013" + hm(570) + " " + f2(rd.or.lo) + "\u2013" + f2(rd.or.hi);
+    var orCls = "";
+    if (rd.or.brokeUp && rd.or.brokeDown) { orTxt += " \u00b7 broke both ways " + hm(Math.min(rd.or.brokeUp, rd.or.brokeDown)); }
+    else if (rd.or.brokeUp) { orTxt += " \u00b7 broke up " + hm(rd.or.brokeUp); orCls = "up"; }
+    else if (rd.or.brokeDown) { orTxt += " \u00b7 broke down " + hm(rd.or.brokeDown); orCls = "down"; }
+    else orTxt += " \u00b7 still inside range";
+    frow("Opening range", orTxt, orCls);
+  }
+  // ADX / DI on the chosen timeframe
+  if (rd.adx) {
+    var hi2 = Math.max(rd.adx.pdi, rd.adx.mdi), lo2 = Math.min(rd.adx.pdi, rd.adx.mdi);
+    frow("ADX (" + ((r.chart && r.chart.tf) || "15m") + ")",
+      "ADX " + rd.adx.v.toFixed(1) + (rd.adx.v >= 18 ? " (trending)" : " (weak)") + " \u00b7 " + (rd.adx.pdi >= rd.adx.mdi ? "+DI " : "-DI ") + hi2.toFixed(1) + " > " + (rd.adx.pdi >= rd.adx.mdi ? "-DI " : "+DI ") + lo2.toFixed(1),
+      rd.adx.v >= 18 ? rd.adx.dir || "" : "");
+    if (rd.range && rd.range.ratio != null) frow("Day range", rd.range.ratio.toFixed(2) + "\u00d7 the 20-day normal", rd.range.ratio >= 1.15 ? "up" : "");
+  } else if (rd.range && rd.range.ratio != null) {
+    frow("Day range", rd.range.ratio.toFixed(2) + "\u00d7 the 20-day normal", rd.range.ratio >= 1.15 ? "up" : "");
+  }
+  // Volume: the biggest 5m candle of today against the same clock slot on earlier sessions
+  frow("Volume", rd.volSpike ? rd.volSpike.mult.toFixed(1) + "\u00d7 the usual 5m volume at " + hm(rd.volSpike.mm) : "no unusual 5m volume today",
+    rd.volSpike ? "up" : "");
+  // Candlestick patterns (most recent first)
+  var pr = document.createElement("div"); pr.className = "frow";
+  var pl = document.createElement("span"); pl.className = "fl"; pl.textContent = "Candle patterns";
+  var pv = document.createElement("span"); pv.className = "fv";
+  if (rd.patterns && rd.patterns.length) {
+    rd.patterns.forEach(function (p) {
+      var c = document.createElement("span");
+      c.className = "chip " + (p.dir || "flat");
+      c.textContent = hm(p.mm) + " " + p.name;
+      pv.appendChild(c);
+    });
+  } else {
+    pv.textContent = "none in the last hour of closed candles";
+  }
+  pr.appendChild(pl); pr.appendChild(pv); pan.appendChild(pr);
+  var note = document.createElement("p"); note.className = "readnote";
+  note.textContent = "Facts from closed candles only \u2014 a read, not a forecast. Patterns are descriptive: they say what happened, not what happens next.";
+  pan.appendChild(note);
+  return pan;
+}
+
 function renderStocks(rows) {
   var thead = $("thead"), tbody = $("tbody");
   thead.textContent = ""; tbody.textContent = "";
@@ -255,8 +361,11 @@ function renderStocks(rows) {
     tr.appendChild(cell(r.deliveryPct == null ? "\u2013 (file not loaded)" : f2(r.deliveryPct) + "%", "num"));
     var rowBar = document.createElement("tr");
     var td = document.createElement("td"); td.colSpan = 9; td.style.borderBottom = "1px solid var(--line)";
+    var wrapDiv = document.createElement("div"); wrapDiv.className = "readwrap";
     var cvs = document.createElement("canvas"); cvs.dataset.sym = r.sym;
-    td.appendChild(cvs); rowBar.appendChild(td); rowBar.hidden = true;
+    wrapDiv.appendChild(cvs);
+    wrapDiv.appendChild(buildRead(r));
+    td.appendChild(wrapDiv); rowBar.appendChild(td); rowBar.hidden = true;
     tr.addEventListener("click", function () {
       rowBar.hidden = !rowBar.hidden;
       if (!rowBar.hidden) drawChart(cvs, r.chart && r.chart.bars, r.prevClose);
