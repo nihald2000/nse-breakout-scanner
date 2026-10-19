@@ -42,14 +42,16 @@
     <a href="/journal.html">Journal</a>
   </nav>
   <h1>Sector Scope</h1>
-  <p class="sub">Which F&amp;O industry group has the most money behind it today, and the stocks inside it with running volume. It shows where things stand &mdash; you make the trade.</p>
+  <p class="sub">Which F&amp;O industry group has the most money behind it today, and the stocks inside it with running volume. Updates itself every minute &mdash; nothing to press; it shows where things stand and you make the trade.</p>
 
   <div class="banner" id="banner"></div>
 
   <div class="status" id="status"></div>
 
   <div class="controls">
-    <button class="primary" id="refresh">Refresh</button>
+    <button class="primary" id="refresh">Refresh now</button>
+    <button id="pause">Pause live</button>
+    <span class="sub" id="livestate"></span>
     <span class="sub" id="asof"></span>
   </div>
 
@@ -127,7 +129,7 @@ function renderSectors(sectors) {
   for (var i = 0; i < sectors.length; i++) {
     var s = sectors[i];
     var row = document.createElement("div");
-    row.className = "srow"; row.tabIndex = 0; row.setAttribute("role", "button");
+    row.className = "srow" + (CUR === s.sector ? " sel" : ""); row.tabIndex = 0; row.setAttribute("role", "button");
     var nm = document.createElement("span");
     nm.className = "nm"; nm.textContent = s.sector + " (" + s.n + ")";
     var tracked = document.createElement("span"); tracked.className = "tracked";
@@ -150,24 +152,27 @@ function renderSectors(sectors) {
   }
 }
 
-function loadSectors() {
+function loadSectors(auto) {
   var st = $("status");
-  st.textContent = "Loading sector money map\u2026";
-  banner("");
+  secNext = 0; // in-flight guard: no second request while this one is running
+  if (!auto) { st.textContent = "Loading sector money map\u2026"; banner(""); }
   fetch("/api/sectors").then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }).then(function (d) {
     SECTS = d.sectors || [];
     st.textContent = "";
+    banner("");
     $("asof").textContent = d.meta && d.meta.asOf ? "prices as of " + d.meta.asOf : "";
     $("legendText").textContent = (d.warnings || []).join(" ") || "";
     renderSectors(SECTS);
+    secNext = Date.now() + SEC_MS;
   }).catch(function (e) {
     st.textContent = "";
-    banner("err", "Could not load sectors: " + e.message + ". NSE lists or the price source may be rate-limiting; try again shortly.");
+    banner("err", "Could not load sectors: " + e.message + " \u2014 will retry automatically.");
+    secNext = Date.now() + RETRY_MS;
   });
 }
 
 // ---------- stock list ----------
-var CUR = null, CURTF = "15m";
+var CUR = null, CURTF = "15m", openSym = null;
 
 function lineTag(l) {
   if (!l || !l.ok) return "lines n/a";
@@ -398,27 +403,38 @@ function renderStocks(rows) {
     td.appendChild(wrapDiv); rowBar.appendChild(td); rowBar.hidden = true;
     tr.addEventListener("click", function () {
       rowBar.hidden = !rowBar.hidden;
+      openSym = rowBar.hidden ? null : r.sym;
       if (!rowBar.hidden) drawChart(cvs, r.chart && r.chart.bars, r.prevClose);
     });
     tbody.appendChild(tr); tbody.appendChild(rowBar);
+    if (openSym === r.sym) { // keep the panel you opened open across live updates
+      rowBar.hidden = false;
+      drawChart(cvs, r.chart && r.chart.bars, r.prevClose);
+    }
   };
   for (var i = 0; i < rows.length; i++) _loop(i);
 }
 
-function loadStocks(sector) {
+function loadStocks(sector, auto) {
   CUR = sector;
-  Array.prototype.forEach.call($("seclist").children, function (el) {
-    el.classList.toggle("sel", el._sector && el._sector.sector === sector);
-  });
-  $("stockpanel").hidden = false;
-  $("selName").textContent = sector;
-  var st = $("sstatus"); st.className = "liveinfo"; st.textContent = "Loading stocks for " + sector + "\u2026";
+  stockNext = 0; // in-flight guard
+  if (!auto) {
+    Array.prototype.forEach.call($("seclist").children, function (el) {
+      el.classList.toggle("sel", el._sector && el._sector.sector === sector);
+    });
+    $("stockpanel").hidden = false;
+    $("selName").textContent = sector;
+    var st0 = $("sstatus"); st0.className = "liveinfo"; st0.textContent = "Loading stocks for " + sector + "\u2026";
+  }
   fetch("/api/sectorstocks?sector=" + encodeURIComponent(sector) + "&tf=" + CURTF).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }).then(function (d) {
+    var st = $("sstatus");
     st.textContent = d.meta && d.meta.asOf ? "as of " + d.meta.asOf + " (" + d.meta.universe + " of " + d.meta.wanted + " loaded)" : "";
     $("legendText").textContent = (d.warnings || []).join(" ") || $("legendText").textContent;
     renderStocks(d.stockRows || []);
+    stockNext = Date.now() + STOCK_MS;
   }).catch(function (e) {
-    st.textContent = ""; banner("err", "Could not load stocks: " + e.message);
+    banner("err", "Could not load stocks: " + e.message + " \u2014 will retry automatically.");
+    stockNext = Date.now() + RETRY_MS;
   });
 }
 
@@ -429,9 +445,43 @@ $("tfSeg").addEventListener("click", function (e) {
   CURTF = b.dataset.tf;
   if (CUR) loadStocks(CUR);
 });
-$("refresh").addEventListener("click", loadSectors);
 
-loadSectors();
+// ---------- live auto-refresh: the page keeps itself current ----------
+// Sector map every 60s, the open stock list every 45s (matches the server cache, and
+// stays well inside the price source's rate limits). Pauses in a background tab.
+var SEC_MS = 60000, STOCK_MS = 45000, RETRY_MS = 20000;
+var live = true, secNext = 0, stockNext = 0;
+$("pause").addEventListener("click", function () {
+  live = !live;
+  this.textContent = live ? "Pause live" : "Resume live";
+  if (live) {
+    secNext = 0; stockNext = 0;
+    loadSectors(true);
+    if (CUR) loadStocks(CUR, true);
+  } else {
+    $("livestate").textContent = "paused \u2014 the data on screen is frozen";
+  }
+});
+setInterval(function () {
+  var ls = $("livestate"), n = Date.now();
+  if (!live) return;
+  if (document.hidden) { ls.textContent = "paused \u2014 tab in background"; return; }
+  if (secNext && n >= secNext) { loadSectors(true); return; }
+  if (CUR && stockNext && n >= stockNext) { loadStocks(CUR, true); return; }
+  var next = secNext || 0;
+  if (CUR && stockNext && (!next || stockNext < next)) next = stockNext;
+  if (next) ls.textContent = "live \u00b7 next update in " + Math.max(0, Math.ceil((next - n) / 1000)) + "s";
+}, 1000);
+document.addEventListener("visibilitychange", function () {
+  if (!document.hidden && live) {
+    secNext = 0; stockNext = 0;
+    loadSectors(true);
+    if (CUR) loadStocks(CUR, true);
+  }
+});
+$("refresh").addEventListener("click", function () { loadSectors(false); if (CUR) loadStocks(CUR, false); });
+
+loadSectors(false);
 </script>
 </body>
 </html>
