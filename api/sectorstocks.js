@@ -6,6 +6,9 @@
 // Tags: F&O ban is not checked (no free source); live option bid/ask is not available. Facts only.
 //   ltp, pchg, rvol (running), rvolNote, vwap, vwapDistPct, prev level hi/lo,
 //   lines: { tf, tenkan, kijun, pos, linePos, held, stop, dTenkan, dKijun }
+//
+// computeRows() carries the per-stock maths and is shared with api/calls.js (the multi-sector
+// live calls board) so both routes describe a stock in exactly the same way.
 
 const { FO_INDEX, mapPool, istParts, formatIST } = require("../lib/common");
 const { getUniverse, yahooChart } = require("../lib/common");
@@ -14,34 +17,11 @@ const { OTHER, vwapSeries, lineState, intradayRvol, tenkanKijun, loadDeliveryMap
 
 const TFS = { "15m": { range: "1mo", interval: "15m", step: 900 }, "5m": { range: "5d", interval: "5m", step: 300 } };
 
-module.exports = async function handler(req, res) {
-  const q = (req && req.query) || {};
-  const want = String(q.sector || "").trim();
-  const tfKey = TFS[q.tf] ? q.tf : "15m";
-  const tf = TFS[tfKey];
-  const t0 = Date.now();
-
-  if (!want) return res.status(400).json({ error: "Pass ?sector= with a sector name from /api/sectors." });
-
-  let universe;
-  try {
-    universe = await getUniverse(FO_INDEX);
-  } catch (e) {
-    res.setHeader("Cache-Control", "no-store");
-    return res.status(502).json({ error: "Could not load the F&O stock list.", detail: String((e && e.message) || e) });
-  }
-  let industryOf;
-  try {
-    const n500 = await getUniverse("NIFTY 500");
-    industryOf = new Map(n500.map((u) => [u.sym, u.industry]));
-  } catch (e) {
-    res.setHeader("Cache-Control", "no-store");
-    return res.status(502).json({ error: "Could not load the industry list.", detail: String((e && e.message) || e) });
-  }
-
-  const symbols = universe.map((u) => u.sym).filter((s) => (industryOf.get(s) || OTHER) === want).slice(0, 40);
-  if (!symbols.length) return res.status(400).json({ error: `No F&O stocks found for sector "${want}".`, hint: "Use exactly the sector name from /api/sectors." });
-
+// Compute the rows for the given Yahoo symbols (without .NS) on one timeframe.
+// labelOf(sym) -> the industry tag shown on the row (or null).
+// Returns { rows, failed, newestTs } - rows sorted by running volume, like the sector panel.
+async function computeRows(symbols, tfKey, labelOf) {
+  const tf = TFS[tfKey] || TFS["15m"];
   const [gotThis, delivery] = await Promise.all([
     mapPool(symbols, 16, async (sym, i) => {
       try {
@@ -59,7 +39,6 @@ module.exports = async function handler(req, res) {
   ]);
   const got = gotThis;
 
-  const live = istParts();
   const rows = [];
   let newestTs = 0;
   let failed = 0;
@@ -150,7 +129,7 @@ module.exports = async function handler(req, res) {
 
     rows.push({
       sym: g.sym,
-      industry: want,
+      industry: labelOf ? labelOf(g.sym) : null,
       ltp,
       pchg,
       rvol: rvol == null ? null : Math.round(rvol * 100) / 100,
@@ -172,6 +151,37 @@ module.exports = async function handler(req, res) {
   }
 
   rows.sort((a, b) => (b.rvol == null ? -1 : b.rvol) - (a.rvol == null ? -1 : a.rvol) || Math.abs(b.pchg) - Math.abs(a.pchg));
+  return { rows, failed, newestTs };
+}
+
+module.exports = async function handler(req, res) {
+  const q = (req && req.query) || {};
+  const want = String(q.sector || "").trim();
+  const tfKey = TFS[q.tf] ? q.tf : "15m";
+  const t0 = Date.now();
+
+  if (!want) return res.status(400).json({ error: "Pass ?sector= with a sector name from /api/sectors." });
+
+  let universe;
+  try {
+    universe = await getUniverse(FO_INDEX);
+  } catch (e) {
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(502).json({ error: "Could not load the F&O stock list.", detail: String((e && e.message) || e) });
+  }
+  let industryOf;
+  try {
+    const n500 = await getUniverse("NIFTY 500");
+    industryOf = new Map(n500.map((u) => [u.sym, u.industry]));
+  } catch (e) {
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(502).json({ error: "Could not load the industry list.", detail: String((e && e.message) || e) });
+  }
+
+  const symbols = universe.map((u) => u.sym).filter((s) => (industryOf.get(s) || OTHER) === want).slice(0, 40);
+  if (!symbols.length) return res.status(400).json({ error: `No F&O stocks found for sector "${want}".`, hint: "Use exactly the sector name from /api/sectors." });
+
+  const { rows, failed, newestTs } = await computeRows(symbols, tfKey, () => want);
 
   res.setHeader("Cache-Control", "public, s-maxage=45, stale-while-revalidate=90");
   return res.status(200).json({
@@ -195,4 +205,4 @@ module.exports = async function handler(req, res) {
   });
 };
 
-module.exports._internals = { TFS };
+module.exports._internals = { TFS, computeRows };

@@ -9,6 +9,9 @@
     "api/sectorstocks.js": {
       "maxDuration": 30
     },
+    "api/calls.js": {
+      "maxDuration": 30
+    },
     "api/ichimoku.js": {
       "maxDuration": 60
     },

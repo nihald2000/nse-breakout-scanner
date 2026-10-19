@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Live Calls - one board of the CE/PE side the closed-candle checks lean across today's hottest F&O sectors, strong and moderate reads only. Facts, not advice.">
+<title>Live Calls - strong &amp; moderate F&amp;O side leans</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230e1628'/><rect x='5' y='22' width='5' height='5' rx='1.5' fill='%23ef4444'/><rect x='13' y='13' width='5' height='14' rx='1.5' fill='%23f59e0b'/><rect x='21' y='6' width='5' height='21' rx='1.5' fill='%2322c55e'/></svg>">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .ctl { color: var(--muted); font-size: 13px; display: inline-flex; gap: 6px; align-items: center; min-height: 40px; }
+  .ctl select { min-height: 36px; padding: 6px 8px; }
+  .tier { display: inline-block; border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; font-size: 11.5px; font-weight: 650; }
+  .tier.strong { border-color: #1d7a44; color: var(--green); }
+  .tier.moderate { border-color: #8a6d1d; color: var(--amber); }
+  .tiny { color: var(--muted); font-size: 11px; font-weight: 400; }
+  .scanline { margin: 2px 0 10px; color: var(--muted); font-size: 12.5px; line-height: 1.9; }
+  .scanline .chip { border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; margin-right: 6px; white-space: nowrap; }
+  .scanline .chip.up { border-color: #1d7a44; color: var(--green); }
+  .scanline .chip.down { border-color: #8a2b2b; color: var(--red); }
+  .rowmain { cursor: pointer; }
+  .rowmain:hover td { background: #131e38; }
+  .caret { color: var(--muted); font-size: 11px; }
+  canvas { width: 100%; max-width: 340px; height: 190px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); display: block; margin-bottom: 8px; }
+  .readwrap { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; padding: 6px 0 10px; }
+  .readpan { flex: 1 1 420px; min-width: 300px; font-size: 13px; }
+  .readpan h4 { margin: 0 0 6px; font-size: 13px; letter-spacing: .3px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+  .frow { display: flex; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+  .frow .fl { width: 92px; flex: none; color: var(--muted); }
+  .frow .fv { flex: 1 1 0; }
+  .chip { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; margin: 2px 5px 2px 0; font-size: 12px; white-space: nowrap; }
+  .chip.up { border-color: #1d7a44; color: var(--green); }
+  .chip.down { border-color: #8a2b2b; color: var(--red); }
+  .chip.flat { color: var(--muted); }
+  .readnote { color: var(--muted); font-size: 12px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <nav class="tabs" aria-label="Scanners">
+    <a href="/">Breakouts</a>
+    <a href="/sector.html">Sector Scope</a>
+    <a href="/calls.html" aria-current="page">Live Calls</a>
+    <a href="/ichimoku.html">Ichimoku Cloud</a>
+    <a href="/indices.html">Index Options</a>
+    <a href="/journal.html">Journal</a>
+  </nav>
+  <h1>Live Calls</h1>
+  <p class="sub">One board instead of opening every group: the stocks whose closed-candle checks lean one side, <b>strong and moderate reads only</b>.
+  Each row carries the side, the reference bar close, the &plusmn;0.5% levels the replay was measured on and the Kijun line.
+  This is a count of facts, not advice &mdash; you choose the contract, the strike and the size, and you carry the stop.</p>
+
+  <div class="banner warn" id="caveat">Replay on the last 20 sessions (38 stocks, closed 15-minute bars, entry at the signal bar close, underlying only, no costs):
+  <b>strong</b> reads hit +0.5% before &minus;0.5% in <b>63.6%</b> of decidable cases (n=55, small), <b>moderate</b> in <b>52.3%</b> (n=543),
+  weak in 51.3% (n=507), horizon 90 minutes. A 1:1 payoff needs more than 50% just to break even, and option spread, premium and costs are not
+  part of that number. Treat every row as a fact to check, not a promise.</div>
+  <div class="banner" id="banner"></div>
+
+  <div class="controls">
+    <button class="primary" id="refresh">Refresh now</button>
+    <button id="pause">Pause live</button>
+    <label class="ctl"><input type="checkbox" id="strongOnly"> Strong only</label>
+    <label class="ctl">Side
+      <select id="sideSel">
+        <option value="all">CE + PE</option>
+        <option value="up">CE only</option>
+        <option value="down">PE only</option>
+      </select>
+    </label>
+    <label class="ctl">Scan
+      <select id="topSel">
+        <option value="4">4 sectors</option>
+        <option value="6" selected>6 sectors</option>
+        <option value="8">8 sectors</option>
+      </select>
+    </label>
+    <button id="copyBtn">Copy list</button>
+    <span class="sub" id="livestate"></span>
+    <span class="sub" id="asof"></span>
+  </div>
+
+  <div class="status" id="status"></div>
+  <p class="scanline" id="scaninfo"></p>
+
+  <div class="wrap" id="wrap" hidden>
+    <table>
+      <thead>
+        <tr>
+          <th class="l">Side</th>
+          <th class="l">Stock</th>
+          <th class="l">Sector</th>
+          <th class="l">Tier</th>
+          <th class="l">Checks</th>
+          <th class="l">Ref close (15m)</th>
+          <th>Now</th>
+          <th>Target 0.5%</th>
+          <th>Stop 0.5%</th>
+          <th>RVOL</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <p class="empty" id="empty" hidden></p>
+
+  <p class="legend">Scanned groups are the hottest F&amp;O industry groups by <b>absolute</b> turnover-weighted % move (2+ stocks), both directions, plus the money ratio.
+  <b>CE / PE</b> is the side the checks lean &mdash; CE = the facts point up, PE = down &mdash; strong (most checks agree and ADX + structure agree) or moderate (a majority with partial support);
+  weak reads are counted in the status line but not listed. <b>Ref close</b> is the last closed 15-minute candle at the time of the read, the price the replay entered at.
+  <b>Now</b> is the last traded price, with its drift from the ref close &mdash; if it has already run without you, the levels belong to the old entry, so re-anchor to your fill.
+  <b>Target / Stop</b> are the tested &plusmn;0.5% barriers on the <b>stock</b>; on an option the premium moves roughly with delta &times; the stock move, but IV and time decay are not modeled here.
+  F&amp;O ban and option bid/ask are <b>not</b> checked (no free source) &mdash; check your broker before buying. Click any row for its candlestick chart and full read.
+  Screening aid, not trading advice.</p>
+</div>
+
+<script>
+"use strict";
+var $ = function (id) { return document.getElementById(id); };
+var f2 = function (v) { return v == null || !isFinite(v) ? "\u2013" : (Math.round(v * 100) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+var pctTxt = function (v) { return v == null ? "\u2013" : (v > 0 ? "+" : "") + (Math.round(v * 100) / 100).toFixed(2) + "%"; };
+var hm = function (mm) { if (mm == null) return "\u2013"; var h = Math.floor(mm / 60), m = mm % 60; return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m; };
+
+var LAST = [];        // last /api/calls signals
+var LASTSECS = [];    // sectors that were scanned
+var LASTMETA = null;  // last /api/calls meta (kept across filter toggles)
+var openSym = null;   // chart panel kept open across refreshes
+
+function banner(kind, text) {
+  var b = $("banner");
+  if (!text) { b.className = "banner"; b.textContent = ""; return; }
+  b.className = "banner " + kind;
+  b.textContent = text;
+}
+
+// ---------- candlestick chart (same 340x190 frame as Sector Scope) ----------
+function drawChart(cvs, r) {
+  var bars = r && r.chart && r.chart.bars;
+  var prevClose = r && r.prevClose;
+  var rd = (r && r.read) || {};
+  var tv = rd.trend || null;
+  var orl = rd.or || null;
+  var dpr = window.devicePixelRatio || 1;
+  var ctx = cvs.getContext("2d");
+  var W = cvs.width = Math.max(320, cvs.clientWidth) * dpr;
+  var H = cvs.height = 190 * dpr;
+  ctx.clearRect(0, 0, W, H);
+  ctx.font = (10 * dpr) + "px sans-serif";
+  var GUT = 58 * dpr;
+  var PADT = 24 * dpr, PADB = 46 * dpr;
+  if (!bars || bars.length < 2) {
+    ctx.fillStyle = "#8a97b8";
+    ctx.fillText("not enough closed candles yet", 10 * dpr, H / 2);
+    return;
+  }
+  var min = Infinity, max = -Infinity, i;
+  function lo1(b) { return b.lo != null ? b.lo : b.cl; }
+  function hi1(b) { return b.hi != null ? b.hi : b.cl; }
+  for (i = 0; i < bars.length; i++) {
+    min = Math.min(min, lo1(bars[i]), bars[i].t9 != null ? bars[i].t9 : Infinity, bars[i].k26 != null ? bars[i].k26 : Infinity);
+    max = Math.max(max, hi1(bars[i]), bars[i].t9 != null ? bars[i].t9 : -Infinity, bars[i].k26 != null ? bars[i].k26 : -Infinity);
+  }
+  if (prevClose != null && isFinite(prevClose)) { min = Math.min(min, prevClose); max = Math.max(max, prevClose); }
+  var pad = (max - min) * 0.08 || 1;
+  min -= pad; max += pad;
+  var plotH = H - PADT - PADB;
+  function Y(px) { return PADT + (1 - (px - min) / (max - min)) * plotH; }
+  function X(i2) { return 8 * dpr + (i2 / (bars.length - 1)) * (W - 16 * dpr - GUT); }
+  function fmt(px) { return (Math.round(px * 100) / 100).toFixed(2); }
+  function stroke(fn, color, width, dash) {
+    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = (width || 1.5) * dpr; ctx.setLineDash(dash || []);
+    var started = false;
+    for (var k = 0; k < bars.length; k++) {
+      var val = fn(bars[k]);
+      if (val == null || !isFinite(val)) continue;
+      var x = X(k), y = Y(val);
+      if (started) ctx.lineTo(x, y); else { ctx.moveTo(x, y); started = true; }
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  var maxVol = 0;
+  for (i = 0; i < bars.length; i++) if ((bars[i].vol || 0) > maxVol) maxVol = bars[i].vol;
+  if (maxVol > 0) {
+    var volBase = H - 20 * dpr, volH = 24 * dpr;
+    for (i = 0; i < bars.length; i++) {
+      var vv = bars[i].vol || 0;
+      if (!vv) continue;
+      var bh2 = Math.max(1, (vv / maxVol) * volH);
+      var opv = bars[i].o != null && isFinite(bars[i].o) ? bars[i].o : bars[i].cl;
+      var upv = bars[i].cl >= opv;
+      ctx.fillStyle = upv ? "rgba(34,197,94,.45)" : "rgba(239,68,68,.45)";
+      ctx.fillRect(X(i) - 1.5 * dpr, volBase - bh2, 3 * dpr, bh2);
+    }
+  }
+  if (prevClose != null && isFinite(prevClose) && Y(prevClose) > PADT && Y(prevClose) < H - PADB) {
+    var yp = Y(prevClose);
+    ctx.beginPath(); ctx.setLineDash([5, 4]); ctx.strokeStyle = "#5b6b93"; ctx.lineWidth = 1 * dpr;
+    ctx.moveTo(0, yp); ctx.lineTo(W - GUT, yp); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = "#8a97b8";
+    ctx.fillText("prev " + fmt(prevClose), W - GUT + 4 * dpr, yp + 3 * dpr);
+  }
+  if (orl && isFinite(orl.hi) && isFinite(orl.lo)) {
+    ctx.setLineDash([3, 3]); ctx.strokeStyle = "#40527a"; ctx.lineWidth = 1 * dpr;
+    [orl.hi, orl.lo].forEach(function (lv, k) {
+      var yy = Y(lv);
+      if (yy <= PADT || yy >= H - PADB) return;
+      ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(W - GUT, yy); ctx.stroke();
+      ctx.fillStyle = "#5b6b93";
+      ctx.fillText((k === 0 ? "OR hi " : "OR lo ") + fmt(lv), W - GUT + 4 * dpr, yy + 3 * dpr);
+    });
+    ctx.setLineDash([]);
+  }
+  var slot = (W - 16 * dpr - GUT) / bars.length;
+  var bw = Math.max(2 * dpr, Math.min(12 * dpr, slot * 0.62));
+  for (i = 0; i < bars.length; i++) {
+    var b = bars[i], x = X(i);
+    var op = b.o != null && isFinite(b.o) ? b.o : b.cl;
+    var up = b.cl >= op;
+    var col = up ? "#22c55e" : "#ef4444";
+    ctx.strokeStyle = col; ctx.lineWidth = 1 * dpr;
+    ctx.beginPath(); ctx.moveTo(x, Y(hi1(b))); ctx.lineTo(x, Y(lo1(b))); ctx.stroke();
+    var y1 = Y(Math.max(op, b.cl)), y2 = Y(Math.min(op, b.cl));
+    ctx.fillStyle = col;
+    ctx.fillRect(x - bw / 2, y1, bw, Math.max(1 * dpr, y2 - y1));
+  }
+  stroke(function (b) { return b.k26; }, "#37d576", 1, [4, 3]);
+  stroke(function (b) { return b.t9; }, "#f59e0b", 1, [4, 3]);
+  ctx.fillStyle = "#8a97b8";
+  ctx.textAlign = "left";
+  ctx.fillText(fmt(max - pad), W - GUT + 4 * dpr, PADT + 4 * dpr);
+  ctx.fillText(fmt(min + pad), W - GUT + 4 * dpr, H - PADB);
+  function tstr(m) { if (m == null) return ""; var h = Math.floor(m / 60), mmn = m % 60; return (h < 10 ? "0" : "") + h + ":" + (mmn < 10 ? "0" : "") + mmn; }
+  ctx.fillText(tstr(bars[0].mm), 8 * dpr, H - 4 * dpr);
+  ctx.textAlign = "right";
+  ctx.fillText(tstr(bars[bars.length - 1].mm), W - GUT, H - 4 * dpr);
+  ctx.textAlign = "left";
+  var btxt, bcol, bbg;
+  if (tv && tv.side) {
+    btxt = (tv.side === "up" ? "CE" : "PE") + " lean \u00b7 " + (tv.tier === "strong" ? "one-sided" : tv.tier === "moderate" ? "building" : "weak") + " \u00b7 " + tv.agree + "/" + tv.total + " checks";
+    bcol = tv.side === "up" ? "#22c55e" : "#ef4444";
+    bbg = tv.side === "up" ? "rgba(34,197,94,.14)" : "rgba(239,68,68,.14)";
+  } else {
+    btxt = "no CE/PE lean \u2014 two-way";
+    bcol = "#8a97b8";
+    bbg = "rgba(138,151,184,.12)";
+  }
+  var bwid = ctx.measureText(btxt).width;
+  ctx.fillStyle = bbg;
+  ctx.fillRect(6 * dpr, 5 * dpr, bwid + 12 * dpr, 15 * dpr);
+  ctx.fillStyle = bcol;
+  ctx.fillText(btxt, 12 * dpr, 16 * dpr);
+}
+
+// ---------- intraday read panel (same fields as Sector Scope) ----------
+function lineTag(l) {
+  if (!l || !l.ok) return "lines n/a";
+  var t = l.pos;
+  t += ", " + l.linePos.toLowerCase();
+  if (l.held) t += ", " + l.held;
+  return t;
+}
+function buildRead(r) {
+  var pan = document.createElement("div");
+  pan.className = "readpan";
+  var h4 = document.createElement("h4"); h4.textContent = "Intraday read \u00b7 " + (r.chart && r.chart.tf || "15m") + " candles + 5m volume";
+  pan.appendChild(h4);
+  function frow(label, value, cls) {
+    var row = document.createElement("div"); row.className = "frow";
+    var l = document.createElement("span"); l.className = "fl"; l.textContent = label;
+    var v = document.createElement("span"); v.className = "fv" + (cls ? " " + cls : ""); v.textContent = value;
+    row.appendChild(l); row.appendChild(v); pan.appendChild(row);
+    return v;
+  }
+  var rd = r.read;
+  if (!rd) { frow("Read", "unavailable \u2014 refresh the page (older cached response)", ""); return pan; }
+  var tv = rd.trend;
+  var tvTxt, tvCls = "";
+  if (!tv) tvTxt = "unavailable \u2014 refresh the page";
+  else if (!tv.side) tvTxt = tv.label + " \u2014 no CE or PE lean yet";
+  else {
+    tvTxt = (tv.side === "up" ? "CE side" : "PE side") + " \u2014 " +
+      (tv.tier === "strong" ? "strong one-sided" : tv.tier === "moderate" ? "one-sided, building" : "weak one-sided") + " " +
+      (tv.side === "up" ? "up" : "down") + " \u00b7 " + tv.agree + "/" + tv.total + " checks" +
+      (tv.helpers ? ", " + tv.helpers + " context signal" + (tv.helpers === 1 ? "" : "s") + " with it" : "");
+    tvCls = tv.side;
+  }
+  frow("Trend side", tvTxt, tvCls);
+  var lean = rd.lean || { up: 0, down: 0, total: 0 };
+  var leanTxt, leanCls = "";
+  if (!lean.total) leanTxt = "no directional checks yet (early session or no data)";
+  else if (lean.down > lean.up) { leanTxt = lean.down + " of " + lean.total + " checks lean down"; leanCls = "down"; }
+  else if (lean.up > lean.down) { leanTxt = lean.up + " of " + lean.total + " checks lean up"; leanCls = "up"; }
+  else leanTxt = "split \u2014 " + lean.down + " down, " + lean.up + " up";
+  frow("Lean", leanTxt, leanCls);
+  var vt = rd.vwapTrend;
+  frow("VWAP", (r.vwapSide || "\u2013") + (vt ? ", " + vt.dir + " " + Math.abs(vt.pct).toFixed(2) + "%/hr" : ""),
+    r.vwapSide === "above VWAP" ? "up" : r.vwapSide === "below VWAP" ? "down" : "");
+  frow("Lines", lineTag(r.lines), r.lines && r.lines.ok ? (/above both/.test(r.lines.pos) ? "up" : /below both/.test(r.lines.pos) ? "down" : "") : "");
+  if (rd.structure) frow("30m structure", rd.structure.up + " higher \u00b7 " + rd.structure.down + " lower swings", rd.structure.dir || "");
+  if (rd.or) {
+    var orTxt = hm(555) + "\u2013" + hm(570) + " " + f2(rd.or.lo) + "\u2013" + f2(rd.or.hi);
+    var orCls = "";
+    if (rd.or.brokeUp && rd.or.brokeDown) { orTxt += " \u00b7 broke both ways " + hm(Math.min(rd.or.brokeUp, rd.or.brokeDown)); }
+    else if (rd.or.brokeUp) { orTxt += " \u00b7 broke up " + hm(rd.or.brokeUp); orCls = "up"; }
+    else if (rd.or.brokeDown) { orTxt += " \u00b7 broke down " + hm(rd.or.brokeDown); orCls = "down"; }
+    else orTxt += " \u00b7 still inside range";
+    frow("Opening range", orTxt, orCls);
+  }
+  if (rd.adx) {
+    var hi2 = Math.max(rd.adx.pdi, rd.adx.mdi), lo2 = Math.min(rd.adx.pdi, rd.adx.mdi);
+    frow("ADX (" + ((r.chart && r.chart.tf) || "15m") + ")",
+      "ADX " + rd.adx.v.toFixed(1) + (rd.adx.v >= 18 ? " (trending)" : " (weak)") + " \u00b7 " + (rd.adx.pdi >= rd.adx.mdi ? "+DI " : "-DI ") + hi2.toFixed(1) + " > " + (rd.adx.pdi >= rd.adx.mdi ? "-DI " : "+DI ") + lo2.toFixed(1),
+      rd.adx.v >= 18 ? rd.adx.dir || "" : "");
+    if (rd.range && rd.range.ratio != null) frow("Day range", rd.range.ratio.toFixed(2) + "\u00d7 the 20-day normal", rd.range.ratio >= 1.15 ? "up" : "");
+  } else if (rd.range && rd.range.ratio != null) {
+    frow("Day range", rd.range.ratio.toFixed(2) + "\u00d7 the 20-day normal", rd.range.ratio >= 1.15 ? "up" : "");
+  }
+  frow("Volume", rd.volSpike ? rd.volSpike.mult.toFixed(1) + "\u00d7 the usual 5m volume at " + hm(rd.volSpike.mm) : "no unusual 5m volume today",
+    rd.volSpike ? "up" : "");
+  var pr = document.createElement("div"); pr.className = "frow";
+  var pl = document.createElement("span"); pl.className = "fl"; pl.textContent = "Candle patterns";
+  var pv = document.createElement("span"); pv.className = "fv";
+  if (rd.patterns && rd.patterns.length) {
+    rd.patterns.forEach(function (p) {
+      var c = document.createElement("span");
+      c.className = "chip " + (p.dir || "flat");
+      c.textContent = hm(p.mm) + " " + p.name;
+      pv.appendChild(c);
+    });
+  } else {
+    pv.textContent = "none in the last hour of closed candles";
+  }
+  pr.appendChild(pl); pr.appendChild(pv); pan.appendChild(pr);
+  var note = document.createElement("p"); note.className = "readnote";
+  note.textContent = "Facts from closed candles only \u2014 a read, not a forecast.";
+  pan.appendChild(note);
+  return pan;
+}
+
+// ---------- board ----------
+function cell(txt, cls) {
+  var d = document.createElement("td");
+  if (cls) d.className = cls;
+  d.textContent = txt == null ? "\u2013" : txt;
+  return d;
+}
+function refInfo(r) {
+  var bars = r.chart && r.chart.bars;
+  var b = bars && bars.length ? bars[bars.length - 1] : null;
+  return b ? { cl: b.cl, mm: b.mm } : { cl: null, mm: null };
+}
+function visible() {
+  var side = $("sideSel").value;
+  var strongOnly = $("strongOnly").checked;
+  return LAST.filter(function (r) {
+    var tv = r.read && r.read.trend;
+    if (!tv || !tv.side) return false;
+    if (strongOnly && tv.tier !== "strong") return false;
+    if (side === "up" && tv.side !== "up") return false;
+    if (side === "down" && tv.side !== "down") return false;
+    return true;
+  });
+}
+function render(secs, c) {
+  LAST = (c && c.signals) || [];
+  LASTSECS = secs || [];
+  var m = (c && c.meta) || LASTMETA || {};
+  LASTMETA = m;
+
+  var info = LASTSECS.map(function (s) {
+    var cls = s.pct >= 0 ? "up" : "down";
+    return '<span class="chip ' + cls + '">' + s.sector + " " + pctTxt(s.pct) + (s.rvol == null ? "" : " \u00b7 money " + s.rvol.toFixed(2) + "\u00d7 normal") + "</span>";
+  }).join("");
+  $("scaninfo").innerHTML = (info ? "Scanned: " + info + "<br>" : "") +
+    "Loaded " + (m.loaded == null ? "?" : m.loaded) + " of " + (m.wanted == null ? "?" : m.wanted) + " stocks" +
+    (m.failed ? " (" + m.failed + " without data)" : "") +
+    " \u00b7 signals: " + (m.strong == null ? "?" : m.strong) + " strong, " + (m.moderate == null ? "?" : m.moderate) + " moderate" +
+    " \u00b7 weak hidden: " + (m.weakHidden == null ? "?" : m.weakHidden) +
+    (m.truncated ? " \u00b7 symbol cap reached, some stocks not scanned" : "") + ".";
+
+  var shown = visible();
+  var empty = $("empty");
+  var wrap = $("wrap");
+  $("rows").textContent = "";
+  for (var i = 0; i < shown.length; i++) {
+    var r = shown[i];
+    var tv = r.read.trend;
+    var ref = refInfo(r);
+    var side = tv.side;
+    var tgt = ref.cl != null ? ref.cl * (side === "up" ? 1.005 : 0.995) : null;
+    var stp = ref.cl != null ? ref.cl * (side === "up" ? 0.995 : 1.005) : null;
+    var drift = ref.cl != null && r.ltp > 0 ? ((r.ltp - ref.cl) / ref.cl) * 100 : null;
+
+    var tr = document.createElement("tr");
+    tr.className = "rowmain";
+    var cSide = document.createElement("td"); cSide.className = "l";
+    var chip = document.createElement("span");
+    chip.className = "chip " + side;
+    chip.textContent = side === "up" ? "CE" : "PE";
+    chip.title = "side the checks lean: " + tv.agree + "/" + tv.total + " checks, " + (tv.helpers || 0) + " context signals. Not an order.";
+    cSide.appendChild(chip);
+    tr.appendChild(cSide);
+
+    var cSym = document.createElement("td"); cSym.className = "l";
+    var s1 = document.createElement("span"); s1.className = "sym"; s1.textContent = r.sym;
+    cSym.appendChild(s1);
+    var sub = document.createElement("div"); sub.className = "tiny"; sub.textContent = "click for chart & read";
+    cSym.appendChild(sub);
+    tr.appendChild(cSym);
+
+    var cSec = document.createElement("td"); cSec.className = "sector"; cSec.textContent = r.industry || "\u2013";
+    tr.appendChild(cSec);
+
+    var cTier = document.createElement("td"); cTier.className = "l";
+    var tchip = document.createElement("span");
+    tchip.className = "tier " + tv.tier;
+    tchip.textContent = tv.tier === "strong" ? "Strong" : "Moderate";
+    cTier.appendChild(tchip);
+    tr.appendChild(cTier);
+
+    tr.appendChild(cell(tv.agree + "/" + tv.total + (tv.helpers ? " \u00b7 " + tv.helpers + " ctx" : ""), "l"));
+
+    var cRef = document.createElement("td"); cRef.className = "l";
+    cRef.appendChild(document.createTextNode(f2(ref.cl)));
+    var rsub = document.createElement("div"); rsub.className = "tiny"; rsub.textContent = hm(ref.mm) + " bar";
+    cRef.appendChild(rsub);
+    tr.appendChild(cRef);
+
+    var cNow = document.createElement("td");
+    cNow.appendChild(document.createTextNode(f2(r.ltp)));
+    var nsub = document.createElement("div"); nsub.className = "tiny " + (drift == null ? "" : drift >= 0 ? "up" : "down");
+    nsub.textContent = drift == null ? "" : pctTxt(drift) + " vs ref";
+    cNow.appendChild(nsub);
+    tr.appendChild(cNow);
+
+    tr.appendChild(cell(f2(tgt), "num"));
+    tr.appendChild(cell(f2(stp), "num"));
+    tr.appendChild(cell(r.rvol == null ? "\u2013" : r.rvol.toFixed(2) + "\u00d7", "num"));
+
+    var detail = document.createElement("tr");
+    var td = document.createElement("td"); td.colSpan = 10;
+    var wrapDiv = document.createElement("div"); wrapDiv.className = "readwrap";
+    var cvs = document.createElement("canvas"); cvs.dataset.sym = r.sym;
+    wrapDiv.appendChild(cvs);
+    wrapDiv.appendChild(buildRead(r));
+    td.appendChild(wrapDiv); detail.appendChild(td); detail.hidden = true;
+
+    (function (r2, tr2, detail2, cvs2) {
+      tr2.addEventListener("click", function () {
+        detail2.hidden = !detail2.hidden;
+        openSym = detail2.hidden ? null : r2.sym;
+        if (!detail2.hidden) drawChart(cvs2, r2);
+      });
+    })(r, tr, detail, cvs);
+
+    $("rows").appendChild(tr);
+    $("rows").appendChild(detail);
+    if (openSym === r.sym) {
+      detail.hidden = false;
+      drawChart(cvs, r);
+    }
+  }
+
+  if (shown.length) {
+    wrap.hidden = false;
+    empty.hidden = true;
+  } else {
+    wrap.hidden = true;
+    empty.hidden = false;
+    empty.textContent = LAST.length
+      ? "No signal matches the filters right now (" + LAST.length + " hidden by the filter). Clear a filter or wait for the next candle."
+      : "No strong or moderate one-sided read in the scanned sectors at this moment. The checks are two-way or weak here \u2014 forcing a trade now means trading against the read. The board refreshes itself.";
+  }
+  $("livestate").textContent = "";
+}
+
+function selectSectors(sectors, k) {
+  var elig = (sectors || []).filter(function (s) { return s && s.n >= 2 && isFinite(s.pct); });
+  elig.sort(function (a, b) { return Math.abs(b.pct) - Math.abs(a.pct); });
+  return elig.slice(0, k);
+}
+
+function getJSON(url) {
+  return fetch(url).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+}
+
+// ---------- live auto-refresh (pauses in a background tab) ----------
+var SEC_MS = 60000, RETRY_MS = 20000;
+var live = true, nextAt = 0, loading = false;
+
+function load(auto) {
+  if (loading) return;
+  loading = true;
+  var st = $("status");
+  if (!auto) st.innerHTML = '<span class="spin"></span>Screening the hot sectors\u2026';
+  var k = parseInt($("topSel").value, 10) || 6;
+  getJSON("/api/sectors").then(function (d) {
+    var secs = selectSectors(d.sectors, k);
+    if (!secs.length) throw new Error("no sector with 2 or more F&O stocks returned");
+    $("asof").textContent = d.meta && d.meta.asOf ? "prices as of " + d.meta.asOf : "";
+    st.innerHTML = '<span class="spin"></span>Reading ' + secs.length + " sectors\u2026";
+    var names = secs.map(function (s) { return s.sector; });
+    return getJSON("/api/calls?sectors=" + encodeURIComponent(names.join(",")) + "&tf=15m").then(function (c) {
+      render(secs, c);
+      banner("");
+      st.textContent = "";
+      nextAt = Date.now() + SEC_MS;
+    });
+  }).catch(function (e) {
+    st.textContent = "";
+    banner("err", "Could not load live calls: " + e.message + " \u2014 will retry automatically.");
+    nextAt = Date.now() + RETRY_MS;
+  }).then(function () { loading = false; });
+}
+
+$("pause").addEventListener("click", function () {
+  live = !live;
+  this.textContent = live ? "Pause live" : "Resume live";
+  if (live) { nextAt = 0; load(true); }
+  else $("livestate").textContent = "paused \u2014 the data on screen is frozen";
+});
+$("refresh").addEventListener("click", function () { load(false); });
+$("sideSel").addEventListener("change", function () { render(LASTSECS, { signals: LAST }); });
+$("strongOnly").addEventListener("change", function () { render(LASTSECS, { signals: LAST }); });
+$("topSel").addEventListener("change", function () { load(false); });
+$("copyBtn").addEventListener("click", function () {
+  var lines = visible().map(function (r) {
+    var tv = r.read.trend, ref = refInfo(r);
+    var tgt = ref.cl != null ? ref.cl * (tv.side === "up" ? 1.005 : 0.995) : null;
+    var stp = ref.cl != null ? ref.cl * (tv.side === "up" ? 0.995 : 1.005) : null;
+    return (tv.side === "up" ? "CE" : "PE") + " " + r.sym + " (" + (r.industry || "?") + ") " + tv.tier +
+      " " + tv.agree + "/" + tv.total + " \u00b7 ref " + f2(ref.cl) + " " + hm(ref.mm) +
+      " \u00b7 now " + f2(r.ltp) + " \u00b7 target " + f2(tgt) + " \u00b7 stop " + f2(stp);
+  });
+  var text = lines.join("\n");
+  function done() { banner("", ""); $("copyBtn").textContent = "Copied " + lines.length; setTimeout(function () { $("copyBtn").textContent = "Copy list"; }, 1500); }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { window.prompt("Copy:", text); });
+  else window.prompt("Copy:", text);
+});
+
+setInterval(function () {
+  var ls = $("livestate"), n = Date.now();
+  if (!live) return;
+  if (document.hidden) { ls.textContent = "paused \u2014 tab in background"; return; }
+  if (nextAt && n >= nextAt) { load(true); return; }
+  if (nextAt) ls.textContent = "live \u00b7 next update in " + Math.max(0, Math.ceil((nextAt - n) / 1000)) + "s";
+}, 1000);
+document.addEventListener("visibilitychange", function () {
+  if (!document.hidden && live) { nextAt = 0; load(true); }
+});
+
+load(false);
+</script>
+</body>
+</html>
