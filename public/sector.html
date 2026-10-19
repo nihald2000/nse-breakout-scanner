@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="NSE Sector Scope - which F&O industry group has the most money behind it today, and the stocks inside it with running volume and Ichimoku Tenkan/Kijun status. Facts, not advice.">
+<meta name="description" content="NSE Sector Scope - which F&O industry group has the most money behind it today, and the stocks inside it with running volume, candlesticks and Ichimoku Tenkan/Kijun status. Facts, not advice.">
 <title>Sector Scope - NSE F&amp;O sector and stock screener</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230e1628'/><rect x='5' y='17' width='5' height='9' rx='1.5' fill='%23ef4444'/><rect x='13' y='10' width='5' height='16' rx='1.5' fill='%2322c55e'/><rect x='21' y='6' width='5' height='20' rx='1.5' fill='%233b82f6'/></svg>">
 <link rel="stylesheet" href="/app.css">
@@ -12,12 +12,16 @@
   .srow { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--line);
           border-radius: 10px; background: var(--card); cursor: pointer; }
   .srow:hover, .srow.sel { border-color: #2a3d6e; background: #131e38; }
+  .srow.sel { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
   .srow .nm { width: 200px; font-weight: 600; flex: none; }
   .srow .tracked { flex: 1 1 0; height: 14px; min-width: 40px; position: relative; background: transparent; }
   .srow .tracked i { position: absolute; top: 0; bottom: 0; border-radius: 4px; }
   .srow .val { width: 74px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 650; flex: none; }
   .srow .extra { width: 240px; color: var(--muted); font-size: 12px; flex: none; text-align: right; }
   @media (max-width: 700px) { .srow .nm { width: 128px; font-size: 13px; } .srow .extra { display: none; } }
+  .sbody { margin: -5px 0 8px; padding: 10px 12px 4px; border: 1px solid #2a3d6e; border-top: none;
+           border-radius: 0 0 10px 10px; background: #0f1830; }
+  .sbody .liveinfo { margin-bottom: 6px; }
   canvas { width: 100%; max-width: 340px; height: 190px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); display: block; margin-bottom: 8px; }
   .readwrap { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; padding: 6px 0 10px; }
   .readpan { flex: 1 1 420px; min-width: 300px; font-size: 13px; }
@@ -42,7 +46,7 @@
     <a href="/journal.html">Journal</a>
   </nav>
   <h1>Sector Scope</h1>
-  <p class="sub">Which F&amp;O industry group has the most money behind it today, and the stocks inside it with running volume. Updates itself every minute &mdash; nothing to press; it shows where things stand and you make the trade.</p>
+  <p class="sub">Which F&amp;O industry group has the most money behind it today, and the stocks inside it with running volume. Updates itself every minute &mdash; click a group and its stocks open right below it; it shows where things stand and you make the trade.</p>
 
   <div class="banner" id="banner"></div>
 
@@ -58,60 +62,38 @@
   <p class="legend" id="legendText"></p>
   <div class="secbar" id="seclist"></div>
 
-  <div id="stockpanel" hidden>
-    <h2 style="font-size:16px;margin:18px 0 6px;">F&amp;O stocks in <span id="selName"></span></h2>
-    <div class="controls">
-      <label class="chk">Ichimoku lines
-        <span class="seg" id="tfSeg">
-          <button data-tf="15m" class="on">15 minute</button>
-          <button data-tf="5m">5 minute</button>
-        </span>
-      </label>
-    </div>
-    <div class="liveinfo" id="sstatus"></div>
-    <div class="wrap">
-      <table id="stockTable">
-        <thead><tr id="thead"></tr></thead>
-        <tbody id="tbody"></tbody>
-      </table>
-    </div>
-    <p class="legend">Sorted by running volume (today's cumulative volume at this clock minute vs the mean of
-    the earlier sessions in the same fetch). <b>CE / PE</b> is the side the checks lean &mdash; CE = the facts point up
-    (call side), PE = down (put side), with how one-sided they are: <i>one-sided</i> = most checks agree <b>and</b> ADX
-    and structure point the same way; <i>building</i> = a majority with partial support; a dash = two-way, no lean.
-    It is a count of agreeing facts, <b>not a probability of profit and not an order</b>.
-    Tenkan(9)/Kijun(26) use <b>closed candles of the chosen timeframe</b>;
-    the reference stop is the Kijun of that timeframe and is a fact about the chart, not a stop for you.
-    Delivery % is the previous completed session's from NSE's own file. F&amp;O ban is <b>not</b> checked (no free
-    source). Option bid/ask is not shown because no free live chain exists &mdash; check your broker before buying.
-    Lines drawn on candles change with the next candle; do not treat a tag as an order.</p>
-  </div>
-
   <p class="legend">The sector % here is the turnover-weighted average of the F&amp;O stocks in the group &mdash; not the
   NSE sector index. NSE publishes its own sector levels, but its live sector page is not reachable from cloud servers,
   so the members' own prices are the source. "Normal" turnover is the mean of the prior 20 sessions scaled by the
   expected share of the day elapsed.</p>
+
+  <p class="legend">Stocks inside a group: sorted by running volume (today's cumulative volume at this clock minute vs
+  the mean of the earlier sessions in the same fetch). <b>CE / PE</b> is the side the checks lean &mdash; CE = the facts
+  point up (call side), PE = down (put side) &mdash; with how one-sided they are: <i>one-sided</i> = most checks agree
+  <b>and</b> ADX and structure point the same way; <i>building</i> = a majority with partial support; a dash = two-way,
+  no lean. It is a count of agreeing facts, <b>not a probability of profit and not an order</b>.
+  The chart is <b>candlesticks</b> of the closed 15-minute bars (green = close above open, red = close below), amber
+  dashed = Tenkan(9), green dashed = Kijun(26), grey dashed = previous close, blue dashed = opening range hi/lo when
+  they fit the frame; the strips at the bottom are volume per candle. The badge on the chart is the same CE/PE read,
+  stamped at each update. Tenkan/Kijun use closed candles only; the line stop is a fact about the chart, not a stop
+  for you. Delivery % is the previous completed session's from NSE's own file. F&amp;O ban is <b>not</b> checked (no
+  free source). Option bid/ask is not shown because no free live chain exists &mdash; check your broker before buying.</p>
 </div>
 
 <script>
 "use strict";
 var $ = function (id) { return document.getElementById(id); };
 var f2 = function (v) { return v == null || !isFinite(v) ? "\u2013" : (Math.round(v * 100) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
-var f0 = function (v) { return v == null || !isFinite(v) ? "\u2013" : Math.round(v).toLocaleString("en-IN"); };
 var pctTxt = function (v) { return v == null ? "\u2013" : (v > 0 ? "+" : "") + (Math.round(v * 100) / 100).toFixed(2) + "%"; };
 var SECTS = [];
+var CURTF = "15m"; // Ichimoku timeframe (fixed; the read panel and chart follow it)
+var CUR = null, openSym = null, lastStocks = null;
 
 function banner(kind, text) {
   var b = $("banner");
   if (!text) { b.className = "banner"; b.textContent = ""; return; }
   b.className = "banner " + kind;
   b.textContent = text;
-}
-function dt(txt, cls, value) {
-  var d = document.createElement("td");
-  if (cls) d.className = cls;
-  if (value == null) d.textContent = txt == null ? "\u2013" : txt; else d.textContent = value;
-  return d;
 }
 function cell(txt, cls) {
   var d = document.createElement("td");
@@ -120,14 +102,28 @@ function cell(txt, cls) {
   return d;
 }
 
-// ---------- sector bars ----------
+// ---------- sector bars (accordion: stocks open under the clicked bar) ----------
+function blockFor(name) {
+  var kids = $("seclist").children;
+  for (var i = 0; i < kids.length; i++) if (kids[i]._sector && kids[i]._sector.sector === name) return kids[i]._block;
+  return null;
+}
+function setSel(name) {
+  var kids = $("seclist").children;
+  for (var i = 0; i < kids.length; i++) {
+    if (kids[i]._block) kids[i]._block.row.classList.toggle("sel", !!(kids[i]._sector && kids[i]._sector.sector === name));
+  }
+}
+
 function renderSectors(sectors) {
   var list = $("seclist");
   list.textContent = "";
   var maxAbs = 0;
   for (var i = 0; i < sectors.length; i++) maxAbs = Math.max(maxAbs, Math.abs(sectors[i].pct || 0));
-  for (var i = 0; i < sectors.length; i++) {
-    var s = sectors[i];
+  sectors.forEach(function (s) {
+    var block = document.createElement("div");
+    block.className = "sblock";
+    block._sector = s;
     var row = document.createElement("div");
     row.className = "srow" + (CUR === s.sector ? " sel" : ""); row.tabIndex = 0; row.setAttribute("role", "button");
     var nm = document.createElement("span");
@@ -145,11 +141,38 @@ function renderSectors(sectors) {
     extra.textContent = "money " + (s.rvol == null ? "n/a" : s.rvol.toFixed(2) + "\u00d7 normal") +
       " \u00b7 " + (Math.round((s.breadth || 0) * 100)) + "% up \u00b7 top: " + s.leader + " " + pctTxt(s.leaderPct);
     row.appendChild(nm); row.appendChild(tracked); row.appendChild(val); row.appendChild(extra);
-    row.addEventListener("click", function (name) { return function () { loadStocks(name); }; }(s.sector));
-    row.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); row.click(); } });
-    row._sector = s;
-    list.appendChild(row);
+    row.addEventListener("click", function () { onSectorClick(s.sector); });
+    row.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSectorClick(s.sector); } });
+    var body = document.createElement("div");
+    body.className = "sbody";
+    body.hidden = true;
+    block.appendChild(row); block.appendChild(body);
+    block._block = { row: row, body: body };
+    list.appendChild(block);
+  });
+  // keep the open group open across live updates, repainted from the last fetch
+  if (CUR) {
+    var blk = blockFor(CUR);
+    if (blk) {
+      blk.body.hidden = false;
+      paintStocks(CUR, lastStocks && lastStocks.sector === CUR ? lastStocks : null);
+    }
   }
+}
+
+function onSectorClick(name) {
+  if (CUR === name) { // second click folds the group back up
+    CUR = null; openSym = null; lastStocks = null; stockNext = 0;
+    var blk = blockFor(name);
+    if (blk) { blk.body.hidden = true; blk.body.textContent = ""; blk.row.classList.remove("sel"); }
+    return;
+  }
+  CUR = name; openSym = null; stockNext = 0;
+  setSel(name);
+  var blk = blockFor(name);
+  if (blk) blk.body.hidden = false;
+  paintStocks(name, lastStocks && lastStocks.sector === name ? lastStocks : null);
+  loadStocks(name, false);
 }
 
 function loadSectors(auto) {
@@ -171,9 +194,6 @@ function loadSectors(auto) {
   });
 }
 
-// ---------- stock list ----------
-var CUR = null, CURTF = "15m", openSym = null;
-
 function lineTag(l) {
   if (!l || !l.ok) return "lines n/a";
   var t = l.pos;
@@ -182,7 +202,13 @@ function lineTag(l) {
   return t;
 }
 
-function drawChart(cvs, bars, prevClose) {
+// ---------- candlestick chart (same 340x190 frame) ----------
+function drawChart(cvs, r) {
+  var bars = r && r.chart && r.chart.bars;
+  var prevClose = r && r.prevClose;
+  var rd = (r && r.read) || {};
+  var tv = rd.trend || null;
+  var orl = rd.or || null;
   var dpr = window.devicePixelRatio || 1;
   var ctx = cvs.getContext("2d");
   var W = cvs.width = Math.max(320, cvs.clientWidth) * dpr;
@@ -190,13 +216,15 @@ function drawChart(cvs, bars, prevClose) {
   ctx.clearRect(0, 0, W, H);
   ctx.font = (10 * dpr) + "px sans-serif";
   var GUT = 58 * dpr;          // right gutter for price labels
-  var PADT = 14 * dpr, PADB = 46 * dpr; // bottom 46px: volume strip + time labels
+  var PADT = 24 * dpr, PADB = 46 * dpr; // top 24px: badge room; bottom 46px: volume strip + time labels
   if (!bars || bars.length < 2) {
     ctx.fillStyle = "#8a97b8";
     ctx.fillText("not enough closed candles yet", 10 * dpr, H / 2);
     return;
   }
-  var min = Infinity, max = -Infinity, i, v;
+  // Scale follows candles, Tenkan/Kijun and prev close only. OR levels are never allowed
+  // to stretch the frame - if they do not fit, the line is skipped (honest scale).
+  var min = Infinity, max = -Infinity, i;
   function lo1(b) { return b.lo != null ? b.lo : b.cl; }
   function hi1(b) { return b.hi != null ? b.hi : b.cl; }
   for (i = 0; i < bars.length; i++) {
@@ -230,28 +258,48 @@ function drawChart(cvs, bars, prevClose) {
       var vv = bars[i].vol || 0;
       if (!vv) continue;
       var bh2 = Math.max(1, (vv / maxVol) * volH);
-      var upv = i === 0 || bars[i].cl >= bars[i - 1].cl;
+      var opv = bars[i].o != null && isFinite(bars[i].o) ? bars[i].o : bars[i].cl;
+      var upv = bars[i].cl >= opv;
       ctx.fillStyle = upv ? "rgba(34,197,94,.45)" : "rgba(239,68,68,.45)";
       ctx.fillRect(X(i) - 1.5 * dpr, volBase - bh2, 3 * dpr, bh2);
     }
   }
   // Previous close: the reference the whole day's move is measured against
-  if (prevClose != null && isFinite(prevClose) && Y(prevClose) > 0 && Y(prevClose) < H) {
+  if (prevClose != null && isFinite(prevClose) && Y(prevClose) > PADT && Y(prevClose) < H - PADB) {
     var yp = Y(prevClose);
     ctx.beginPath(); ctx.setLineDash([5, 4]); ctx.strokeStyle = "#5b6b93"; ctx.lineWidth = 1 * dpr;
     ctx.moveTo(0, yp); ctx.lineTo(W - GUT, yp); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle = "#8a97b8";
     ctx.fillText("prev " + fmt(prevClose), W - GUT + 4 * dpr, yp + 3 * dpr);
   }
-  // High-low range per candle (so a sharp drop reads as a sharp drop)
-  ctx.strokeStyle = "#31405f"; ctx.lineWidth = 2 * dpr;
+  // Opening range hi/lo - context only, drawn when they fit the frame
+  if (orl && isFinite(orl.hi) && isFinite(orl.lo)) {
+    ctx.setLineDash([3, 3]); ctx.strokeStyle = "#40527a"; ctx.lineWidth = 1 * dpr;
+    [orl.hi, orl.lo].forEach(function (lv, k) {
+      var yy = Y(lv);
+      if (yy <= PADT || yy >= H - PADB) return;
+      ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(W - GUT, yy); ctx.stroke();
+      ctx.fillStyle = "#5b6b93";
+      ctx.fillText((k === 0 ? "OR hi " : "OR lo ") + fmt(lv), W - GUT + 4 * dpr, yy + 3 * dpr);
+    });
+    ctx.setLineDash([]);
+  }
+  // Candles: wick high-low, body open-close (green up, red down)
+  var slot = (W - 16 * dpr - GUT) / bars.length;
+  var bw = Math.max(2 * dpr, Math.min(12 * dpr, slot * 0.62));
   for (i = 0; i < bars.length; i++) {
-    var x = X(i);
-    ctx.beginPath(); ctx.moveTo(x, Y(lo1(bars[i]))); ctx.lineTo(x, Y(hi1(bars[i]))); ctx.stroke();
+    var b = bars[i], x = X(i);
+    var op = b.o != null && isFinite(b.o) ? b.o : b.cl;
+    var up = b.cl >= op;
+    var col = up ? "#22c55e" : "#ef4444";
+    ctx.strokeStyle = col; ctx.lineWidth = 1 * dpr;
+    ctx.beginPath(); ctx.moveTo(x, Y(hi1(b))); ctx.lineTo(x, Y(lo1(b))); ctx.stroke();
+    var y1 = Y(Math.max(op, b.cl)), y2 = Y(Math.min(op, b.cl));
+    ctx.fillStyle = col;
+    ctx.fillRect(x - bw / 2, y1, bw, Math.max(1 * dpr, y2 - y1));
   }
   stroke(function (b) { return b.k26; }, "#37d576", 1, [4, 3]);
   stroke(function (b) { return b.t9; }, "#f59e0b", 1, [4, 3]);
-  stroke(function (b) { return b.cl; }, "#e6ecff", 2);
   // Axis labels: top/bottom of the visible range, plus first and last clock time
   ctx.fillStyle = "#8a97b8";
   ctx.textAlign = "left";
@@ -262,8 +310,23 @@ function drawChart(cvs, bars, prevClose) {
   ctx.textAlign = "right";
   ctx.fillText(tstr(bars[bars.length - 1].mm), W - GUT, H - 4 * dpr);
   ctx.textAlign = "left";
+  // Signal badge: which side the checks lean, stamped at this update. A count of facts, not advice.
+  var btxt, bcol, bbg;
+  if (tv && tv.side) {
+    btxt = (tv.side === "up" ? "CE" : "PE") + " lean \u00b7 " + (tv.tier === "strong" ? "one-sided" : tv.tier === "moderate" ? "building" : "weak") + " \u00b7 " + tv.agree + "/" + tv.total + " checks";
+    bcol = tv.side === "up" ? "#22c55e" : "#ef4444";
+    bbg = tv.side === "up" ? "rgba(34,197,94,.14)" : "rgba(239,68,68,.14)";
+  } else {
+    btxt = "no CE/PE lean \u2014 two-way";
+    bcol = "#8a97b8";
+    bbg = "rgba(138,151,184,.12)";
+  }
+  var bwid = ctx.measureText(btxt).width;
+  ctx.fillStyle = bbg;
+  ctx.fillRect(6 * dpr, 5 * dpr, bwid + 12 * dpr, 15 * dpr);
+  ctx.fillStyle = bcol;
+  ctx.fillText(btxt, 12 * dpr, 16 * dpr);
 }
-
 
 function hm(mm) {
   if (mm == null) return "\u2013";
@@ -359,14 +422,14 @@ function buildRead(r) {
   return pan;
 }
 
-function renderStocks(rows) {
-  var thead = $("thead"), tbody = $("tbody");
+function renderStocks(thead, tbody, rows) {
   thead.textContent = ""; tbody.textContent = "";
+  var ths = document.createElement("tr");
   ["Stock", "Side", "LTP", "Chg %", "Running vol", "VWAP", "VWAP dist", "Tenkan/Kijun (" + CURTF + ")", "Line stop", "Delivery %"].forEach(function (h) {
-    var t = document.createElement("th"); t.textContent = h; t.className = h === "Stock" || h === "Side" ? "l" : "r"; thead.appendChild(t);
+    var t = document.createElement("th"); t.textContent = h; t.className = h === "Stock" || h === "Side" ? "l" : "r"; ths.appendChild(t);
   });
-  var _loop = function (i) {
-    var r = rows[i];
+  thead.appendChild(ths);
+  rows.forEach(function (r) {
     var tr = document.createElement("tr");
     var c0 = document.createElement("td"); c0.className = "l";
     var s1 = document.createElement("span"); s1.className = "sym"; s1.textContent = r.sym;
@@ -404,47 +467,63 @@ function renderStocks(rows) {
     tr.addEventListener("click", function () {
       rowBar.hidden = !rowBar.hidden;
       openSym = rowBar.hidden ? null : r.sym;
-      if (!rowBar.hidden) drawChart(cvs, r.chart && r.chart.bars, r.prevClose);
+      if (!rowBar.hidden) drawChart(cvs, r);
     });
     tbody.appendChild(tr); tbody.appendChild(rowBar);
     if (openSym === r.sym) { // keep the panel you opened open across live updates
       rowBar.hidden = false;
-      drawChart(cvs, r.chart && r.chart.bars, r.prevClose);
+      drawChart(cvs, r);
     }
-  };
-  for (var i = 0; i < rows.length; i++) _loop(i);
+  });
+}
+
+// Paint (or repaint) the stock block inside one sector's accordion body.
+function paintStocks(name, data) {
+  var blk = blockFor(name);
+  if (!blk) return;
+  var body = blk.body;
+  body.textContent = "";
+  var info = document.createElement("div");
+  info.className = "liveinfo";
+  if (data && data.meta) {
+    info.textContent = data.meta.asOf ? "as of " + data.meta.asOf + " (" + data.meta.universe + " of " + data.meta.wanted + " loaded) \u00b7 open a stock for its candlestick chart and read" : "";
+  } else {
+    info.textContent = "Loading stocks for " + name + "\u2026";
+  }
+  body.appendChild(info);
+  if (data && data.rows && data.rows.length) {
+    var table = document.createElement("table");
+    var thead = document.createElement("thead"), tbody = document.createElement("tbody");
+    table.appendChild(thead); table.appendChild(tbody);
+    var wrap = document.createElement("div"); wrap.className = "wrap";
+    wrap.appendChild(table);
+    body.appendChild(wrap);
+    renderStocks(thead, tbody, data.rows);
+    var lg = document.createElement("p"); lg.className = "readnote";
+    lg.textContent = "Sorted by running volume \u00b7 CE/PE = the side the checks lean (a count of facts, not an order). Full legend at the bottom of the page.";
+    body.appendChild(lg);
+  } else if (data) {
+    var p = document.createElement("p"); p.className = "readnote";
+    p.textContent = "No stocks returned for this sector right now \u2014 will retry automatically.";
+    body.appendChild(p);
+  }
 }
 
 function loadStocks(sector, auto) {
-  CUR = sector;
+  if (CUR !== sector) return; // folded or switched away
   stockNext = 0; // in-flight guard
-  if (!auto) {
-    Array.prototype.forEach.call($("seclist").children, function (el) {
-      el.classList.toggle("sel", el._sector && el._sector.sector === sector);
-    });
-    $("stockpanel").hidden = false;
-    $("selName").textContent = sector;
-    var st0 = $("sstatus"); st0.className = "liveinfo"; st0.textContent = "Loading stocks for " + sector + "\u2026";
-  }
   fetch("/api/sectorstocks?sector=" + encodeURIComponent(sector) + "&tf=" + CURTF).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }).then(function (d) {
-    var st = $("sstatus");
-    st.textContent = d.meta && d.meta.asOf ? "as of " + d.meta.asOf + " (" + d.meta.universe + " of " + d.meta.wanted + " loaded)" : "";
-    $("legendText").textContent = (d.warnings || []).join(" ") || $("legendText").textContent;
-    renderStocks(d.stockRows || []);
+    if (CUR !== sector) return; // switched away mid-request
+    lastStocks = { sector: sector, rows: d.stockRows || [], meta: d.meta || null };
+    if ((d.warnings || []).length) $("legendText").textContent = d.warnings.join(" ");
+    paintStocks(sector, lastStocks);
     stockNext = Date.now() + STOCK_MS;
   }).catch(function (e) {
+    if (CUR !== sector) return;
     banner("err", "Could not load stocks: " + e.message + " \u2014 will retry automatically.");
     stockNext = Date.now() + RETRY_MS;
   });
 }
-
-$("tfSeg").addEventListener("click", function (e) {
-  var b = e.target.closest("button"); if (!b) return;
-  e.preventDefault();
-  Array.prototype.forEach.call($("tfSeg").children, function (x) { x.classList.toggle("on", x === b); });
-  CURTF = b.dataset.tf;
-  if (CUR) loadStocks(CUR);
-});
 
 // ---------- live auto-refresh: the page keeps itself current ----------
 // Sector map every 60s, the open stock list every 45s (matches the server cache, and

@@ -111,7 +111,7 @@ module.exports = async function handler(req, res) {
     if (closedTf.length) {
       lines = lineState(closedTf);
       const day = closedTf.filter((b) => b.d === closedTf[closedTf.length - 1].d);
-      chartBars = day.map((b) => ({ mm: b.mm, cl: b.cl, vol: b.vol, t9: null, k26: null }));
+      chartBars = day.map((b) => ({ mm: b.mm, o: b.o, cl: b.cl, vol: b.vol, t9: null, k26: null }));
       const lk = tenkanKijun(closedTf);
       const off = closedTf.length - day.length;
       chartBars.forEach((b, k) => {
