@@ -310,10 +310,9 @@ function buildRead(r) {
   if (rd.or) {
     var orTxt = hm(555) + "\u2013" + hm(570) + " " + f2(rd.or.lo) + "\u2013" + f2(rd.or.hi);
     var orCls = "";
-    if (rd.or.brokeUp && rd.or.brokeDown) { orTxt += " \u00b7 broke both ways " + hm(Math.min(rd.or.brokeUp, rd.or.brokeDown)); }
-    else if (rd.or.brokeUp) { orTxt += " \u00b7 broke up " + hm(rd.or.brokeUp); orCls = "up"; }
-    else if (rd.or.brokeDown) { orTxt += " \u00b7 broke down " + hm(rd.or.brokeDown); orCls = "down"; }
-    else orTxt += " \u00b7 still inside range";
+    if (rd.or.pos === "up") { orTxt += " \u00b7 last close above " + hm(rd.or.mm); orCls = "up"; }
+    else if (rd.or.pos === "down") { orTxt += " \u00b7 last close below " + hm(rd.or.mm); orCls = "down"; }
+    else orTxt += " \u00b7 last close inside (no break)";
     frow("Opening range", orTxt, orCls);
   }
   if (rd.adx) {
@@ -321,11 +320,11 @@ function buildRead(r) {
     frow("ADX (" + ((r.chart && r.chart.tf) || "15m") + ")",
       "ADX " + rd.adx.v.toFixed(1) + (rd.adx.v >= 18 ? " (trending)" : " (weak)") + " \u00b7 " + (rd.adx.pdi >= rd.adx.mdi ? "+DI " : "-DI ") + hi2.toFixed(1) + " > " + (rd.adx.pdi >= rd.adx.mdi ? "-DI " : "+DI ") + lo2.toFixed(1),
       rd.adx.v >= 18 ? rd.adx.dir || "" : "");
-    if (rd.range && rd.range.ratio != null) frow("Day range", rd.range.ratio.toFixed(2) + "\u00d7 the 20-day normal", rd.range.ratio >= 1.15 ? "up" : "");
+    if (rd.range && rd.range.ratio != null) frow("Day range", rd.range.ratio.toFixed(2) + "\u00d7 the same-time 20-day normal", rd.range.ratio >= 1.15 ? "up" : "");
   } else if (rd.range && rd.range.ratio != null) {
-    frow("Day range", rd.range.ratio.toFixed(2) + "\u00d7 the 20-day normal", rd.range.ratio >= 1.15 ? "up" : "");
+    frow("Day range", rd.range.ratio.toFixed(2) + "\u00d7 the same-time 20-day normal", rd.range.ratio >= 1.15 ? "up" : "");
   }
-  frow("Volume", rd.volSpike ? rd.volSpike.mult.toFixed(1) + "\u00d7 the usual 5m volume at " + hm(rd.volSpike.mm) : "no unusual 5m volume today",
+  frow("Volume", rd.volSpike ? rd.volSpike.mult.toFixed(1) + "\u00d7 the usual 5m volume at " + hm(rd.volSpike.mm) : "no 5m volume spike in the last closed bar",
     rd.volSpike ? "up" : "");
   var pr = document.createElement("div"); pr.className = "frow";
   var pl = document.createElement("span"); pl.className = "fl"; pl.textContent = "Candle patterns";

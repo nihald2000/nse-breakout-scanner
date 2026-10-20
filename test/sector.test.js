@@ -77,6 +77,18 @@ test("vwap equals a turnover-weighted mean of typical prices", () => {
   assert.ok(Math.abs(v[1] - 101.5) < 1e-9);
 });
 
+test("vwap carries the last value through a zero-volume bar", () => {
+  const bars = [bar(99, 101, 99, 100, 2), bar(102, 104, 102, 103, 0), bar(101, 103, 101, 102, 2)];
+  const v = vwapSeries(bars);
+  assert.equal(v[1], v[0]); // no volume: the running VWAP does not move
+  assert.ok(Math.abs(v[2] - (100 * 2 + 102 * 2) / 4) < 1e-9); // next traded bar resumes the average
+});
+
+test("vwap uses the typical price before the first traded bar", () => {
+  const v = vwapSeries([bar(102, 104, 100, 103, 0)]);
+  assert.ok(Math.abs(v[0] - 307 / 3) < 1e-9); // (104+100+103)/3
+});
+
 test("tenkan is the mid of the last 9 bars, kijun of 26, with nulls until the lookback fills", () => {
   const bars = [];
   for (let i = 0; i < 30; i++) bars.push(bar(i, i + 10, i, i + 5, 1));
@@ -186,16 +198,32 @@ test("swingStructure counts rising and falling 30-minute buckets", () => {
   assert.deepEqual([s.up, s.down, s.dir], [2, 0, "up"]);
 });
 
-test("orStats finds the 9:15-9:30 range and the breakout time", () => {
-  const bars = [
+test("orStats finds the 9:15-9:30 range and the current side", () => {
+  const base = [
     { mm: 555, hi: 101, lo: 99, cl: 100 },
     { mm: 560, hi: 102, lo: 100, cl: 101 },
     { mm: 565, hi: 101, lo: 99, cl: 100 },
-    { mm: 575, hi: 103.5, lo: 101.5, cl: 103 },
   ];
-  const or = S.orStats(bars);
-  assert.deepEqual([or.hi, or.lo, or.brokeUp, or.brokeDown], [102, 99, 575, null]);
-  assert.equal(S.orStats(bars.slice(0, 2)), null); // fewer than 3 OR candles
+  const up = S.orStats([...base, { mm: 575, hi: 103.5, lo: 101.5, cl: 103 }]);
+  assert.deepEqual([up.hi, up.lo, up.pos, up.mm], [102, 99, "up", 575]);
+  const down = S.orStats([...base, { mm: 575, hi: 101, lo: 97, cl: 98 }]);
+  assert.deepEqual([down.pos, down.mm], ["down", 575]);
+  assert.equal(S.orStats(base.slice(0, 2)), null); // fewer than 3 OR candles
+});
+
+test("orStats reports the current state, not the first break of the day", () => {
+  const base = [
+    { mm: 555, hi: 101, lo: 99, cl: 100 },
+    { mm: 560, hi: 102, lo: 100, cl: 101 },
+    { mm: 565, hi: 101, lo: 99, cl: 100 },
+  ];
+  // Broke up at 09:35, then closed back inside at 11:00: no break now.
+  const inside = S.orStats([...base, { mm: 575, cl: 103 }, { mm: 660, cl: 100.5 }]);
+  assert.equal(inside.pos, null);
+  assert.equal(inside.mm, 660);
+  // Broke up, then closed through the bottom: the side flips.
+  const flipped = S.orStats([...base, { mm: 575, cl: 103 }, { mm: 660, cl: 98 }]);
+  assert.equal(flipped.pos, "down");
 });
 
 test("vwapTrend: rising, falling and flat", () => {
@@ -207,15 +235,16 @@ test("vwapTrend: rising, falling and flat", () => {
   assert.equal(S.vwapTrend(dn).dir, "down");
 });
 
-test("volSpike finds the biggest same-slot volume multiple", () => {
-  const day = [{ mm: 555, vol: 500 }, { mm: 560, vol: 100 }];
+test("volSpike compares only the latest closed bar with its same clock slot", () => {
   const prev = new Map([
     ["2026-10-15", [{ mm: 555, vol: 100 }, { mm: 560, vol: 200 }]],
     ["2026-10-16", [{ mm: 555, vol: 100 }, { mm: 560, vol: 200 }]],
     ["2026-10-17", [{ mm: 555, vol: 100 }, { mm: 560, vol: 200 }]],
   ]);
-  const sp = S.volSpike(day, prev);
-  assert.deepEqual([sp.mm, sp.mult], [555, 5]);
+  const now = S.volSpike([{ mm: 555, vol: 100 }, { mm: 560, vol: 500 }], prev);
+  assert.deepEqual([now.mm, now.mult], [560, 2.5]);
+  // A spike earlier in the day is not a helper for the rest of the session.
+  assert.equal(S.volSpike([{ mm: 555, vol: 500 }, { mm: 560, vol: 100 }], prev), null);
   assert.equal(S.volSpike([{ mm: 555, vol: 100 }], prev), null); // 1x is not a spike
 });
 
@@ -223,13 +252,30 @@ test("rangeVsNormal compares today's range with the earlier sessions", () => {
   const bars = [];
   for (let d = 0; d < 8; d++) {
     const range = d === 7 ? 15 : 10;
-    bars.push({ d: "2026-10-" + String(10 + d), hi: 100 + range, lo: 100 });
-    bars.push({ d: "2026-10-" + String(10 + d), hi: 100 + range, lo: 100 });
+    const day = "2026-10-" + String(10 + d);
+    bars.push({ d: day, mm: 555, hi: 100 + range, lo: 100 });
+    bars.push({ d: day, mm: 560, hi: 100 + range, lo: 100 });
   }
   const r = S.rangeVsNormal(bars);
   assert.equal(r.today, 15);
   assert.equal(r.avg, 10);
   assert.equal(r.ratio, 1.5);
+  assert.equal(r.windowMm, 560);
+});
+
+test("rangeVsNormal compares the same clock window, not part-day with full-day", () => {
+  // Prior sessions open with a 4-point range, then run to 20 points in the
+  // afternoon. At 09:20 those full-day ranges are not a fair baseline.
+  const bars = [];
+  for (let d = 0; d < 8; d++) {
+    const day = "2026-10-" + String(10 + d);
+    bars.push({ d: day, mm: 555, hi: 102, lo: 98 });
+    if (d < 7) bars.push({ d: day, mm: 600, hi: 110, lo: 90 });
+  }
+  const r = S.rangeVsNormal(bars);
+  assert.equal(r.today, 4);  // 98-102
+  assert.equal(r.avg, 4);    // prior sessions at mm <= 555, not their 20-point close
+  assert.equal(r.ratio, 1);
 });
 
 test("adxRead sees an up-trend on a rising series", () => {
@@ -248,7 +294,7 @@ test("trendVerdict: strong one-sided down when checks, ADX and structure all agr
     structure: { up: 3, down: 8, dir: "down" },
     volSpike: { mm: 660, mult: 8 },
     range: { ratio: 1.46 },
-    or: { hi: 100, lo: 99, brokeUp: null, brokeDown: 605 },
+    or: { hi: 100, lo: 99, pos: "down", mm: 605 },
   };
   const t = S.trendVerdict(rd);
   assert.equal(t.side, "down");

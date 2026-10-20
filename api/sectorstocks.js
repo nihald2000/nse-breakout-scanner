@@ -109,7 +109,7 @@ async function computeRows(symbols, tfKey, labelOf) {
     read.patterns = candlePatterns(closed5);
     read.volSpike = volSpike(closed5, prevMap);
     read.adx = adxRead(closedTf);
-    read.range = g.ptf ? rangeVsNormal(g.ptf.bars) : null;
+    read.range = closedTf.length ? rangeVsNormal(closedTf) : null;
     const checks = [];
     if (vwapNow != null) checks.push(ltp > vwapNow ? "up" : ltp < vwapNow ? "down" : null);
     if (read.vwapTrend && read.vwapTrend.dir !== "flat") checks.push(read.vwapTrend.dir);
@@ -118,7 +118,7 @@ async function computeRows(symbols, tfKey, labelOf) {
       else if (/below both/.test(lines.pos)) checks.push("down");
     }
     if (read.structure && read.structure.dir) checks.push(read.structure.dir);
-    if (read.or) checks.push(read.or.brokeUp && (!read.or.brokeDown || read.or.brokeUp < read.or.brokeDown) ? "up" : read.or.brokeDown ? "down" : null);
+    if (read.or) checks.push(read.or.pos);
     if (read.adx && read.adx.v >= 18 && read.adx.dir) checks.push(read.adx.dir);
     read.lean = {
       up: checks.filter((c) => c === "up").length,

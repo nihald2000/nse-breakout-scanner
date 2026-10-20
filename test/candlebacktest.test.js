@@ -60,7 +60,7 @@ test("measureOutcome: target first, stop first, both in one candle, timeout, no 
   assert.equal(CB.measureOutcome(day, 0, "down", entry, 3, 0.5, 0.5).result, "target");
 });
 
-test("openingRange: first candle high/low, close-based breaks, none while inside", () => {
+test("openingRange: first candle high/low and the current side", () => {
   const day = [
     bar("2026-10-10", 555, 100, 101, 99, 100.5, 10),
     bar("2026-10-10", 570, 100.5, 100.8, 99.5, 100.2, 10),
@@ -70,9 +70,11 @@ test("openingRange: first candle high/low, close-based breaks, none while inside
   const or = CB.openingRange(day);
   assert.equal(or.hi, 101);
   assert.equal(or.lo, 99);
-  assert.equal(or.brokeUp, 585);
-  assert.equal(or.brokeDown, 600);
-  assert.equal(CB.openingRange([day[0]]).brokeUp, null);
+  assert.equal(or.pos, "down"); // last close 98.9 is below the range
+  assert.equal(or.mm, 600);
+  const up = CB.openingRange(day.slice(0, 3));
+  assert.equal(up.pos, "up"); // last close 101.4 is above the range
+  assert.equal(CB.openingRange([day[0]]).pos, null); // last close back inside
 });
 
 test("replayRead: signals fire on side changes only, entries are bar closes, sides agree with drift", () => {
