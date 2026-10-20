@@ -1,0 +1,3 @@
+# downloaded market data and synthetic self-test data are regenerated, never committed
+data/
+harness-data*/
