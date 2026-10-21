@@ -135,7 +135,7 @@ module.exports = async function handler(req, res) {
     stocks: map.stocks,
     sectors: map.sectors,
     missingStocks: map.missing.map((x) => ({ sym: x.sym, flags: x.flags, n: x.n })),
-    failedStocks: map.failed.map((x) => ({ sym: x.sym })),
+    failedStocks: map.failed.map((x) => ({ sym: x.sym, error: x.error })),
   });
 };
 
