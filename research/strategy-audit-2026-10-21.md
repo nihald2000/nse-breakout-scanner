@@ -74,7 +74,7 @@ Therefore, candle labels remain chart context. Any candidate pattern strategy ne
 ## Live-call plan
 
 1. Keep ten as a display cap, not a quota; return fewer or zero when no fresh candidate passes.
-2. Only a current closed-candle rule trigger with explicit underlying entry, invalidation and targets may send a trade-setup browser alert. Stock directional scores stay in a separate non-alerting **WATCH CE SIDE / WATCH PE SIDE** section, with their last close and prior-session high/low on the chart. A research rating is never a trigger. Do not invent an entry, stop, target, probability, or option return.
+2. A current closed-candle rule trigger with explicit underlying entry, invalidation and targets may send a paper setup alert. A fresh stock directional watch may send a separate chart-review alert labelled **WATCH CE SIDE / WATCH PE SIDE**; it has no validated entry, stop or target and must not be presented as a trade trigger. A research rating is never a trigger. Do not invent an entry, stop, target, probability, or option return.
 3. Promote a stock to a paper **setup** only after a separately specified trigger fires. Suggested research candidate: opening-range break/retest with relative volume and broad-market direction as context, followed by a confirmation close; keep candle shape descriptive. The saved sample did not validate ORB, so this remains an experiment.
 4. Every paper call should record signal time, next-bar entry, invalidation, T1/T2, reason, spread/quote freshness, and an explicit stale/expired state. If stop/target are both touched in one candle, report ambiguous rather than a win.
 5. Use underlying rules only to decide the directional thesis. Option contract selection, quote age, spread, liquidity, IV and theta are separate checks; with free public data and no historical option trades, do not claim backtested CE/PE P&L.
@@ -85,7 +85,7 @@ Therefore, candle labels remain chart context. Any candidate pattern strategy ne
 - Stock calls are explicitly directional watches, not “BUY CE/PE” orders.
 - Removed synthetic ±0.5% stock stop/target levels from call charts, cards, copy text and notifications. Prior-session high/low and last reference close are labeled as references.
 - Added recent candle-shape context to stock watch cards and chart details without treating those shapes as triggers.
-- Made the Trade Monitor chart-first workday screen: explicit index rule triggers are listed first and alone can notify; stock trend scores remain separate non-alerting context watches. Notifications re-check the current feed before opening an item. The monitor chart now uses the same closed-5m filtering as the Index Options chart and marks the trigger candle when it reconciles to a replayed fill.
+- Made the Trade Monitor chart-first workday screen: explicit index rule triggers and separately labelled fresh stock context watches can notify; stock watch alerts carry no entry/risk levels. Notifications re-check the current feed before opening an item. The monitor chart now uses the same closed-5m filtering as the Index Options chart and marks the trigger candle when it reconciles to a replayed fill.
 - Removed browser notifications from the separate Live Calls stock-watch page; it now links users to the Trade Monitor for setup alerts.
 - Repaired the candle replay fill assumption to next-bar open and removed the unsupported “evidence-backed / ranked #1” candlestick comment.
 - Added OHLC validity checks so missing/impossible candle inputs do not create pattern labels.
