@@ -3,7 +3,7 @@
 Zero-dependency Vercel app (Node 22, CommonJS serverless functions in `api/`, static pages in `public/`).
 
 Pages: Trade Monitor (`/monitor.html`), Breakouts (`/`), Sector Scope (`/sector.html`), Live Calls (`/calls.html`), Skew Map (`/skew.html`), Ichimoku Cloud (`/ichimoku.html`), Index Options (`/indices.html`), Full Chart (`/chart.html`), Journal (`/journal.html`).
-Trade Monitor (`/monitor.html`) is the single intraday review screen. It combines fresh index-option rulebook calls and F&O stock-option reads, caps the visible list at ten, and opens the selected underlying chart with its reference levels. Alerts are opt-in browser notifications; stale or timestamp-missing prices are suppressed.
+Trade Monitor (`/monitor.html`) is the single intraday review screen. It combines fresh index-option rulebook candidates and F&O stock directional watches, caps the visible list at ten, and opens the selected underlying chart. Stock watch scores do not have validated entries/stops/targets; the chart shows the last reference close and prior-session high/low. Alerts are opt-in browser notifications; stale or timestamp-missing prices are suppressed. The page must remain open for monitoring and notifications.
 To use it, open `/monitor.html`, choose **Enable browser alerts**, and leave that page open in a running browser while you work. Clicking an alert selects its chart in the monitor.
 Full Chart adds a simple closed-bar ORB retest setup with entry, stop, T1/T2 and 1:2 R:R. It is separate from the backtested rulebook, is index-level only, and its paper alerts are stored in this browser; it is not a server-side alert service.
 Data: Yahoo Finance chart API. No API keys are needed, so there is nothing secret in this repo.

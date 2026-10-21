@@ -72,7 +72,7 @@ module.exports = async function handler(req, res) {
       symbols: syms,
       sessions,
       signals: rows.length,
-      basis: "Closed 15-minute candles only; every value at bar i uses bars up to i, entry at that close. VWAP, Tenkan/Kijun, ADX, 30-minute structure, opening range and volume slots are computed on the same 15m series (the live read uses 5m for volume detail), so numbers can differ slightly from the page.",
+      basis: "Closed 15-minute candles only; every value at bar i uses bars up to i, fill at the next bar open. VWAP, Tenkan/Kijun, ADX, 30-minute structure, opening range and volume slots are computed on the same 15m series (the live read uses 5m for volume detail), so numbers can differ slightly from the page. Underlying only; no option premium, spread, slippage or costs.",
       limits: "Underlying moves only: no option premium, no spread, no costs, no slippage. If one candle touches both target and stop the order is unknowable and the row says both (counted as neither a win nor a loss). One month of sessions is a small in-sample window: this checks the read, it does not prove an edge.",
       missing,
     },

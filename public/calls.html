@@ -55,15 +55,9 @@
     <a href="/journal.html">Journal</a>
   </nav>
   <h1>Live Calls</h1>
-  <p class="sub">One board instead of opening every group: the stocks whose closed-candle checks lean one side, <b>strong and moderate reads only</b>.
-  Each row carries the side, the reference bar close, the &plusmn;0.5% levels the replay was measured on and the Kijun line.
-  This is a count of facts, not advice &mdash; you choose the contract, the strike and the size, and you carry the stop.</p>
+  <p class="sub">Closed-candle directional watchlist across the selected F&amp;O sectors. “Strong” and “moderate” describe how many context checks agree; they are not probabilities or validated entries. Review the chart, then decide whether a separate setup exists. This page does not place orders.</p>
 
-  <div class="banner warn" id="caveat">Replay on the last 20 sessions (38 stocks, closed 15-minute bars, entry at the signal bar close, underlying only, no costs):
-  <b>strong</b> reads hit +0.5% before &minus;0.5% in <b>63.6%</b> of decidable cases (n=55, small), <b>moderate</b> in <b>52.3%</b> (n=543),
-  weak in 51.3% (n=507), horizon 90 minutes. A 1:1 payoff needs more than 50% just to break even, and option spread, premium and costs are not
-  part of that number. The ATM option column is a real NSE chain snapshot; these hit rates are still
-  stock moves, not option P&amp;L. Treat every row as a fact to check, not a promise.</div>
+  <div class="banner warn" id="caveat">The current stock-side score is a research watch filter, not a proven strategy. Saved holdout research (39 sessions, 213 F&amp;O stocks) found no tested board or strategy variant with positive net expectancy at the assumed 0.05% underlying cost per side; none of 1,076 eligible validation cells survived multiple-comparison correction. Option premium, spread, slippage and brokerage are not modeled. Candlestick labels are descriptive context only.</div>
   <div class="banner" id="banner"></div>
 
   <div class="controls">
@@ -110,11 +104,11 @@
           <th class="l">Sector</th>
           <th class="l">Tier</th>
           <th class="l">Checks</th>
-          <th class="l">Ref close (15m)</th>
+          <th class="l">Last ref (15m)</th>
           <th>Now</th>
           <th class="l">ATM option</th>
-          <th>Target 0.5%</th>
-          <th>Stop 0.5%</th>
+          <th>Prior high</th>
+          <th>Prior low</th>
           <th>RVOL</th>
         </tr>
       </thead>
@@ -127,13 +121,13 @@
   <b>CE / PE</b> is the side the checks lean &mdash; CE = the facts point up, PE = down &mdash; strong (most checks agree and ADX + structure agree) or moderate (a majority with partial support);
   weak reads are counted in the status line but not listed. Rows are ordered strong before moderate, then more agreeing checks,
   more context signals, then higher running volume; the Show cap hides the tail of that order, not a judgement.
-  <b>Ref close</b> is the last closed 15-minute candle at the time of the read, the price the replay entered at.
-  <b>Now</b> is the last traded price, with its drift from the ref close &mdash; if it has already run without you, the levels belong to the old entry, so re-anchor to your fill.
-  <b>Target / Stop</b> are the tested &plusmn;0.5% barriers on the <b>stock</b>; on an option the premium moves roughly with delta &times; the stock move, but IV and time decay are not modeled here.
+  <b>Last ref</b> is the last closed 15-minute candle at the time of the read. It is not an entry.
+  <b>Now</b> is the last traded price, with its drift from that reference.
+  <b>Prior high / low</b> are the actual previous session's high and low, drawn as reference levels; this directional score has no validated entry, stop or target.
   <b>ATM option</b> is the nearest-strike CE (for a CE read) or PE (for a PE read) from NSE's option-chain snapshot at the front expiry:
   the premium is the bid/ask mid, with the quoted spread, IV, delta and OI. It is market data, not a fill; the quote can move before you act.
   The <b>F&amp;O ban list</b> is a separate NSE publication and is <b>not</b> checked here &mdash; check it with your broker.
-  Click any row for its candlestick chart and full read. Screening aid, not trading advice.</p>
+  Click any row for its candlestick chart and full read. Candlestick labels are descriptive OHLC shapes, not entry triggers. Screening aid, not trading advice.</p>
 </div>
 
 <script src="/vendor/lightweight-charts.standalone.production.js"></script>
@@ -170,8 +164,6 @@ function drawChart(host, r) {
   }
   var ref = refInfo(r);
   var side = r && r.read && r.read.trend ? r.read.trend.side : null;
-  var target = ref.cl != null && side ? ref.cl * (side === "up" ? 1.005 : 0.995) : null;
-  var stop = ref.cl != null && side ? ref.cl * (side === "up" ? 0.995 : 1.005) : null;
   window.NseChart.create(host, {
     bars: (r && r.chart && r.chart.bars) || [],
     timeframe: (r && r.chart && r.chart.tf) || "15m",
@@ -183,9 +175,9 @@ function drawChart(host, r) {
       { key: "k26", label: "Kijun(26)", color: "#37d576", dashed: true }
     ],
     levels: [
-      { price: ref.cl, title: "ENTRY", color: "#dbe6ff" },
-      { price: target, title: "TGT 0.5%", color: "#22c55e", dashed: true },
-      { price: stop, title: "STOP 0.5%", color: "#ef4444", dashed: true }
+      { price: ref.cl, title: "LAST REF", color: "#dbe6ff" },
+      { price: r.prevHi, title: "PREV HIGH", color: "#22c55e", dashed: true },
+      { price: r.prevLo, title: "PREV LOW", color: "#ef4444", dashed: true }
     ],
     empty: "not enough closed candles yet"
   });
@@ -385,8 +377,6 @@ function render(secs, c) {
     var tv = r.read.trend;
     var ref = refInfo(r);
     var side = tv.side;
-    var tgt = ref.cl != null ? ref.cl * (side === "up" ? 1.005 : 0.995) : null;
-    var stp = ref.cl != null ? ref.cl * (side === "up" ? 0.995 : 1.005) : null;
     var drift = ref.cl != null && r.ltp > 0 ? ((r.ltp - ref.cl) / ref.cl) * 100 : null;
 
     var tr = document.createElement("tr");
@@ -433,8 +423,8 @@ function render(secs, c) {
 
     tr.appendChild(optCell(r.option));
 
-    tr.appendChild(cell(f2(tgt), "num"));
-    tr.appendChild(cell(f2(stp), "num"));
+    tr.appendChild(cell(f2(r.prevHi), "num"));
+    tr.appendChild(cell(f2(r.prevLo), "num"));
     tr.appendChild(cell(r.rvol == null ? "\u2013" : r.rvol.toFixed(2) + "\u00d7", "num"));
 
     var detail = document.createElement("tr");
@@ -525,12 +515,10 @@ function notifyCalls(data) {
     alertSeen[key] = true;
     if (!canNotify || !Number.isFinite(r.asOfTs) || Date.now() / 1000 - r.asOfTs > 300) return;
     var ref = refInfo(r), side = r.read.trend.side;
-    var target = ref.cl != null ? ref.cl * (side === "up" ? 1.005 : 0.995) : null;
-    var stop = ref.cl != null ? ref.cl * (side === "up" ? 0.995 : 1.005) : null;
     var option = r.option ? (r.option.strike + " " + r.option.type + " premium ₹" + fnum(r.option.premium) + (r.option.asOf ? " · chain " + r.option.asOf : "")) : "NSE option quote unavailable";
     try {
-      new Notification((side === "up" ? "PAPER BUY CE · " : "PAPER BUY PE · ") + r.sym, {
-        body: "Underlying ref " + f2(ref.cl) + " · SL " + f2(stop) + " · T1 " + f2(target) + " · " + option + ". Check the chart; no order was placed.",
+      new Notification((side === "up" ? "WATCH CE SIDE · " : "WATCH PE SIDE · ") + r.sym, {
+        body: "Directional watch only · last ref " + f2(ref.cl) + " · prior high " + f2(r.prevHi) + " · prior low " + f2(r.prevLo) + " · " + option + ". No entry, stop or target is validated.",
         tag: key
       });
     } catch (e) {}
@@ -583,13 +571,11 @@ $("copyBtn").addEventListener("click", function () {
   if (cap > 0) rows = rows.slice(0, cap);
   var lines = rows.map(function (r) {
     var tv = r.read.trend, ref = refInfo(r);
-    var tgt = ref.cl != null ? ref.cl * (tv.side === "up" ? 1.005 : 0.995) : null;
-    var stp = ref.cl != null ? ref.cl * (tv.side === "up" ? 0.995 : 1.005) : null;
     var opt = r.option ? " \u00b7 " + r.option.strike + " " + r.option.type + " \u20b9" + fnum(r.option.premium) +
       (r.option.spreadPct == null ? "" : " (spr " + (r.option.spreadPct * 100).toFixed(1) + "%)") : " \u00b7 option n/a";
     return (tv.side === "up" ? "CE" : "PE") + " " + r.sym + " (" + (r.industry || "?") + ") " + tv.tier +
       " " + tv.agree + "/" + tv.total + " \u00b7 ref " + f2(ref.cl) + " " + hm(ref.mm) +
-      " \u00b7 now " + f2(r.ltp) + opt + " \u00b7 target " + f2(tgt) + " \u00b7 stop " + f2(stp);
+      " \u00b7 now " + f2(r.ltp) + opt + " \u00b7 prior high " + f2(r.prevHi) + " \u00b7 prior low " + f2(r.prevLo) + " \u00b7 directional watch; no validated entry/SL/target";
   });
   var text = lines.join("\n");
   function done() { banner("", ""); $("copyBtn").textContent = "Copied " + lines.length; setTimeout(function () { $("copyBtn").textContent = "Copy list"; }, 1500); }

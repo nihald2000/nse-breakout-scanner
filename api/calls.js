@@ -178,7 +178,8 @@ module.exports = async function handler(req, res) {
       notes: [
         "CE / PE is the side the closed-candle checks lean - a count of agreeing facts, not a probability of profit and not a buy or sell order.",
         "Only strong and moderate reads are listed; weak ones are counted but hidden.",
-        "The replay behind this page measured +/-0.5% on the stock; option premium, spread and costs are not modeled in that number.",
+        "This route is a directional watchlist, not a validated entry signal; do not infer stock or option profitability from the score.",
+        "Option premium, bid/ask spread, slippage, theta, brokerage and taxes are not modeled as a strategy outcome.",
         "The ATM option column is NSE's option-chain snapshot at the front expiry: real bid/ask, IV and OI when quoted. It is not a fill.",
         "F&O ban is a separate NSE list and is NOT checked here; the board never shows it as checked.",
         "Screening aid, not trading advice.",

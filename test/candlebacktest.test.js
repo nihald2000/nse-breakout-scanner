@@ -77,7 +77,7 @@ test("openingRange: first candle high/low and the current side", () => {
   assert.equal(CB.openingRange([day[0]]).pos, null); // last close back inside
 });
 
-test("replayRead: signals fire on side changes only, entries are bar closes, sides agree with drift", () => {
+test("replayRead: signals use next-bar opens, fire on side changes only, and agree with drift", () => {
   const bars = history(0.004); // steady up drift
   const r = CB.replayRead(bars, { h: 3, target: 0.5, stop: 0.5, warmup: 45 });
   assert.ok(r.events.length > 0, "expected signals in a trending series");
@@ -85,10 +85,11 @@ test("replayRead: signals fire on side changes only, entries are bar closes, sid
     assert.equal(e.side, "up");
     assert.ok(["strong", "moderate", "weak"].includes(e.tier));
     assert.ok(["target", "stop", "both", "timeout", "open"].includes(e.result));
-    // the entry must be the close of the signalling bar
-    const b = bars.find((x) => x.d === e.d && x.mm === e.mm);
-    assert.ok(b, "event bar exists");
-    assert.equal(e.entry, Math.round(b.cl * 100) / 100);
+    // The fill is the next bar's open, available only after the signal bar closes.
+    const fill = bars.find((x) => x.d === e.d && x.mm === e.entryMM);
+    assert.ok(fill, "entry bar exists");
+    assert.equal(e.entry, Math.round(fill.o * 100) / 100);
+    assert.ok(e.entryMM > e.mm, "entry follows the signal candle");
   }
   // one signal per side change, not one per bar
   const byDay = new Map();
@@ -110,6 +111,7 @@ test("replayRead: no look-ahead - truncating the future cannot change earlier si
     assert.equal(fe.side, ce.side);
     assert.equal(fe.tier, ce.tier);
     assert.equal(fe.entry, ce.entry);
+    assert.equal(fe.entryMM, ce.entryMM);
     assert.equal(fe.total, ce.total);
   }
 });

@@ -187,6 +187,12 @@ test("candlePatterns finds a hammer and a bearish engulfing", () => {
   assert.equal(bear[0].dir, "down");
 });
 
+test("patternAt skips bars with missing or impossible OHLC instead of inventing candle names", () => {
+  assert.deepEqual(S.patternAt([{ mm: 555, o: 0, hi: 102, lo: 99, cl: 101 }], 0), []);
+  assert.deepEqual(S.patternAt([{ mm: 555, o: 100, hi: 99, lo: 98, cl: 101 }], 0), []);
+  assert.deepEqual(S.patternAt([{ mm: 555, o: null, hi: 102, lo: 99, cl: 101 }], 0), []);
+});
+
 test("swingStructure counts rising and falling 30-minute buckets", () => {
   const mk = () => {
     const b = [];
