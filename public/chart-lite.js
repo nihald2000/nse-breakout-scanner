@@ -295,6 +295,20 @@
       });
     }
 
+    // Optional entry / stop / target overlays used by the Live Calls paper desk.
+    // These are reference levels on the underlying stock, not option-premium levels.
+    (opts.levels || []).forEach(function (line) {
+      if (!line || !finite(line.price)) return;
+      candleSeries.createPriceLine({
+        price: line.price,
+        color: line.color || "#8a97b8",
+        lineWidth: line.lineWidth || 1,
+        lineStyle: line.dashed ? lib.LineStyle.Dashed : lib.LineStyle.Solid,
+        axisLabelVisible: true,
+        title: line.title || ""
+      });
+    });
+
     var byTime = new Map();
     candles.forEach(function (c) { byTime.set(c.time, c); });
     var last = candles[candles.length - 1];

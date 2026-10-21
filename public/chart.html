@@ -72,6 +72,12 @@
   .mini-btn { min-height: 30px; padding: 4px 9px; border-radius: 7px; font-size: 12px; }
   .fc-meta { color: var(--muted); font-size: 12.5px; min-height: 18px; }
   .fc-meta b { color: var(--text); font-weight: 600; }
+  .desk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap: 8px; }
+  .desk-card { border: 1px solid var(--line); border-radius: 9px; background: rgba(255,255,255,.02); padding: 9px; cursor: pointer; color: var(--text); text-align: left; font: inherit; }
+  .desk-card:hover { border-color: #3b82f6; background: rgba(59,130,246,.07); }
+  .desk-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .desk-levels { display: flex; flex-wrap: wrap; gap: 3px 10px; margin-top: 5px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .desk-none { color: var(--muted); font-size: 12.5px; padding: 4px 0; }
   .srcnote { color: var(--muted); font-size: 11.5px; line-height: 1.5; margin: 7px 0 0; }
   @media (max-width: 700px) {
     .rec-action { font-size: 21px; }
@@ -98,6 +104,13 @@
   <h1>Full Chart &amp; Trade Desk</h1>
   <p class="sub">One interactive chart for the selected index, the simple ORB retest setup with entry, stop, T1/T2 and R:R, plus every existing rulebook row. Alerts are paper-only and are logged in this browser for later review.</p>
   <div class="notice"><b>Read this before using a call.</b> The chart setup is new and is not in the backtested rulebook yet. It gives index levels, not option premiums. Option IV, bid/ask spread, open interest and slippage are not checked here. A BUY CE/PE label means the index setup triggered; only a <b>LIVE</b> badge is actionable, and even then you must check the chain and paper-trade first.</div>
+
+  <div class="panel">
+    <h2>Live index call board <span class="dim" style="font-weight:400;font-size:12px">· up to 10 fresh rulebook calls across all five indices</span></h2>
+    <div class="fc-meta" id="fcDeskMeta">Loading index setups…</div>
+    <div class="desk-grid" id="fcDesk"></div>
+    <div class="srcnote">Only current BUY CE / BUY PE rows appear as calls. Click a card to open that index’s chart and level plan. The separate chart ORB retest alert below can re-arm after failed edges; the rulebook itself may remain blocked after both OR edges break.</div>
+  </div>
 
   <div class="panel">
     <div class="controls">
@@ -275,6 +288,7 @@
       }
       drawChart();
       renderRec();
+      renderDesk(state.rules);
       renderRules();
       renderAlerts();
     } catch (e) {
@@ -591,6 +605,50 @@
     var note = "The chart setup row is computed from the selected session. The rule rows below it are the latest live session and are not replayed for a past date.";
     if (ix && Number.isFinite(ix.chgPct)) note += " Live " + ix.name + " " + signed(ix.chgPct, 2) + "%.";
     $("fcRulesNote").textContent = note;
+  }
+
+  function renderDesk(data) {
+    var host = $("fcDesk");
+    host.textContent = "";
+    var calls = [];
+    (data && data.indices || []).forEach(function (ix) {
+      (ix.rows || []).forEach(function (r) {
+        if (!r.info && /^BUY (CE|PE)$/.test(r.action || "")) calls.push({ ix: ix, row: r });
+      });
+    });
+    calls = calls.slice(0, 10);
+    $("fcDeskMeta").textContent = (data && data.meta && data.meta.asOf ? "Prices as of " + data.meta.asOf : "Index feed timestamp unavailable") +
+      (data && data.meta && data.meta.marketOpen ? " · market open · paper calls only" : " · market closed · no fresh entries");
+    if (!calls.length) {
+      host.appendChild(el("div", "desk-none", "WAIT · no fresh index rulebook calls across the five indices. Select an index below to inspect its chart setup and blocked or stale rules."));
+      return;
+    }
+    calls.forEach(function (item) {
+      var ix = item.ix, r = item.row;
+      var card = el("button", "desk-card");
+      card.type = "button";
+      var head = el("div", "desk-head");
+      head.appendChild(el("b", null, ix.name));
+      head.appendChild(el("span", r.action === "BUY CE" ? "up" : "down", r.action));
+      card.appendChild(head);
+      card.appendChild(el("div", "dim", r.label || r.strategy));
+      var levels = el("div", "desk-levels");
+      if (Number.isFinite(ix.ltp)) levels.appendChild(el("span", null, "Index " + nf(ix.ltp)));
+      if (Number.isFinite(r.level)) levels.appendChild(el("span", null, "Trigger " + nf(r.level)));
+      if (Number.isFinite(r.sl)) levels.appendChild(el("span", "down", "SL " + nf(r.sl)));
+      if (Number.isFinite(r.t1)) levels.appendChild(el("span", "up", "T1 " + nf(r.t1)));
+      if (Number.isFinite(r.t2)) levels.appendChild(el("span", "up", "T2 " + nf(r.t2)));
+      card.appendChild(levels);
+      card.appendChild(el("div", "srcnote", (r.state || "LIVE") + (r.note ? " · " + r.note : "")));
+      card.addEventListener("click", function () {
+        state.ix = ix.index;
+        state.date = "";
+        buildIndexButtons();
+        load(false);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+      host.appendChild(card);
+    });
   }
 
   function appendRuleRow(tb, r) {

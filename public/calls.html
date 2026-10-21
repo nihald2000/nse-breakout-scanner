@@ -86,11 +86,13 @@
     <label class="ctl">Show
       <select id="showSel">
         <option value="12">12 rows</option>
-        <option value="20" selected>20 rows</option>
+        <option value="10" selected>10 rows</option>
+        <option value="20">20 rows</option>
         <option value="0">All</option>
       </select>
     </label>
     <button id="copyBtn">Copy list</button>
+    <button id="notifyBtn">Enable browser alerts</button>
     <span class="sub" id="livestate"></span>
     <span class="sub" id="asof"></span>
   </div>
@@ -165,6 +167,10 @@ function drawChart(host, r) {
     host.textContent = "Chart engine failed to load. Refresh the page.";
     return;
   }
+  var ref = refInfo(r);
+  var side = r && r.read && r.read.trend ? r.read.trend.side : null;
+  var target = ref.cl != null && side ? ref.cl * (side === "up" ? 1.005 : 0.995) : null;
+  var stop = ref.cl != null && side ? ref.cl * (side === "up" ? 0.995 : 1.005) : null;
   window.NseChart.create(host, {
     bars: (r && r.chart && r.chart.bars) || [],
     timeframe: (r && r.chart && r.chart.tf) || "15m",
@@ -174,6 +180,11 @@ function drawChart(host, r) {
     lines: [
       { key: "t9", label: "Tenkan(9)", color: "#f59e0b", dashed: true },
       { key: "k26", label: "Kijun(26)", color: "#37d576", dashed: true }
+    ],
+    levels: [
+      { price: ref.cl, title: "ENTRY", color: "#dbe6ff" },
+      { price: target, title: "TGT 0.5%", color: "#22c55e", dashed: true },
+      { price: stop, title: "STOP 0.5%", color: "#ef4444", dashed: true }
     ],
     empty: "not enough closed candles yet"
   });
@@ -479,6 +490,51 @@ function getJSON(url) {
 // ---------- live auto-refresh (pauses in a background tab) ----------
 var SEC_MS = 60000, RETRY_MS = 20000;
 var live = true, nextAt = 0, loading = false;
+var alertReady = false, alertBaselineSet = false, alertSeen = {};
+var ALERT_STORAGE = "nse-live-call-alerts";
+
+try { alertSeen = JSON.parse(localStorage.getItem(ALERT_STORAGE) || "{}"); } catch (e) { alertSeen = {}; }
+
+function callsKey(r) {
+  var side = r && r.read && r.read.trend ? r.read.trend.side : "";
+  var day = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  return day + "|" + r.sym + "|" + side;
+}
+
+function marketOpenIST() {
+  var parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date());
+  var get = function (k) { return parts.find(function (p) { return p.type === k; }).value; };
+  var mm = Number(get("hour")) * 60 + Number(get("minute"));
+  return ["Mon", "Tue", "Wed", "Thu", "Fri"].includes(get("weekday")) && mm >= 555 && mm < 930;
+}
+
+function notifyCalls(data) {
+  var signals = (data && data.signals || []).slice(0, 10);
+  if (!alertBaselineSet) {
+    signals.forEach(function (r) { alertSeen[callsKey(r)] = true; });
+    alertBaselineSet = true;
+    try { localStorage.setItem(ALERT_STORAGE, JSON.stringify(alertSeen)); } catch (e) {}
+    return;
+  }
+  var canNotify = alertReady && marketOpenIST();
+  signals.forEach(function (r) {
+    var key = callsKey(r);
+    if (alertSeen[key]) return;
+    alertSeen[key] = true;
+    if (!canNotify) return;
+    var ref = refInfo(r), side = r.read.trend.side;
+    var target = ref.cl != null ? ref.cl * (side === "up" ? 1.005 : 0.995) : null;
+    var stop = ref.cl != null ? ref.cl * (side === "up" ? 0.995 : 1.005) : null;
+    var option = r.option ? (r.option.strike + " " + r.option.type + " premium ₹" + fnum(r.option.premium) + (r.option.asOf ? " · chain " + r.option.asOf : "")) : "NSE option quote unavailable";
+    try {
+      new Notification((side === "up" ? "PAPER BUY CE · " : "PAPER BUY PE · ") + r.sym, {
+        body: "Underlying ref " + f2(ref.cl) + " · SL " + f2(stop) + " · T1 " + f2(target) + " · " + option + ". Check the chart; no order was placed.",
+        tag: key
+      });
+    } catch (e) {}
+  });
+  try { localStorage.setItem(ALERT_STORAGE, JSON.stringify(alertSeen)); } catch (e) {}
+}
 
 function load(auto, forceRank) {
   if (loading) return;
@@ -496,6 +552,7 @@ function load(auto, forceRank) {
     var names = secs.map(function (s) { return s.sector; });
     return getJSON("/api/calls?sectors=" + encodeURIComponent(names.join(",")) + "&tf=15m").then(function (c) {
       render(secs, c);
+      notifyCalls(c);
       banner("");
       st.textContent = "";
       nextAt = Date.now() + SEC_MS;
@@ -537,11 +594,25 @@ $("copyBtn").addEventListener("click", function () {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { window.prompt("Copy:", text); });
   else window.prompt("Copy:", text);
 });
+$("notifyBtn").addEventListener("click", function () {
+  if (!("Notification" in window)) { this.textContent = "Browser alerts unavailable"; this.disabled = true; return; }
+  Notification.requestPermission().then(function (permission) {
+    alertReady = permission === "granted";
+    $("notifyBtn").textContent = alertReady ? "Browser alerts on" : permission === "denied" ? "Browser alerts blocked" : "Enable browser alerts";
+    $("notifyBtn").disabled = permission === "denied";
+  }).catch(function () {});
+});
+if (!("Notification" in window)) { $("notifyBtn").textContent = "Browser alerts unavailable"; $("notifyBtn").disabled = true; }
+else if (Notification.permission === "granted") { alertReady = true; $("notifyBtn").textContent = "Browser alerts on"; }
 
 setInterval(function () {
   var ls = $("livestate"), n = Date.now();
   if (!live) return;
-  if (document.hidden) { ls.textContent = "paused \u2014 tab in background"; return; }
+  if (document.hidden) {
+    if (nextAt && n >= nextAt) load(true, false);
+    ls.textContent = "background \u00b7 browser may throttle polling";
+    return;
+  }
   if (nextAt && n >= nextAt) { load(true, false); return; }
   if (nextAt) ls.textContent = "live \u00b7 next update in " + Math.max(0, Math.ceil((nextAt - n) / 1000)) + "s";
 }, 1000);
