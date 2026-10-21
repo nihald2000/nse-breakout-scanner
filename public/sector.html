@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="/app.css">
 <style>
   .secbar { display: grid; grid-template-columns: 1fr; gap: 5px; }
+  .sblock { min-width: 0; }
   .srow { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--line);
           border-radius: 10px; background: var(--card); cursor: pointer; }
   .srow:hover, .srow.sel { border-color: #2a3d6e; background: #131e38; }
@@ -22,9 +23,15 @@
   .sbody { margin: -5px 0 8px; padding: 10px 12px 4px; border: 1px solid #2a3d6e; border-top: none;
            border-radius: 0 0 10px 10px; background: #0f1830; }
   .sbody .liveinfo { margin-bottom: 6px; }
-  canvas { width: 100%; max-width: 340px; height: 190px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); display: block; margin-bottom: 8px; }
+  .chartbox { width: min(560px, 100%); min-height: 300px; flex: 0 1 560px; margin-bottom: 8px; align-self: stretch; }
+  @media (max-width: 700px) { .chartbox { min-height: 260px; } }
   .readwrap { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; padding: 6px 0 10px; }
-  .readpan { flex: 1 1 420px; min-width: 300px; font-size: 13px; }
+  .readpan { flex: 1 1 420px; min-width: 0; font-size: 13px; white-space: normal; }
+  @media (max-width: 1120px) {
+    .readwrap { width: calc(100vw - 64px); max-width: calc(100vw - 64px); }
+    .chartbox { width: 100%; flex: 1 1 100%; }
+    .readpan { flex: 1 1 100%; }
+  }
   .readpan h4 { margin: 0 0 6px; font-size: 13px; letter-spacing: .3px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
   .frow { display: flex; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--line); }
   .frow .fl { width: 92px; flex: none; color: var(--muted); }
@@ -82,6 +89,8 @@
   free source). Option bid/ask is not shown because no free live chain exists &mdash; check your broker before buying.</p>
 </div>
 
+<script src="/vendor/lightweight-charts.standalone.production.js"></script>
+<script src="/chart-lite.js"></script>
 <script>
 "use strict";
 var $ = function (id) { return document.getElementById(id); };
@@ -204,130 +213,26 @@ function lineTag(l) {
   return t;
 }
 
-// ---------- candlestick chart (same 340x190 frame) ----------
-function drawChart(cvs, r) {
-  var bars = r && r.chart && r.chart.bars;
-  var prevClose = r && r.prevClose;
-  var rd = (r && r.read) || {};
-  var tv = rd.trend || null;
-  var orl = rd.or || null;
-  var dpr = window.devicePixelRatio || 1;
-  var ctx = cvs.getContext("2d");
-  var W = cvs.width = Math.max(320, cvs.clientWidth) * dpr;
-  var H = cvs.height = 190 * dpr;
-  ctx.clearRect(0, 0, W, H);
-  ctx.font = (10 * dpr) + "px sans-serif";
-  var GUT = 58 * dpr;          // right gutter for price labels
-  var PADT = 24 * dpr, PADB = 46 * dpr; // top 24px: badge room; bottom 46px: volume strip + time labels
-  if (!bars || bars.length < 2) {
-    ctx.fillStyle = "#8a97b8";
-    ctx.fillText("not enough closed candles yet", 10 * dpr, H / 2);
+// ---------- interactive candlestick chart (TradingView Lightweight Charts) ----------
+// The bars are the same closed bars the read panel uses. The chart is only a
+// view of them: zoom, pan and the crosshair never change the signal maths.
+function drawChart(host, r) {
+  if (!window.NseChart) {
+    host.textContent = "Chart engine failed to load. Refresh the page.";
     return;
   }
-  // Scale follows candles, Tenkan/Kijun and prev close only. OR levels are never allowed
-  // to stretch the frame - if they do not fit, the line is skipped (honest scale).
-  var min = Infinity, max = -Infinity, i;
-  function lo1(b) { return b.lo != null ? b.lo : b.cl; }
-  function hi1(b) { return b.hi != null ? b.hi : b.cl; }
-  for (i = 0; i < bars.length; i++) {
-    min = Math.min(min, lo1(bars[i]), bars[i].t9 != null ? bars[i].t9 : Infinity, bars[i].k26 != null ? bars[i].k26 : Infinity);
-    max = Math.max(max, hi1(bars[i]), bars[i].t9 != null ? bars[i].t9 : -Infinity, bars[i].k26 != null ? bars[i].k26 : -Infinity);
-  }
-  if (prevClose != null && isFinite(prevClose)) { min = Math.min(min, prevClose); max = Math.max(max, prevClose); }
-  var pad = (max - min) * 0.08 || 1;
-  min -= pad; max += pad;
-  var plotH = H - PADT - PADB;
-  function Y(px) { return PADT + (1 - (px - min) / (max - min)) * plotH; }
-  function X(i) { return 8 * dpr + (i / (bars.length - 1)) * (W - 16 * dpr - GUT); }
-  function fmt(px) { return (Math.round(px * 100) / 100).toFixed(2); }
-  function stroke(fn, color, width, dash) {
-    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = (width || 1.5) * dpr; ctx.setLineDash(dash || []);
-    var started = false;
-    for (var i = 0; i < bars.length; i++) {
-      var val = fn(bars[i]);
-      if (val == null || !isFinite(val)) continue;
-      var x = X(i), y = Y(val);
-      if (started) ctx.lineTo(x, y); else { ctx.moveTo(x, y); started = true; }
-    }
-    ctx.stroke(); ctx.setLineDash([]);
-  }
-  // Volume strip: how much traded on each candle, against the day's own biggest candle
-  var maxVol = 0;
-  for (i = 0; i < bars.length; i++) if ((bars[i].vol || 0) > maxVol) maxVol = bars[i].vol;
-  if (maxVol > 0) {
-    var volBase = H - 20 * dpr, volH = 24 * dpr;
-    for (i = 0; i < bars.length; i++) {
-      var vv = bars[i].vol || 0;
-      if (!vv) continue;
-      var bh2 = Math.max(1, (vv / maxVol) * volH);
-      var opv = bars[i].o != null && isFinite(bars[i].o) ? bars[i].o : bars[i].cl;
-      var upv = bars[i].cl >= opv;
-      ctx.fillStyle = upv ? "rgba(34,197,94,.45)" : "rgba(239,68,68,.45)";
-      ctx.fillRect(X(i) - 1.5 * dpr, volBase - bh2, 3 * dpr, bh2);
-    }
-  }
-  // Previous close: the reference the whole day's move is measured against
-  if (prevClose != null && isFinite(prevClose) && Y(prevClose) > PADT && Y(prevClose) < H - PADB) {
-    var yp = Y(prevClose);
-    ctx.beginPath(); ctx.setLineDash([5, 4]); ctx.strokeStyle = "#5b6b93"; ctx.lineWidth = 1 * dpr;
-    ctx.moveTo(0, yp); ctx.lineTo(W - GUT, yp); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = "#8a97b8";
-    ctx.fillText("prev " + fmt(prevClose), W - GUT + 4 * dpr, yp + 3 * dpr);
-  }
-  // Opening range hi/lo - context only, drawn when they fit the frame
-  if (orl && isFinite(orl.hi) && isFinite(orl.lo)) {
-    ctx.setLineDash([3, 3]); ctx.strokeStyle = "#40527a"; ctx.lineWidth = 1 * dpr;
-    [orl.hi, orl.lo].forEach(function (lv, k) {
-      var yy = Y(lv);
-      if (yy <= PADT || yy >= H - PADB) return;
-      ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(W - GUT, yy); ctx.stroke();
-      ctx.fillStyle = "#5b6b93";
-      ctx.fillText((k === 0 ? "OR hi " : "OR lo ") + fmt(lv), W - GUT + 4 * dpr, yy + 3 * dpr);
-    });
-    ctx.setLineDash([]);
-  }
-  // Candles: wick high-low, body open-close (green up, red down)
-  var slot = (W - 16 * dpr - GUT) / bars.length;
-  var bw = Math.max(2 * dpr, Math.min(12 * dpr, slot * 0.62));
-  for (i = 0; i < bars.length; i++) {
-    var b = bars[i], x = X(i);
-    var op = b.o != null && isFinite(b.o) ? b.o : b.cl;
-    var up = b.cl >= op;
-    var col = up ? "#22c55e" : "#ef4444";
-    ctx.strokeStyle = col; ctx.lineWidth = 1 * dpr;
-    ctx.beginPath(); ctx.moveTo(x, Y(hi1(b))); ctx.lineTo(x, Y(lo1(b))); ctx.stroke();
-    var y1 = Y(Math.max(op, b.cl)), y2 = Y(Math.min(op, b.cl));
-    ctx.fillStyle = col;
-    ctx.fillRect(x - bw / 2, y1, bw, Math.max(1 * dpr, y2 - y1));
-  }
-  stroke(function (b) { return b.k26; }, "#37d576", 1, [4, 3]);
-  stroke(function (b) { return b.t9; }, "#f59e0b", 1, [4, 3]);
-  // Axis labels: top/bottom of the visible range, plus first and last clock time
-  ctx.fillStyle = "#8a97b8";
-  ctx.textAlign = "left";
-  ctx.fillText(fmt(max - pad), W - GUT + 4 * dpr, PADT + 4 * dpr);
-  ctx.fillText(fmt(min + pad), W - GUT + 4 * dpr, H - PADB);
-  function tstr(m) { if (m == null) return ""; var h = Math.floor(m / 60), mmn = m % 60; return (h < 10 ? "0" : "") + h + ":" + (mmn < 10 ? "0" : "") + mmn; }
-  ctx.fillText(tstr(bars[0].mm), 8 * dpr, H - 4 * dpr);
-  ctx.textAlign = "right";
-  ctx.fillText(tstr(bars[bars.length - 1].mm), W - GUT, H - 4 * dpr);
-  ctx.textAlign = "left";
-  // Signal badge: which side the checks lean, stamped at this update. A count of facts, not advice.
-  var btxt, bcol, bbg;
-  if (tv && tv.side) {
-    btxt = (tv.side === "up" ? "CE" : "PE") + " lean \u00b7 " + (tv.tier === "strong" ? "one-sided" : tv.tier === "moderate" ? "building" : "weak") + " \u00b7 " + tv.agree + "/" + tv.total + " checks";
-    bcol = tv.side === "up" ? "#22c55e" : "#ef4444";
-    bbg = tv.side === "up" ? "rgba(34,197,94,.14)" : "rgba(239,68,68,.14)";
-  } else {
-    btxt = "no CE/PE lean \u2014 two-way";
-    bcol = "#8a97b8";
-    bbg = "rgba(138,151,184,.12)";
-  }
-  var bwid = ctx.measureText(btxt).width;
-  ctx.fillStyle = bbg;
-  ctx.fillRect(6 * dpr, 5 * dpr, bwid + 12 * dpr, 15 * dpr);
-  ctx.fillStyle = bcol;
-  ctx.fillText(btxt, 12 * dpr, 16 * dpr);
+  window.NseChart.create(host, {
+    bars: (r && r.chart && r.chart.bars) || [],
+    timeframe: (r && r.chart && r.chart.tf) || "15m",
+    read: r && r.read,
+    prevClose: r && r.prevClose,
+    or: r && r.read && r.read.or,
+    lines: [
+      { key: "t9", label: "Tenkan(9)", color: "#f59e0b", dashed: true },
+      { key: "k26", label: "Kijun(26)", color: "#37d576", dashed: true }
+    ],
+    empty: "not enough closed candles yet"
+  });
 }
 
 function hm(mm) {
@@ -424,6 +329,7 @@ function buildRead(r) {
 }
 
 function renderStocks(thead, tbody, rows) {
+  if (window.NseChart) NseChart.destroyAll(tbody);
   thead.textContent = ""; tbody.textContent = "";
   var ths = document.createElement("tr");
   ["Stock", "Side", "LTP", "Chg %", "Running vol", "VWAP", "VWAP dist", "Tenkan/Kijun (" + CURTF + ")", "Line stop", "Delivery %"].forEach(function (h) {
@@ -461,19 +367,23 @@ function renderStocks(thead, tbody, rows) {
     var rowBar = document.createElement("tr");
     var td = document.createElement("td"); td.colSpan = 10; td.style.borderBottom = "1px solid var(--line)";
     var wrapDiv = document.createElement("div"); wrapDiv.className = "readwrap";
-    var cvs = document.createElement("canvas"); cvs.dataset.sym = r.sym;
-    wrapDiv.appendChild(cvs);
+    var chartHost = document.createElement("div"); chartHost.className = "chartbox"; chartHost.dataset.sym = r.sym;
+    wrapDiv.appendChild(chartHost);
     wrapDiv.appendChild(buildRead(r));
     td.appendChild(wrapDiv); rowBar.appendChild(td); rowBar.hidden = true;
     tr.addEventListener("click", function () {
       rowBar.hidden = !rowBar.hidden;
       openSym = rowBar.hidden ? null : r.sym;
-      if (!rowBar.hidden) drawChart(cvs, r);
+      if (rowBar.hidden) {
+        if (window.NseChart) window.NseChart.destroy(chartHost);
+      } else {
+        drawChart(chartHost, r);
+      }
     });
     tbody.appendChild(tr); tbody.appendChild(rowBar);
     if (openSym === r.sym) { // keep the panel you opened open across live updates
       rowBar.hidden = false;
-      drawChart(cvs, r);
+      drawChart(chartHost, r);
     }
   });
 }
