@@ -10,6 +10,8 @@ Keep the existing signal engines as research/watch tools. Do not promote any cur
 
 Only the first two may be shown in the monitor; neither is a promise of option P&L. Browser notifications require the monitor page to stay open and can be throttled while backgrounded.
 
+Keep **strategy assessment** separate from **trade entry**. An evidence/readiness rating answers whether a rule deserves more research; it never creates an entry, direction, stop, target, or notification. A call is a time-stamped market event produced by a separately defined trigger, with its own levels and chart evidence. A user may inspect that chart and make the trading decision.
+
 ## Existing project strategy review
 
 | Module | What it does today | Assessment |
@@ -18,6 +20,7 @@ Only the first two may be shown in the monitor; neither is a promise of option P
 | Candlestick labels (`patternAt`) | Heuristic engulfing, inside/outside, doji, hammer/star and marubozu shapes. No trend/location filter, confirmation, invalidation or position sizing. | Visualization only; a pattern name is not a strategy. Actionable strategy evidence: **0/10**; chart-context value: **1/10**. |
 | Index rulebook (ORB, Ichimoku/Fib, VWAP) | Fixed, explicit rules with closed bars, stops, targets, expiry/size guards and chart levels. Yahoo has limited history; index volume is absent; option results use a Black–Scholes proxy. | Most structured paper candidates in the repo, but recent corrected results are net-negative. Rule clarity: **6/10**; evidence for a positive edge: **1/10**. |
 | Swing Ichimoku / expiry max pain | Require Daily/4h or option-chain data; the current index backtest explicitly excludes them. | Not validated; do not display as proven live calls. |
+| Daily cash swing candidates | Five-year, next-session-open replay of fixed bullish candle rules and an SMA20 pullback reclaim, with stock/Nifty trend contexts and 5/10/20-session exits. | Research assessment only; 0/54 variants passed the promotion gate. It does not generate a current setup or trade entry. |
 | Full Chart ORB retest | Separate 5m index chart setup with entry, structural stop and 1R/2R targets. | Clear paper trigger; no net-positive holdout evidence in the saved ORB tests. |
 
 Scores are evidence/readiness ratings for this repository, not a rating of the user's skill or financial suitability.
@@ -52,6 +55,12 @@ The previous VIX rule blocked every BUY when the prior close was above the 60-se
 
 The live rulebook now keeps VIX as an informational premium-cost caution, not a directional trigger blocker. The replay and Index Options page disclose next-open entry and skipped gap fills. No rule was promoted as profitable: both tested systems remain net-negative under the stated underlying-cost assumption, and no historical option premium/spread/IV evidence exists.
 
+### Multi-year daily cash swing replay
+
+`research/swing-cash-2026-10-21/` tests four fixed bullish candle patterns and an SMA20 pullback-reclaim candidate on five years of free Yahoo daily data for 206 current F&O stocks. Entries use the next session open; stops use signal lows, targets are 2R, and exits occur at stop, target, or 5/10/20 sessions. The 20-session purge separates discovery from validation; 54 tested variants are corrected as one family. The current-membership universe has survivorship bias, assumed costs omit exact taxes/impact, and results describe underlying shares rather than option P&L.
+
+Zero of 54 validation variants passed the predeclared gate (at least 100 trades, positive net expectancy, day-cluster 95% confidence interval above zero, BH q<0.10). The least-negative was SMA20 pullback reclaim in a stock uptrend at a 10-session hold: 1,987 trades, mean -0.041R after assumed costs, CI [-0.108, +0.026], q=1.000. This is a strategy assessment result, not an entry signal; no daily swing rule was added to live calls.
+
 ## Candlestick research synthesis
 
 The empirical literature is mixed and market-specific:
@@ -65,7 +74,7 @@ Therefore, candle labels remain chart context. Any candidate pattern strategy ne
 ## Live-call plan
 
 1. Keep ten as a display cap, not a quota; return fewer or zero when no fresh candidate passes.
-2. Only a current closed-candle rule trigger with explicit underlying entry, invalidation and targets may send a browser alert. Stock directional scores stay in a separate non-alerting **WATCH CE SIDE / WATCH PE SIDE** section, with their last close and prior-session high/low on the chart. Do not invent an entry, stop, target, probability, or option return.
+2. Only a current closed-candle rule trigger with explicit underlying entry, invalidation and targets may send a trade-setup browser alert. Stock directional scores stay in a separate non-alerting **WATCH CE SIDE / WATCH PE SIDE** section, with their last close and prior-session high/low on the chart. A research rating is never a trigger. Do not invent an entry, stop, target, probability, or option return.
 3. Promote a stock to a paper **setup** only after a separately specified trigger fires. Suggested research candidate: opening-range break/retest with relative volume and broad-market direction as context, followed by a confirmation close; keep candle shape descriptive. The saved sample did not validate ORB, so this remains an experiment.
 4. Every paper call should record signal time, next-bar entry, invalidation, T1/T2, reason, spread/quote freshness, and an explicit stale/expired state. If stop/target are both touched in one candle, report ambiguous rather than a win.
 5. Use underlying rules only to decide the directional thesis. Option contract selection, quote age, spread, liquidity, IV and theta are separate checks; with free public data and no historical option trades, do not claim backtested CE/PE P&L.
