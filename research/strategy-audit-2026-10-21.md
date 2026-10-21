@@ -76,7 +76,7 @@ Therefore, candle labels remain chart context. Any candidate pattern strategy ne
 - Stock calls are explicitly directional watches, not “BUY CE/PE” orders.
 - Removed synthetic ±0.5% stock stop/target levels from call charts, cards, copy text and notifications. Prior-session high/low and last reference close are labeled as references.
 - Added recent candle-shape context to stock watch cards and chart details without treating those shapes as triggers.
-- Made the Trade Monitor chart-first workday screen: explicit index rule triggers are listed first and alone can notify; stock trend scores remain separate non-alerting context watches. Notifications re-check the current feed before opening an item.
+- Made the Trade Monitor chart-first workday screen: explicit index rule triggers are listed first and alone can notify; stock trend scores remain separate non-alerting context watches. Notifications re-check the current feed before opening an item. The monitor chart now uses the same closed-5m filtering as the Index Options chart and marks the trigger candle when it reconciles to a replayed fill.
 - Removed browser notifications from the separate Live Calls stock-watch page; it now links users to the Trade Monitor for setup alerts.
 - Repaired the candle replay fill assumption to next-bar open and removed the unsupported “evidence-backed / ranked #1” candlestick comment.
 - Added OHLC validity checks so missing/impossible candle inputs do not create pattern labels.
