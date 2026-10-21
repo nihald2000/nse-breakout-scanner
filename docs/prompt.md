@@ -1,5 +1,7 @@
 # NSE Intraday Scanner Suite (v2): full build prompt
 
+> Historical rebuild prompt dated 2026-10-19. It predates the current Trade Monitor and strategy audit. Do not treat its appendix as current source or restore its VIX hard block / trigger-close replay. Current architecture is documented in `README.md`; current strategy evidence and replay semantics are in `research/strategy-audit-2026-10-21.md` and `research/index-rulebook-2026-10-21/`. VIX is now premium-cost context only, and index rulebook studies fill at the next 5-minute open.
+
 Paste this whole file into a fresh Claude Code session (with Vercel access) to rebuild the project. It records the user, the goals, every decision, the exact rules and parameters, the test method, the deployment procedure, what is unverified, and, in the appendix, the complete source of all 23 files.
 
 Date of this write-up: Mon 2026-10-19 (IST). Deployed app: https://nse-breakout-scanner-tau.vercel.app (Vercel project `nse-breakout-scanner`, team `team_KP30bRdjsOHTVsKmxZj8qU9w`, region iad1, Node 22, Vercel login protection (SSO) still on, so the assistant that built it could not open the live site).

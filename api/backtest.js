@@ -7,7 +7,7 @@
 //   * "Index R" is measured on the index price. It has no spread, theta, slippage or costs.
 //   * "Option P&L" is a BLACK-SCHOLES APPROXIMATION (India VIX as ATM IV, +2 vol points for 1-ITM, flat smile).
 //     It is not real premium data. Expiry-week gamma and IV behaviour are not modelled; no assignment / pin risk.
-//   * The India VIX filter uses the previous session's close vs the 60 sessions before it (no look-ahead).
+//   * India VIX uses the previous session's close vs the prior 60 sessions as a premium-model reference; it does not block signals.
 //   * ichi_swing (Daily/4h) and expiry_maxpain (needs option-chain OI) are NOT backtested.
 // Returns the trade list; the page computes the statistics from it.
 
@@ -134,7 +134,7 @@ module.exports = async function handler(req, res) {
   const counts = {};
   for (const b of blocked) {
     const k = b.strategy;
-    counts[k] = counts[k] || { vix: 0, size: 0 };
+    counts[k] = counts[k] || { size: 0 };
     counts[k][b.by] = (counts[k][b.by] || 0) + 1;
   }
 
@@ -152,7 +152,7 @@ module.exports = async function handler(req, res) {
     volumeInFeed: b5.some((b) => b.vol > 0),
     source: data.source || "yahoo",
     tookMs: Date.now() - t0,
-    vix: { available: !!vix, sessionsWithoutVix: notes.vixUnknown, rule: `skip the day when India VIX (previous close) is above its ${P.vixPctlBlock}th percentile of the ${P.vixWindow} sessions before it` },
+    vix: { available: !!vix, sessionsWithoutVix: notes.vixUnknown, cautionRule: `show a premium-cost caution when prior-close India VIX is above its ${P.vixPctlCaution}th percentile of the ${P.vixWindow} sessions before it; this does not block an index trigger` },
     option: {
       model: "Black-Scholes approximation",
       rate: BS.r,

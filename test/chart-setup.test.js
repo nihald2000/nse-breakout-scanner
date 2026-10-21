@@ -71,7 +71,7 @@ test("later bars cannot change the entry or levels, only the outcome", () => {
 test("the India VIX filter is a warning, not a hidden block", () => {
   const s = computeChartSetup(setupBars.slice(0, 5), {
     orb,
-    vix: { ok: true, blocked: true, value: 22.5, p60: 15.1 }
+    vix: { ok: true, elevated: true, value: 22.5, p60: 15.1 }
   });
   assert.equal(s.action, "BUY PE");
   assert.equal(s.vixWarning, true);

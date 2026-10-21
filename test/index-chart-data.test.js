@@ -60,9 +60,9 @@ test("signal markers sit on the trigger candle and levels stop at the later exit
   const out = D.signalOverlays(signals, bars);
   assert.deepEqual(out.markers, [{ mm: 560, side: "long", strategy: "orb_break" }]);
   assert.deepEqual(out.levels, [
-    { fromMM: 560, toMM: 570, price: 100, kind: "sl" },
-    { fromMM: 560, toMM: 570, price: 104, kind: "t1" },
-    { fromMM: 560, toMM: 570, price: 106, kind: "t2" }
+    { fromMM: 565, toMM: 570, price: 100, kind: "sl" },
+    { fromMM: 565, toMM: 570, price: 104, kind: "t1" },
+    { fromMM: 565, toMM: 570, price: 106, kind: "t2" }
   ]);
 });
 
@@ -74,8 +74,8 @@ test("an open signal runs to the last closed bar, and off-chart signals are igno
   ], bars);
   assert.deepEqual(out.markers, [{ mm: 560, side: "short", strategy: "ichi" }]);
   assert.deepEqual(out.levels.map((l) => [l.kind, l.fromMM, l.toMM]), [
-    ["sl", 560, 565],
-    ["t1", 560, 565],
-    ["t2", 560, 565]
+    ["sl", 565, 565],
+    ["t1", 565, 565],
+    ["t2", 565, 565]
   ]);
 });

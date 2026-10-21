@@ -75,7 +75,8 @@ module.exports = async function handler(req, res) {
     signals: rep.signals,
     setup,
     blocked: rep.blocked || [],
-    vix: vs.ok ? { value: vs.value, p60: vs.p60, blocked: vs.blocked } : { unavailable: vs.note },
+    unfilled: rep.unfilled || [],
+    vix: vs.ok ? { value: vs.value, p60: vs.p60, elevated: vs.elevated } : { unavailable: vs.note },
     hasVolume: hasVol,
   });
 };

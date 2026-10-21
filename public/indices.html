@@ -62,7 +62,7 @@
   .tag.bad { color: var(--red); border-color: rgba(239,68,68,.5); }
   tr.inforow td { opacity: .78; }
   .vixbar { border: 1px solid var(--line); border-radius: 10px; background: var(--card); padding: 8px 12px; font-size: 13px; margin: 0 0 10px; }
-  .vixbar b.blk { color: var(--red); } .vixbar b.okk { color: var(--green); }
+  .vixbar b.caution { color: var(--amber); } .vixbar b.okk { color: var(--green); }
   .trailtxt { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
   .diaggrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
   .diaggrid h3 { font-size: 13px; margin: 0 0 6px; color: var(--muted); font-weight: 600; }
@@ -153,8 +153,8 @@
   </div>
 
   <div class="legend">
-    <p><b>Signal</b>: <b>BUY CE</b> (bullish) or <b>BUY PE</b> (bearish) appears only when the setup has triggered on a finished candle, the trigger is no more than 2 bars old, every blocking rule passes and India VIX is not elevated. <b>WAIT</b> means a setup is forming; the line under it says what is needed. <b>NO TRADE</b> means a rule rules it out today. <b>INFO</b> rows are information only and never count as a signal. <b>CLOSED</b> shows the state at the end of the last session. Only finished candles are used, so a forming candle never triggers anything. "Actionable only" counts BUY rows and nothing else.</p>
-    <p><b>Data-quality tags</b> on every row: <span class="tag good">true VWAP</span> volume exists so VWAP is real; <span class="tag warn">proxy</span> the line is only a session average; <span class="tag warn">no volume</span> the index feed has no volume, so volume filters are skipped (and say so in the checks); <span class="tag good">VIX ok</span> / <span class="tag bad">VIX blocked</span> / <span class="tag warn">VIX n/a</span> the India VIX filter; <span class="tag good">chain ok</span> / <span class="tag warn">no chain</span> option-chain open interest (needs a broker adapter). A skipped filter is always visible in the checks list (hover the check count) and in these tags.</p>
+    <p><b>Signal</b>: <b>BUY CE</b> (bullish) or <b>BUY PE</b> (bearish) appears only when the setup has triggered on a finished candle, the trigger is no more than 2 bars old, and every blocking rule passes. Elevated India VIX is shown as an option-cost caution; it does not suppress an index trigger because this project has no historical option-premium evidence for that rule. <b>WAIT</b> means a setup is forming; the line under it says what is needed. <b>NO TRADE</b> means a rule rules it out today. <b>INFO</b> rows are information only and never count as a signal. <b>CLOSED</b> shows the state at the end of the last session. Only finished candles are used, so a forming candle never triggers anything. "Actionable only" counts BUY rows and nothing else.</p>
+    <p><b>Data-quality tags</b> on every row: <span class="tag good">true VWAP</span> volume exists so VWAP is real; <span class="tag warn">proxy</span> the line is only a session average; <span class="tag warn">no volume</span> the index feed has no volume, so volume filters are skipped (and say so in the checks); <span class="tag warn">VIX elevated</span> / <span class="tag good">VIX below p60</span> / <span class="tag warn">VIX n/a</span> option-cost context; <span class="tag good">chain ok</span> / <span class="tag warn">no chain</span> option-chain open interest (needs a broker adapter). A skipped data source is visible in the checks list (hover the check count) and in these tags.</p>
     <p><b>Stop, T1, T2</b> are levels on the <i>index</i>, not the option. An index stop does not give a fixed loss on the option: premium moves non-linearly, spreads widen and a stop can fill worse. <b>Risk %</b> is the index stop distance as a share of price. The multiples are starting points to test, not validated edges.</p>
     <ul>
       <li><b>ORB breakout (Track 1)</b> (5m): the opening range is the 9:15 to 9:30 high and low. A 5m close above the high plus a buffer of 10% of the range width (below the low for puts) is the trigger, with no retest. The breakout candle needs volume at least 1.5x the mean of up to 20 earlier bars of the session; with no index volume that filter is skipped and says so. Stop: the lowest low (highest high for puts) from the breakout candle to the latest bar, capped at 0.7% of price. Targets 2R and 3R. Trail (information only, not simulated): VWAP, or the 20 EMA when VWAP is only a proxy.</li>
@@ -164,7 +164,7 @@
       <li><b>VWAP reclaim</b> (5m, needs a true VWAP): at least 9 consecutive closes (45 minutes) on the trend side of VWAP, then 1 to 3 closes across it, then a close back with volume at least the mean of the prior 2 candles. Stop at the dip low, cap 0.5%, targets 2R and 3R. RSI(9) must be 38 to 58 at the dip low for calls (45 to 65 at the dip high for puts); skipped, with a note, if the dip is inside the first 15 bars.</li>
       <li><b>VWAP pullback</b> (5m, needs a true VWAP): price on the trend side with the last two 5m swing lows rising; a dip to within 0.1% of VWAP that holds after 3 of the previous 6 closes were clear of it; trigger a close beyond that candle. Skipped on 3 or more VWAP crossings, a stop over 0.5%, or after 14:30; starts 9:50. Every VWAP row carries a reliability tag (high, medium, low); low means NO TRADE.</li>
       <li><b>Expiry max pain</b> (NIFTY and BANKNIFTY, expiry days, 14:00 to 15:30): needs open interest from an option chain, which this app does not have. Without a broker adapter the row says NO TRADE and never guesses. With one: max pain is the strike where option writers lose least; a 5m close toward it while price is 0.5% to 1.5% away triggers; T1 is the max pain level.</li>
-      <li><b>India VIX filter</b>: when India VIX is above its 60th percentile of the previous 60 sessions, every BUY is downgraded to WAIT ("IV elevated"): buying premium when implied volatility is high is a poor trade. If the VIX cannot be fetched the filter is skipped and shown as such.</li>
+      <li><b>India VIX caution</b>: VIX above its 60th percentile of the prior 60 sessions flags potentially higher premium cost. It is informational only; the threshold has not been validated using historical option premiums, spreads or IV changes, so it does not block an index-level paper trigger.</li>
     </ul>
     <p><b>Expiry days</b> are flagged, and ORB, Ichimoku and VWAP stay blocked on them. Expiry is taken as Tuesday: every Tuesday for NIFTY (weekly), the last Tuesday of the month for the others. This follows the schedule NSE moved to in September 2025, but it does not know exchange holidays that shift an expiry, so check the NSE calendar. Lot sizes change from time to time, so none are shown; check the current lot and margin with your broker. Strike steps used for the ATM strike (NIFTY 50, BANKNIFTY 100, FINNIFTY 50, MIDCPNIFTY 25, NIFTYNXT50 100) are typical values; confirm them in the option chain.</p>
     <p><b>Before any trade</b>: look at the actual option's bid, ask, volume and open interest, and skip it if the spread is wide. Size so that a stop-out loses only a small, fixed share of your account (0.25% to 0.5% is a common simulation range). No averaging down, no revenge trades, a daily loss limit, and exit everything by 15:15. A long option can lose its whole premium. Log 20 to 30 paper-trading sessions in the Journal tab, including the signals you skip, before putting real money behind any of these rules.</p>
@@ -197,7 +197,7 @@
     <div class="panel">
       <h2>Results by strategy (all tested indices together)</h2>
       <div class="wrap"><table class="bt" id="btSum"></table></div>
-      <p class="cleg"><b>Read option R with care.</b> Option R divides the premium change by the premium you would lose at the stop. When the index stop is very tight (some breakout candles close almost on their low), that loss is tiny, so one trade can show &plusmn;40R and drag the average. The premium % beside each R figure is not affected by this. <b>Index R</b> is measured on the index: +1R means the index moved one stop-distance your way. <b>Option P&amp;L</b> columns are a <b>Black-Scholes approximation</b>, not real premiums: India VIX (previous close) stands in for ATM implied volatility, +2 vol points for the 1-ITM strike, 6.5% interest, flat smile, and the option is re-priced at the exit with the same volatility ("no IV change") and with volatility 10% lower ("-10% IV", a crude IV-crush case). Each shows the average in option R (premium change divided by the premium you would lose if the index reached the stop) with its 95% range, and the average % change in premium. Expiry-week gamma is not modelled; assignment and pin risk are not modelled; no bid/ask spread beyond the option-cost box. Half-size trades count 0.5R. "Blocked" counts BUY signals that were held back by the India VIX filter or the opening-range size rule: they are not trades. The range after each average is a 95% confidence range: if it includes zero, this test shows no evidence of an edge.</p>
+      <p class="cleg"><b>Read option R with care.</b> Option R divides the premium change by the premium you would lose at the stop. When the index stop is very tight, the denominator can be tiny and one trade can show extreme option R. The premium % beside each R figure is not affected by this. <b>Index R</b> is measured on the index: +1R means the index moved one stop-distance your way. <b>Option P&amp;L</b> columns are a <b>Black-Scholes approximation</b>, not real premiums: India VIX (previous close) stands in for ATM implied volatility, +2 vol points for the 1-ITM strike, 6.5% interest, flat smile, and the option is re-priced at the exit with unchanged volatility and with volatility 10% lower (a crude IV-crush case). These values omit real option history, bid/ask, fees, skew, and execution. Half-size trades count 0.5R. "Blocked" counts signals held back by the opening-range size rule; VIX is informational. The range after each average is a 95% confidence range: if it includes zero, this test shows no evidence of an edge.</p>
     </div>
     <div class="panel">
       <h2>Cumulative index R, selected plan, after index cost</h2>
@@ -223,7 +223,7 @@
   <div class="panel guide">
     <h2>How to read this, and what it cannot tell you</h2>
     <ul>
-      <li><b>What is tested.</b> The exact live rules, replayed candle by candle. At each step the engine sees only candles that had finished by then (checked by scrambling every unfinished candle and confirming the rows do not change). One trade per strategy per session: the first BUY. Entry is the close of the trigger candle. Inside a candle the stop is assumed to hit before the target. Everything is flat by 15:15. Expiry days are skipped, as on the live page. The India VIX filter uses the previous session's close against the 60 sessions before it. Ichimoku swing (Daily/4h) and expiry max pain are <b>not backtested</b>: they need history and open-interest data this source does not have.</li>
+      <li><b>What is tested.</b> The existing rules are replayed candle by candle. At each step the engine sees only candles that had finished by then. One trade per strategy per session: the first BUY. Entry uses the next 5-minute bar open; a gap through the stop, past T1, or beyond the stop-risk cap is skipped. Inside the trade, the stop is assumed to hit before the target if both occur in one bar. Everything is flat by 15:15. Expiry days are skipped, as on the live page. India VIX is context for the Black-Scholes approximation, not a signal blocker. Ichimoku swing (Daily/4h) and expiry max pain are <b>not backtested</b>: they need history and open-interest data this source does not have.</li>
       <li><b>The sample is small.</b> Yahoo only provides about 60 days of 5-minute data, roughly 40 sessions per index. Five indices move together, so they are not five independent tests. With under about 30 trades per strategy the confidence range is so wide that almost any result is consistent with luck. Rows with fewer than 30 trades are flagged. A flat or negative result is a valid result.</li>
       <li><b>Option P&amp;L is a model.</b> It captures the index move and time decay under a flat-volatility Black-Scholes world. It does not capture the real spread, skew, volatility changes, or how premiums behave in expiry week. Treat it as a better guide than index R, and still not as the truth.</li>
       <li><b>Do not tune on these sessions.</b> The parameters were fixed before testing. Changing them until this table looks good would only fit the noise in 40 sessions. The paper-trading sessions you log in the Journal are the only out-of-sample evidence you will have: 20 to 30 sessions is the minimum, 50 or more is better.</li>
@@ -317,8 +317,8 @@
   }
 
   function tagClass(t) {
-    if (t === "true VWAP" || t === "VIX ok" || t === "chain ok") return "good";
-    if (t === "VIX blocked") return "bad";
+    if (t === "true VWAP" || t === "VIX below p60" || t === "chain ok") return "good";
+    if (t === "VIX elevated") return "warn";
     return "warn";
   }
   function tagsEl(r) {
@@ -395,10 +395,10 @@
     if (!m) return;
     b.textContent = "";
     if (!m.vix || m.vix.unavailable) {
-      b.appendChild(document.createTextNode("India VIX filter SKIPPED (" + ((m.vix && m.vix.unavailable) || "unavailable") + "). BUY signals are shown without the IV check, and every row is tagged VIX n/a."));
+      b.appendChild(document.createTextNode("India VIX unavailable (" + ((m.vix && m.vix.unavailable) || "unavailable") + "). Calls are not blocked; option premium cost cannot be assessed from this feed, and rows are tagged VIX n/a."));
     } else {
       b.appendChild(document.createTextNode("India VIX " + num(m.vix.value, 2) + " vs its 60th percentile " + num(m.vix.p60, 2) + " over the last " + m.vix.sessions + " sessions: "));
-      b.appendChild(el("b", m.vix.blocked ? "blk" : "okk", m.vix.blocked ? "ELEVATED, so every BUY is held back as WAIT" : "not elevated, the filter passes"));
+      b.appendChild(el("b", m.vix.elevated ? "caution" : "okk", m.vix.elevated ? "ELEVATED option-cost caution only; signals are not blocked" : "below the elevated-cost threshold"));
     }
     b.appendChild(document.createTextNode(m.brokerConfigured ? " · Broker data adapter: configured." : " · Broker data adapter: not configured (no true VWAP, no option chain)."));
   }
@@ -727,11 +727,14 @@
     ul.textContent = "";
     if (!d) return;
     if (!d.signals.length) {
-      ul.appendChild(el("li", "dim", "No BUY signal from any replayable rulebook " + (d.live ? "so far in this session." : "in this session.")));
+      var skipped = d.unfilled || [];
+      ul.appendChild(el("li", "dim", skipped.length
+        ? skipped.length + " rule trigger(s) had no next-open fill: " + skipped.slice(0, 3).map(function (x) { return lab(x.strategy) + " after " + hm(x.signalMM) + " (" + x.reason + ")"; }).join("; ") + (skipped.length > 3 ? "; and " + (skipped.length - 3) + " more." : ".")
+        : "No BUY signal from any replayable rulebook " + (d.live ? "so far in this session." : "in this session.")));
     }
-    if (d.vix) ul.appendChild(el("li", "dim", d.vix.unavailable ? "India VIX filter skipped (" + d.vix.unavailable + ")." : "India VIX (previous close) " + num(d.vix.value, 2) + " vs 60th percentile " + num(d.vix.p60, 2) + (d.vix.blocked ? ": ELEVATED, BUY signals are held back this session." : ": not elevated.")));
+    if (d.vix) ul.appendChild(el("li", "dim", d.vix.unavailable ? "India VIX unavailable (" + d.vix.unavailable + "); option premium context is missing." : "India VIX (previous close) " + num(d.vix.value, 2) + " vs 60th percentile " + num(d.vix.p60, 2) + (d.vix.elevated ? ": elevated option-cost caution only; signals are not blocked." : ": below the elevated-cost threshold.")));
     (d.blocked || []).forEach(function (b) {
-      ul.appendChild(el("li", "dim", lab(b.strategy) + " would have said BUY " + (b.side === "long" ? "CE" : "PE") + " at " + hm(b.entryMM) + " but was held back by " + (b.by === "vix" ? "the India VIX filter" : "the opening-range size rule") + "."));
+      ul.appendChild(el("li", "dim", lab(b.strategy) + " would have signalled BUY " + (b.side === "long" ? "CE" : "PE") + " at " + hm(b.entryMM) + " but was held back by the opening-range size rule."));
     });
     if (!d.signals.length) return;
     d.signals.forEach(function (s) {
@@ -806,7 +809,7 @@
     var notes = [];
     if (fails.length) notes.push("Some indices failed: " + fails.join(" | "));
     var anyNoVix = Object.keys(BT.rows).some(function (k) { return !BT.rows[k].vix || !BT.rows[k].vix.available; });
-    if (anyNoVix) notes.push("India VIX could not be fetched, so the VIX filter was skipped and option P&L could not be computed.");
+    if (anyNoVix) notes.push("India VIX could not be fetched, so the option premium approximation could not be computed; signals are not blocked.");
     if (notes.length) btShowBanner("warn", notes.join(" "));
     btRender();
   }
@@ -910,16 +913,16 @@
     var first = BT.rows[keys[0]];
 
     var sum = $("btSum"); sum.textContent = "";
-    var hr = el("tr"); th(hr, ["Strategy", "Trades", "Target hit", "Index R", "Option P&L (BS, no IV change)", "Option P&L (BS, −10% IV)", "Profit factor (index)", "Max drawdown R", "Longest losing run", "Blocked (VIX / size)"]);
+    var hr = el("tr"); th(hr, ["Strategy", "Trades", "Target hit", "Index R", "Option P&L (BS, no IV change)", "Option P&L (BS, −10% IV)", "Profit factor (index)", "Max drawdown R", "Longest losing run", "Blocked by size"]);
     sum.appendChild(el("thead")).appendChild(hr);
     var sb = el("tbody");
     BT_IDS.forEach(function (s) {
       var ts = all.filter(function (t) { return t.strategy === s; }), a = stats(ts, W, c), tr = el("tr");
       tr.dataset.strategy = s;
       td(tr, lab(s), "l");
-      var bl = 0, bz = 0;
-      keys.forEach(function (k) { var b = (BT.rows[k].blocked || {})[s]; if (b) { bl += b.vix || 0; bz += b.size || 0; } });
-      if (!a) { td(tr, "0"); td(tr, "–"); td(tr, "–"); td(tr, "–"); td(tr, "–"); td(tr, "–"); td(tr, "–"); td(tr, "–"); td(tr, bl + " / " + bz); sb.appendChild(tr); return; }
+      var bz = 0;
+      keys.forEach(function (k) { var b = (BT.rows[k].blocked || {})[s]; if (b) bz += b.size || 0; });
+      if (!a) { td(tr, "0"); td(tr, "–"); td(tr, "–"); td(tr, "–"); td(tr, "–"); td(tr, "–"); td(tr, "–"); td(tr, "–"); td(tr, String(bz)); sb.appendChild(tr); return; }
       lowN(td(tr, String(a.n)), a.n);
       td(tr, pct(a.hit) + " (" + pct(a.hitLo) + " to " + pct(a.hitHi) + ")");
       td(tr, fr(a.avg) + rng(a), tone(a));
@@ -928,7 +931,7 @@
       td(tr, a.pf == null ? "–" : a.pf.toFixed(2));
       td(tr, a.dd.toFixed(2) + "R");
       td(tr, String(a.worst));
-      td(tr, bl + " / " + bz);
+      td(tr, String(bz));
       sb.appendChild(tr);
     });
     (first.notBacktested || []).forEach(function (nb) {

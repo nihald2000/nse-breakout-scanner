@@ -43,10 +43,9 @@
     return end == null ? null : Math.min(end, lastMM);
   }
 
-  // Entries are plotted on the trigger candle (the bar whose close produced the
-  // signal). Stop/target segments start there and end at the later of the two
-  // replay exits, clamped to the last closed bar. They are annotations only;
-  // this function never changes the signal or its levels.
+  // The trigger marker sits on the bar whose close produced the signal. Entry
+  // and risk levels start on the next bar, where the replay fills at its open.
+  // These are annotations only; this function never changes the signal/levels.
   function signalOverlays(signals, bars) {
     var list = bars || [];
     var at = {};
@@ -68,7 +67,7 @@
       if (end == null || end <= triggerMM) return;
       ["sl", "t1", "t2"].forEach(function (kind) {
         if (!finite(s[kind])) return;
-        levels.push({ fromMM: triggerMM, toMM: end, price: s[kind], kind: kind });
+        levels.push({ fromMM: s.entryMM, toMM: end, price: s[kind], kind: kind });
       });
     });
     markers.sort(function (a, b) { return a.mm - b.mm; });

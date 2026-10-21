@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#060b18">
-<meta name="description" content="Full interactive NSE index chart with the ORB retest setup, entry, stop, targets, risk/reward and automatic paper alerts. Index levels only; option premiums are not quoted.">
+<meta name="description" content="Full interactive NSE index chart with rulebook calls, ORB retest setup, entry, stop, targets and risk/reward. Index levels only; option premiums are not quoted.">
 <title>Full Chart and Trade Desk - NSE Breakout Scanner</title>
 <link rel="stylesheet" href="/app.css">
 <style>
@@ -501,7 +501,7 @@
     head.appendChild(action);
     head.appendChild(el("span", "rec-state", s.state || "NO SETUP"));
     box.appendChild(head);
-    box.appendChild(el("div", "rec-sub", s.label + " \u00b7 " + d.name + " \u00b7 " + dateLabel(d.date) + (s.entryMM ? " \u00b7 trigger close " + hm(s.entryMM) : "")));
+    box.appendChild(el("div", "rec-sub", s.label + " \u00b7 " + d.name + " \u00b7 " + dateLabel(d.date) + (s.entryMM ? " \u00b7 entry " + hm(s.entryMM) : "")));
 
     var chips = el("div", "chiprow");
     chips.appendChild(el("span", "chip good", "Chart setup"));
@@ -548,7 +548,7 @@
       box.appendChild(el("div", "rec-warn", notFresh));
     }
     if (s.vixWarning) {
-      box.appendChild(el("div", "rec-warn", "India VIX is above its 60th percentile, so option premium may be expensive. If a BUY setup appears, the existing rulebook would hold it back; the chart setup still shows it as a warning, not a hidden block."));
+      box.appendChild(el("div", "rec-warn", "India VIX is above its 60th percentile, an option-cost caution only. The threshold has not been validated on option premiums and does not block the chart setup."));
     }
 
     if (s.checks && s.checks.length) {
@@ -602,6 +602,8 @@
     t.appendChild(tb);
     var note = "The chart setup row is computed from the selected session. The rule rows below it are the latest live session and are not replayed for a past date.";
     if (ix && Number.isFinite(ix.chgPct)) note += " Live " + ix.name + " " + signed(ix.chgPct, 2) + "%.";
+    var unfilled = (d && d.unfilled) || [];
+    if (unfilled.length) note += " Replay triggers skipped at fill: " + unfilled.slice(0, 3).map(function (x) { return x.strategy + " " + (x.side === "long" ? "CE" : "PE") + " after " + hm(x.signalMM) + " (" + x.reason + ")"; }).join("; ") + (unfilled.length > 3 ? "; and " + (unfilled.length - 3) + " more" : "") + ".";
     $("fcRulesNote").textContent = note;
   }
 

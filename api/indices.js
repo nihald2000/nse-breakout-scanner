@@ -2,7 +2,7 @@
 //   Underlyings : NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY, NIFTYNXT50 (Yahoo Finance index tickers)
 //   Strategies  : ORB (breakout + retest tracks), Ichimoku + Fibonacci (intraday and Daily/4h swing),
 //                 VWAP (reclaim, pullback; needs true VWAP), expiry-day max pain (needs an option chain).
-// Rules live in lib/rules_*.js. This file fetches data, applies the India VIX filter and tags data quality.
+// Rules live in lib/rules_*.js. India VIX is displayed as an option-cost caution; it does not gate triggers.
 // It evaluates the INDEX price only. No option premium, bid/ask or open interest comes from Yahoo.
 // Screening aid only, not trading advice, and none of this is proof of an edge.
 
@@ -45,8 +45,6 @@ function parseIdx(r) {
   return { bars, meta: m };
 }
 
-const IV_BLOCK_NOTE = "IV elevated (VIX above 60th percentile); buying premium is unfavourable";
-
 // --------------------------------------------------------------------------
 // Per-index analysis (pure: no network, easy to test)
 //   ctx: { nowSec, todayISO, marketOpen, expiry:{KEY:bool}, vix?:vixState, chain?, skipSwing?, skipMaxPain? }
@@ -84,17 +82,11 @@ function analyse(ix, data, ctx) {
 
   const vs = ctx.vix || null;
   for (const r of rows) {
-    // India VIX filter: a hard block on every BUY. If the VIX could not be fetched the filter is skipped, visibly.
-    if (/^BUY/.test(r.action) && vs && vs.ok && vs.blocked) {
-      r.wouldBe = r.action;
-      r.action = "WAIT";
-      r.blockedBy = "vix";
-      r.note = IV_BLOCK_NOTE;
-    }
+    // VIX is context for option premium cost, not an evidence-backed directional veto.
     if (vs && vs.ok) {
-      r.checks = r.checks.concat([{ ok: !vs.blocked, info: !vs.blocked ? true : false, text: `India VIX ${vs.value.toFixed(2)} vs its 60th percentile ${vs.p60.toFixed(2)} over the last ${vs.n} sessions` }]);
+      r.checks = r.checks.concat([{ ok: true, info: true, text: `India VIX ${vs.value.toFixed(2)} vs its 60th percentile ${vs.p60.toFixed(2)} over the last ${vs.n} sessions${vs.elevated ? "; elevated option-cost caution only, not a trigger blocker" : "; below the elevated-cost threshold"}` }]);
     } else {
-      r.checks = r.checks.concat([{ ok: true, info: true, text: `VIX filter skipped (${(vs && vs.note) || "India VIX unavailable"})` }]);
+      r.checks = r.checks.concat([{ ok: true, info: true, text: `India VIX unavailable; option implied-volatility cost cannot be assessed (${(vs && vs.note) || "no data"})` }]);
     }
     if (r.side) r.option = r.side === "long" ? `${atm} CE (1 ITM ${atm - ix.step})` : `${atm} PE (1 ITM ${atm + ix.step})`;
     if (!live && /^BUY|^WAIT$/.test(r.action)) {
@@ -105,7 +97,7 @@ function analyse(ix, data, ctx) {
     const tags = [];
     if (r.group === "vwap") tags.push(hasVol ? "true VWAP" : "proxy");
     if (!hasVol && r.group !== "expiry") tags.push("no volume");
-    tags.push(vs && vs.ok ? (vs.blocked ? "VIX blocked" : "VIX ok") : "VIX n/a");
+    tags.push(vs && vs.ok ? (vs.elevated ? "VIX elevated" : "VIX below p60") : "VIX n/a");
     if (r.group === "expiry") tags.push(ctx.chain ? "chain ok" : "no chain");
     r.tags = tags;
   }
@@ -194,7 +186,7 @@ async function handler(req, res) {
   if (failed.length) warnings.push(`No data for ${failed.length} index(es): ${failed.map((x) => x.split(":")[0]).join(", ")}.`);
   const lagMin = newest ? Math.round((Date.now() / 1000 - newest) / 60) : 0;
   if (marketOpen && lagMin > 10) warnings.push(`The newest price is ${lagMin} minutes old, so the data source may be delayed.`);
-  if (!vs.ok) warnings.push(`India VIX filter skipped: ${vs.note}.`);
+  if (!vs.ok) warnings.push(`India VIX unavailable; option implied-volatility cost cannot be assessed: ${vs.note}.`);
 
   res.setHeader("Cache-Control", "public, s-maxage=30, stale-while-revalidate=60");
   return res.status(200).json({
@@ -204,7 +196,7 @@ async function handler(req, res) {
       generatedAt: new Date().toISOString(),
       tookMs: Date.now() - t0,
       source: "Yahoo Finance index prices",
-      vix: vs.ok ? { value: vs.value, p60: vs.p60, blocked: vs.blocked, sessions: vs.n } : { unavailable: vs.note },
+      vix: vs.ok ? { value: vs.value, p60: vs.p60, elevated: vs.elevated, sessions: vs.n } : { unavailable: vs.note },
       brokerConfigured: broker.configured(),
       strategies: STRATS,
     },
@@ -232,5 +224,4 @@ module.exports._internals = {
   isExpiryDay,
   neg,
   to4h,
-  IV_BLOCK_NOTE,
 };

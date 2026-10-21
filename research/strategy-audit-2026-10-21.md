@@ -16,7 +16,7 @@ Only the first two may be shown in the monitor; neither is a promise of option P
 |---|---|---|
 | Sector Scope / Live Calls (`lib/sector.js`, `api/calls.js`) | Votes across VWAP, VWAP slope, Ichimoku position, swing structure, opening range, ADX, range expansion and volume. “Strong/moderate” indicate vote agreement. Candle labels do not enter the vote. | Reasonable descriptive ranking; **no validated entry, stop, target or option expectancy**. Do not call it BUY CE/PE. Strategy evidence: **1/10**. |
 | Candlestick labels (`patternAt`) | Heuristic engulfing, inside/outside, doji, hammer/star and marubozu shapes. No trend/location filter, confirmation, invalidation or position sizing. | Visualization only; a pattern name is not a strategy. Actionable strategy evidence: **0/10**; chart-context value: **1/10**. |
-| Index rulebook (ORB, Ichimoku/Fib, VWAP) | Fixed, explicit rules with closed bars, stops, targets, expiry/volatility/size guards and chart levels. Yahoo has limited history; index volume is absent; option results use a Black–Scholes proxy. | Best structured paper candidates in the repo, but **not proven profitable**. Rule clarity: **6/10**; evidence for trading: **2/10**. |
+| Index rulebook (ORB, Ichimoku/Fib, VWAP) | Fixed, explicit rules with closed bars, stops, targets, expiry/size guards and chart levels. Yahoo has limited history; index volume is absent; option results use a Black–Scholes proxy. | Most structured paper candidates in the repo, but recent corrected results are net-negative. Rule clarity: **6/10**; evidence for a positive edge: **1/10**. |
 | Swing Ichimoku / expiry max pain | Require Daily/4h or option-chain data; the current index backtest explicitly excludes them. | Not validated; do not display as proven live calls. |
 | Full Chart ORB retest | Separate 5m index chart setup with entry, structural stop and 1R/2R targets. | Clear paper trigger; no net-positive holdout evidence in the saved ORB tests. |
 
@@ -41,6 +41,16 @@ The old stock replay assumed entry at the same candle close that created the sig
 **Zero of the 96 pooled validation configurations was net-positive** at the assumed 0.05% per-side underlying cost; zero had nominal p<0.05. The least-negative row was bearish marubozu + 60m trend + relative volume at 2R: gross +0.245R, net -0.209R, 95% day-cluster CI [-0.471, +0.053], p=0.944, global q=1.000. At 0.10% per-side cost it fell to -0.663R. No long/short direction or prior-Nifty regime slice produced a positive row. This is exploratory and uses the same held-out dates after prior pattern work, so it is not a fresh untouched validation. It supplies no strategy to promote into Live Calls.
 
 The earlier broad component study independently tested the aggregate latest directional pattern on 15m decisions: 50.6% hit at ±0.5% (60% cost-adjusted break-even) and 51.1% at ±1.0% (55% break-even), with negative validation net expectancy in both cases. Adding an on-side pattern to the existing strong/moderate read also remained net negative.
+
+### Corrected index-rule replay and Oct 21 session
+
+`research/index-rulebook-2026-10-21/` stores a Yahoo snapshot and a replay of the five index rulebooks across 58 complete sessions (2026-07-29 to 2026-10-21). This replay fixes a material execution error: earlier stats entered at the trigger candle close, which is only known after that candle ends. The corrected replay enters at the next 5-minute bar open, skips gaps through the stop or T1 and skips fills that widen risk past the fixed rule cap. Published stop/target levels remain fixed, so a gap changes realized R. Same-bar stop/target remains pessimistic (stop first).
+
+At an assumed 0.05% underlying cost per side (not an option cost estimate), the later-half validation sample was negative for every replayed rule/target: ORB breakout 1R net mean -0.749R (95% day-cluster CI [-1.091, -0.386]) and 2R -0.644R (CI [-1.086, -0.161]); Ichimoku 1R -1.491R (CI [-2.373, -0.669]) and 2R -1.346R (CI [-2.368, -0.357]). These results remain underlying-index outcomes, not options P&L.
+
+The previous VIX rule blocked every BUY when the prior close was above the 60-session 60th percentile. Across this sample it removed 82 of 233 ORB breakout T1 outcomes and 25 of 83 Ichimoku outcomes. The VIX-gated ORB mean was worse (-1.474R) than without the gate (-1.211R); Ichimoku was effectively unchanged (-1.884R vs -1.888R). This does not validate a universal VIX veto. On Oct 21, with prior-close VIX 14.77 vs p60 12.21, the gate suppressed five next-open candidates: two early CE breakouts later hit stops and three PE-side index setups later reached their underlying targets. A single day cannot establish skill or profitable option trades, but it shows the hard block would have silenced all five sides indiscriminately.
+
+The live rulebook now keeps VIX as an informational premium-cost caution, not a directional trigger blocker. The replay and Index Options page disclose next-open entry and skipped gap fills. No rule was promoted as profitable: both tested systems remain net-negative under the stated underlying-cost assumption, and no historical option premium/spread/IV evidence exists.
 
 ## Candlestick research synthesis
 
@@ -72,6 +82,8 @@ Therefore, candle labels remain chart context. Any candidate pattern strategy ne
 - Added OHLC validity checks so missing/impossible candle inputs do not create pattern labels.
 - Added a reproducible, fixed-rule, next-bar-open study for named patterns; it does not silently feed a failed candidate into live calls.
 - Added a second research-only replay of the same patterns with five context filters; none of the 96 held-out rows passed the cost-adjusted edge gate, so no new candle strategy was added to Live Calls.
+- Corrected index rulebook replays from trigger-close entry to next-5-minute-open fills; gaps past the stop/T1 or risk cap no longer become trades.
+- Replaced the unsupported blanket VIX BUY veto with a visible option-cost caution after a paired replay found no general improvement from that gate; exact evidence is in `research/index-rulebook-2026-10-21/`.
 
 ## Next validation gate
 
