@@ -34,6 +34,12 @@ The old stock replay assumed entry at the same candle close that created the sig
 
 **None of the 16 validation rows is profitable net of the assumed underlying cost** (all one-sided p-values and BH q-values are 1.000). The better looking rows before costs still fail after costs: bearish engulfing at 2R has gross mean +0.098R but net mean -0.527R; bear marubozu at 2R has gross +0.095R but net -0.456R. The best net row is inside-bar breakout at 1R, -0.387R (95% day-cluster CI -0.437 to -0.336). These are underlying results, not option P&L. This small, falling-market sample is not enough to rule out every context-specific candle setup, but it gives no basis to promote one into actionable Live Calls.
 
+### Context-aware replay
+
+`research/candlestick-context-2026-10-21/report.md` extends the same cache with six fixed contexts: prior 60-minute EMA trend alignment, session VWAP side, opening-range breakout side, 60-minute trend plus 1.5× prior-bar relative volume, and local 12-bar extreme reversal, alongside shape-only controls. The rule still uses closed 5m signals, next 5m open, pattern-extreme stops, 1R/2R exits and a 1% underlying risk cap. It compares 8 shapes/strategies × 6 filters × 2 targets (96 validation configurations); the global BH family includes 672 pooled, direction, cost-stress, and market-regime comparisons.
+
+**Zero of the 96 pooled validation configurations was net-positive** at the assumed 0.05% per-side underlying cost; zero had nominal p<0.05. The least-negative row was bearish marubozu + 60m trend + relative volume at 2R: gross +0.245R, net -0.209R, 95% day-cluster CI [-0.471, +0.053], p=0.944, global q=1.000. At 0.10% per-side cost it fell to -0.663R. No long/short direction or prior-Nifty regime slice produced a positive row. This is exploratory and uses the same held-out dates after prior pattern work, so it is not a fresh untouched validation. It supplies no strategy to promote into Live Calls.
+
 The earlier broad component study independently tested the aggregate latest directional pattern on 15m decisions: 50.6% hit at ±0.5% (60% cost-adjusted break-even) and 51.1% at ±1.0% (55% break-even), with negative validation net expectancy in both cases. Adding an on-side pattern to the existing strong/moderate read also remained net negative.
 
 ## Candlestick research synthesis
@@ -61,9 +67,11 @@ Therefore, candle labels remain chart context. Any candidate pattern strategy ne
 - Removed synthetic ±0.5% stock stop/target levels from call charts, cards, copy text and notifications. Prior-session high/low and last reference close are labeled as references.
 - Added recent candle-shape context to stock watch cards and chart details without treating those shapes as triggers.
 - Made the Trade Monitor chart-first workday screen: explicit index rule triggers are listed first and alone can notify; stock trend scores remain separate non-alerting context watches. Notifications re-check the current feed before opening an item.
+- Removed browser notifications from the separate Live Calls stock-watch page; it now links users to the Trade Monitor for setup alerts.
 - Repaired the candle replay fill assumption to next-bar open and removed the unsupported “evidence-backed / ranked #1” candlestick comment.
 - Added OHLC validity checks so missing/impossible candle inputs do not create pattern labels.
 - Added a reproducible, fixed-rule, next-bar-open study for named patterns; it does not silently feed a failed candidate into live calls.
+- Added a second research-only replay of the same patterns with five context filters; none of the 96 held-out rows passed the cost-adjusted edge gate, so no new candle strategy was added to Live Calls.
 
 ## Next validation gate
 
