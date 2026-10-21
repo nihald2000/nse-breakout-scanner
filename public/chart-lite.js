@@ -109,6 +109,13 @@
     };
   }
 
+  function badgeFor(opts) {
+    if (opts && opts.badge && opts.badge.text) {
+      return { text: String(opts.badge.text), side: opts.badge.side || "flat" };
+    }
+    return trendBadge(opts && opts.read);
+  }
+
   function el(tag, cls, text) {
     var n = document.createElement(tag);
     if (cls) n.className = cls;
@@ -139,11 +146,12 @@
 
     var bars = opts.bars || [];
     var candles = candleData(bars);
+    var volumes = volumeData(bars);
     var box = el("div", "nsechart");
     host.appendChild(box);
 
     var head = el("div", "nsechart-head");
-    var badge = trendBadge(opts.read);
+    var badge = badgeFor(opts);
     var b = el("span", "nsechart-badge " + (badge.side || "flat"), badge.text);
     head.appendChild(b);
     var tf = el("span", "nsechart-meta", (opts.timeframe || "15m") + " closed");
@@ -197,7 +205,7 @@
       },
       rightPriceScale: {
         borderColor: "#1b2742",
-        scaleMargins: { top: 0.08, bottom: 0.24 }
+        scaleMargins: { top: 0.08, bottom: volumes.length ? 0.24 : 0.08 }
       },
       timeScale: {
         borderColor: "#1b2742",
@@ -227,7 +235,6 @@
     });
     candleSeries.setData(candles);
 
-    var volumes = volumeData(bars);
     if (volumes.length) {
       var volSeries = chart.addSeries(lib.HistogramSeries, {
         priceScaleId: "vol",
@@ -371,6 +378,7 @@
     destroy: destroy,
     destroyAll: destroyAll,
     trendBadge: trendBadge,
+    badgeFor: badgeFor,
     sessionTime: sessionTime,
     clock: clock,
     candleData: candleData,

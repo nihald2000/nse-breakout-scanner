@@ -33,9 +33,9 @@
   .panel { border: 1px solid var(--line); border-radius: 12px; background: var(--card); padding: 10px 12px; margin: 0 0 12px; }
   .panel h2 { font-size: 14px; margin: 0 0 8px; letter-spacing: .2px; }
   .panel .controls { margin-bottom: 6px; }
-  canvas.cv { display: block; width: 100%; height: 380px; touch-action: pan-y; }
+  .chartbox { width: 100%; height: 380px; margin: 4px 0 0; }
   canvas.eq { display: block; width: 100%; height: 220px; }
-  @media (max-width: 700px) { canvas.cv { height: 300px; } }
+  @media (max-width: 700px) { .chartbox { height: 320px; } }
   .cinfo { color: var(--muted); font-size: 12.5px; min-height: 18px; margin: 6px 0 0; font-variant-numeric: tabular-nums; }
   .cleg { color: var(--muted); font-size: 12px; margin: 4px 0 0; line-height: 1.5; }
   ul.siglist { margin: 8px 0 0; padding-left: 18px; font-size: 13px; }
@@ -101,7 +101,7 @@
       <label class="chk"><input type="checkbox" id="cAvg" checked> <span id="cAvgName">Average price</span></label>
       <label class="chk"><input type="checkbox" id="cSig" checked> Signals</label>
     </div>
-    <canvas class="cv" id="cv" aria-label="5 minute candles of the selected index"></canvas>
+    <div class="chartbox" id="cv" role="img" aria-label="5-minute candlestick chart of the selected index"></div>
     <div class="cinfo" id="cinfo">Hover or touch the chart to read a candle.</div>
     <div class="cleg" id="cleg"></div>
     <ul class="siglist" id="siglist"></ul>
@@ -231,6 +231,9 @@
   </div>
 </div>
 
+<script src="/vendor/lightweight-charts.standalone.production.js"></script>
+<script src="/chart-lite.js"></script>
+<script src="/index-chart-data.js"></script>
 <script>
 (function () {
   "use strict";
@@ -532,25 +535,29 @@
   var IXS = [["NIFTY", "NIFTY 50"], ["BANKNIFTY", "BANKNIFTY"], ["FINNIFTY", "FINNIFTY"], ["MIDCPNIFTY", "MIDCPNIFTY"], ["NIFTYNXT50", "NXT 50"]];
   var STEP = { NIFTY: 50, BANKNIFTY: 100, FINNIFTY: 50, MIDCPNIFTY: 25, NIFTYNXT50: 100 };
   var SHORT = { orb_break: "ORB-1", orb_retest: "ORB-2", ichi: "ICHI", vwap_reclaim: "VWAP-R", vwap_pullback: "VWAP-P" };
-  var chart = { ix: "NIFTY", date: "", data: null, busy: false, hover: -1, err: "", geo: null };
-  var SLOTS = 75, OPEN_MM = 555;
+  var chart = { ix: "NIFTY", date: "", data: null, busy: false, err: "", handle: null, lastSig: "", lastKey: "", lastCount: 0, baseInfo: "" };
 
   function hm(mm) { return ("0" + Math.floor(mm / 60)).slice(-2) + ":" + ("0" + (mm % 60)).slice(-2); }
   function fr(v) { return Number.isFinite(v) ? (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2) + "R" : "–"; }
   function css(name, dflt) { var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim(); return v || dflt; }
+  function dateLabel(iso) {
+    var m = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    var p = String(iso || "").split("-");
+    return p.length === 3 ? (+p[2]) + " " + m[+p[1] - 1] + " " + p[0] : (iso || "");
+  }
 
   IXS.forEach(function (p) {
     var b = el("button", p[0] === chart.ix ? "on" : "", p[1]);
     b.dataset.v = p[0];
     b.addEventListener("click", function () {
-      chart.ix = p[0]; chart.date = ""; chart.hover = -1;
+      chart.ix = p[0]; chart.date = "";
       document.querySelectorAll("#cix button").forEach(function (x) { x.classList.toggle("on", x === b); });
       chartLoad(false);
     });
     $("cix").appendChild(b);
   });
   $("cdate").addEventListener("change", function () { chart.date = $("cdate").value; chartLoad(false); });
-  ["cOrb", "cAvg", "cSig"].forEach(function (id) { $(id).addEventListener("change", drawChart); });
+  ["cOrb", "cAvg", "cSig"].forEach(function (id) { $(id).addEventListener("change", function () { drawChart(true); }); });
 
   async function chartLoad(silent) {
     if (chart.busy) return;
@@ -567,7 +574,12 @@
       d.dates.forEach(function (x, i) { var o = el("option", null, x + (i === 0 ? " (latest)" : "")); o.value = x; sel.appendChild(o); });
       sel.value = d.date;
       $("cAvgName").textContent = d.vwapIsProxy ? "Session average price" : "VWAP";
-      $("cinfo").textContent = "Hover or touch the chart to read a candle. Data to " + d.asOf + (d.live ? " (session in progress, last candle still forming)" : "") + (d.expiry ? " · EXPIRY DAY: signals are blocked" : "");
+      var IC = window.IndexChartData;
+      var closed = IC ? IC.sessionBars(d) : [];
+      var liveNote = d.live ? "Session in progress; the chart plots closed 5-minute bars only." : "Completed session.";
+      if (d.live && closed.length) liveNote += " Latest closed: " + hm(closed[closed.length - 1].mm) + "–" + hm(closed[closed.length - 1].mm + 5) + ".";
+      chart.baseInfo = "5-minute candles · data to " + d.asOf + ". " + liveNote + (d.expiry ? " Expiry day: signals are blocked." : "") + " Hover the chart for OHLC.";
+      $("cinfo").textContent = chart.baseInfo;
     } catch (e) {
       chart.err = e.name === "AbortError" ? "Timed out" : e.message;
       if (!chart.data || !silent) $("cinfo").textContent = "Could not load the chart: " + chart.err;
@@ -580,168 +592,128 @@
     if (!$("liveView").hidden && state.live && chart.data && chart.data.live && !document.hidden) chartLoad(true);
   }
 
-  function drawChart() {
-    var cv = $("cv"), d = chart.data;
-    var w = cv.clientWidth, h = cv.clientHeight;
-    if (!w || !h) return;
-    var dpr = window.devicePixelRatio || 1;
-    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
-    var g = cv.getContext("2d");
-    g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    g.clearRect(0, 0, w, h);
-    var C = { green: css("--green", "#22c55e"), red: css("--red", "#ef4444"), amber: css("--amber", "#f59e0b"), blue: css("--blue", "#3b82f6"), muted: css("--muted", "#8a97b8"), line: css("--line", "#1b2742"), text: css("--text", "#e6ecff") };
-    g.font = "11px system-ui, sans-serif";
-    if (!d || !d.bars || !d.bars.length) {
-      g.fillStyle = C.muted; g.fillText(chart.err ? "Chart unavailable: " + chart.err : "No candles yet.", 12, 24);
+  function addSignalOverlays(handle, d, bars) {
+    if (!handle || !handle.chart || !handle.series || !window.IndexChartData) return;
+    var lib = window.LightweightCharts;
+    if (!lib) return;
+    var ov = window.IndexChartData.signalOverlays(d.signals, bars);
+    var groups = {};
+    ov.markers.forEach(function (m) {
+      var time = NseChart.sessionTime(m.mm);
+      if (time == null) return;
+      var g = groups[time];
+      if (!g) g = groups[time] = { time: time, labels: [], long: false, short: false };
+      g.labels.push((SHORT[m.strategy] || m.strategy) + (m.side === "long" ? " CE" : " PE"));
+      if (m.side === "long") g.long = true; else g.short = true;
+    });
+    var marks = Object.keys(groups).map(function (k) { return groups[k]; }).sort(function (a, b) { return a.time - b.time; }).map(function (g) {
+      var mixed = g.long && g.short;
+      return {
+        time: g.time,
+        position: g.short && !g.long ? "aboveBar" : "belowBar",
+        color: mixed ? "#f59e0b" : g.long ? "#22c55e" : "#ef4444",
+        shape: mixed ? "circle" : g.long ? "arrowUp" : "arrowDown",
+        text: g.labels.join(" / ")
+      };
+    });
+    if (marks.length) handle.markers = lib.createSeriesMarkers(handle.series, marks);
+    if (!ov.levels.length) return;
+    var COL = { sl: "#ef4444", t1: "#22c55e", t2: "rgba(34,197,94,.55)" };
+    ov.levels.forEach(function (l) {
+      var t0 = NseChart.sessionTime(l.fromMM), t1 = NseChart.sessionTime(l.toMM);
+      if (t0 == null || t1 == null || t1 <= t0) return;
+      handle.chart.addSeries(lib.LineSeries, {
+        color: COL[l.kind] || "#8a97b8",
+        lineWidth: 1,
+        lineStyle: lib.LineStyle.Dashed,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+        autoscaleInfoProvider: function () { return null; }
+      }).setData([{ time: t0, value: l.price }, { time: t1, value: l.price }]);
+    });
+  }
+
+  function drawChart(force) {
+    var host = $("cv"), d = chart.data;
+    if (!window.NseChart || !window.IndexChartData) {
+      host.className = "chartbox";
+      host.textContent = "Chart engine failed to load. Refresh the page.";
       return;
     }
-    var showOrb = $("cOrb").checked && d.orb, showAvg = $("cAvg").checked, showSig = $("cSig").checked;
-    var L = 6, R = 66, T = 10, B = 22, pw = w - L - R, ph = h - T - B, slot = pw / SLOTS;
-    // The vertical scale follows the DAY'S OWN CANDLES and the previous close only -
-    // never the rule levels (OR band, stops, targets). Level lines get clamped to the
-    // frame instead; otherwise a distant stop or target squeezes the candles and a
-    // real fall stops looking like one.
-    var lo = Infinity, hi = -Infinity;
-    function ext(v) { if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; } }
-    d.bars.forEach(function (b) { ext(b.hi); ext(b.lo); });
-    if (showAvg) d.vwap.forEach(ext);
-    if (Number.isFinite(d.prevClose)) ext(d.prevClose);
-    var pad = (hi - lo) * 0.05 || 1;
-    var y0 = hi + pad, span = hi - lo + 2 * pad;
-    function y(v) { return T + (y0 - v) / span * ph; }
-    function inR(v) { return Number.isFinite(v) && v <= y0 && v >= y0 - span; }
-    function xb(mm) { return L + (mm - OPEN_MM) / 5 * slot; }
-    function xc(mm) { return xb(mm) + slot / 2; }
-    chart.geo = { L: L, slot: slot, T: T, ph: ph, w: w, h: h };
+    if (!d || !d.bars || !d.bars.length) {
+      host.className = "chartbox";
+      host.textContent = chart.err ? "Chart unavailable: " + chart.err : "No candles yet.";
+      return;
+    }
+    var showOrb = $("cOrb").checked, showAvg = $("cAvg").checked, showSig = $("cSig").checked;
+    var bars = window.IndexChartData.sessionBars(d);
+    var last = bars.length ? bars[bars.length - 1] : null;
+    var sig = [chart.ix, d.date, bars.length, last ? last.mm : "", last ? last.cl : "", last ? last.hi : "", last ? last.lo : "", last ? last.vwap : "", d.prevClose, d.orb ? d.orb.hi : "", d.orb ? d.orb.lo : "", showOrb ? 1 : 0, showAvg ? 1 : 0, showSig ? 1 : 0, (d.signals || []).length].join("|");
+    if (!force && sig === chart.lastSig) return;
 
-    // grid and axes
-    g.strokeStyle = C.line; g.fillStyle = C.muted; g.lineWidth = 1;
-    g.textAlign = "left"; g.textBaseline = "middle";
-    for (var k = 0; k <= 5; k++) {
-      var v = y0 - span * k / 5, yy = Math.round(y(v)) + 0.5;
-      g.beginPath(); g.moveTo(L, yy); g.lineTo(L + pw, yy); g.stroke();
-      g.fillText(v.toLocaleString("en-IN", { maximumFractionDigits: 0 }), L + pw + 6, yy);
-    }
-    g.textAlign = "center"; g.textBaseline = "top";
-    for (var m = 600; m <= 900; m += 60) {
-      var xx = Math.round(xb(m)) + 0.5;
-      g.beginPath(); g.moveTo(xx, T); g.lineTo(xx, T + ph); g.stroke();
-      g.fillText(hm(m), xx, T + ph + 5);
-    }
-    // opening range (band drawn inside the frame even when a level sits off-scale)
-    if (showOrb) {
-      var yrT = Math.max(T, Math.min(y(d.orb.hi), y(d.orb.lo))), yrB = Math.min(T + ph, Math.max(y(d.orb.hi), y(d.orb.lo)));
-      if (yrB > yrT) {
-        g.fillStyle = "rgba(59,130,246,.10)";
-        g.fillRect(xb(555), yrT, 3 * slot, yrB - yrT);
-      }
-      g.strokeStyle = C.blue; g.setLineDash([5, 4]); g.lineWidth = 1;
-      [d.orb.hi, d.orb.lo].forEach(function (v, i) {
-        if (!inR(v)) return;
-        g.beginPath(); g.moveTo(xb(555), y(v)); g.lineTo(L + pw, y(v)); g.stroke();
-        g.fillStyle = C.blue; g.textAlign = "right"; g.textBaseline = "bottom";
-        g.fillText(i ? "OR low" : "OR high", L + pw - 44, y(v) - 2);
+    var keep = chart.handle && chart.lastKey === chart.ix + "|" + d.date;
+    var range = keep && chart.handle.chart ? chart.handle.chart.timeScale().getVisibleLogicalRange() : null;
+    var oldCount = chart.lastCount;
+    var follow = !range || !oldCount || range.to >= oldCount - 1;
+    var move = last && Number.isFinite(d.prevClose) && d.prevClose > 0 ? (last.cl - d.prevClose) / d.prevClose * 100 : null;
+    var badgeText = (move == null ? "" : (move >= 0 ? "+" : "") + move.toFixed(2) + "% vs prev · ") + d.name + " · " + dateLabel(d.date);
+
+    var handle;
+    try {
+      handle = window.NseChart.create(host, {
+        bars: bars,
+        timeframe: "5m",
+        badge: { text: badgeText, side: move == null || move === 0 ? "info" : move > 0 ? "up" : "down" },
+        prevClose: d.prevClose,
+        or: showOrb ? d.orb : null,
+        lines: showAvg ? [{ key: "vwap", label: d.vwapLabel, color: "#f59e0b", dashed: false }] : [],
+        empty: chart.err ? "Chart unavailable: " + chart.err : "No closed 5-minute candles yet."
       });
-      g.setLineDash([]);
+    } catch (e) {
+      host.className = "chartbox";
+      host.textContent = "Chart engine error: " + e.message;
+      return;
     }
-    // previous close
-    if (Number.isFinite(d.prevClose) && d.prevClose >= y0 - span && d.prevClose <= y0) {
-      g.strokeStyle = C.muted; g.setLineDash([2, 4]);
-      g.beginPath(); g.moveTo(L, y(d.prevClose)); g.lineTo(L + pw, y(d.prevClose)); g.stroke(); g.setLineDash([]);
-      g.fillStyle = C.muted; g.textAlign = "left"; g.textBaseline = "bottom"; g.fillText("prev close", L + 4, y(d.prevClose) - 2);
+    chart.handle = handle;
+    chart.lastKey = chart.ix + "|" + d.date;
+    chart.lastSig = sig;
+    chart.lastCount = bars.length;
+
+    if (showSig && handle.chart) addSignalOverlays(handle, d, bars);
+
+    if (!host._nseCinfoLeave) {
+      host._nseCinfoLeave = true;
+      host.addEventListener("mouseleave", function () { $("cinfo").textContent = chart.baseInfo; });
     }
-    // candles
-    var bw = Math.max(1, slot * 0.68);
-    d.bars.forEach(function (b) {
-      var cx = xc(b.mm), up = b.cl >= b.o, col = up ? C.green : C.red;
-      g.strokeStyle = col; g.fillStyle = col; g.lineWidth = 1;
-      g.beginPath(); g.moveTo(Math.round(cx) + 0.5, y(b.hi)); g.lineTo(Math.round(cx) + 0.5, y(b.lo)); g.stroke();
-      var top = y(Math.max(b.o, b.cl)), bh = Math.max(1, Math.abs(y(b.o) - y(b.cl)));
-      g.fillRect(cx - bw / 2, top, bw, bh);
-    });
-    // average price / VWAP
-    if (showAvg) {
-      g.strokeStyle = C.amber; g.lineWidth = 1.5; g.beginPath();
-      d.bars.forEach(function (b, i) { var px = xc(b.mm), py = y(d.vwap[i]); if (i) g.lineTo(px, py); else g.moveTo(px, py); });
-      g.stroke(); g.lineWidth = 1;
-    }
-    // signals (levels outside the day's frame are skipped - they live in the table below)
-    if (showSig) d.signals.forEach(function (s) {
-      var long = s.side === "long", col = long ? C.green : C.red;
-      var endMM = Math.min(930, Math.max(s.x1.exitMM || 0, s.x2.exitMM || 0) || (d.bars[d.bars.length - 1].mm + 5));
-      var xa = xb(s.entryMM), xe = xb(endMM);
-      g.lineWidth = 1; g.setLineDash([4, 3]);
-      [[s.sl, C.red, 1], [s.t1, C.green, 1], [s.t2, C.green, 0.45]].forEach(function (p) {
-        if (!inR(p[0])) return;
-        g.globalAlpha = p[2]; g.strokeStyle = p[1];
-        g.beginPath(); g.moveTo(xa, y(p[0])); g.lineTo(xe, y(p[0])); g.stroke();
+
+    if (handle.chart) {
+      if (range && !follow) handle.chart.timeScale().setVisibleLogicalRange(range);
+      handle.chart.subscribeCrosshairMove(function (param) {
+        if (!param || param.time == null) { $("cinfo").textContent = chart.baseInfo; return; }
+        var idx = -1;
+        for (var i = 0; i < bars.length; i++) if (window.NseChart.sessionTime(bars[i].mm) === param.time) { idx = i; break; }
+        if (idx < 0) return;
+        var b = bars[idx];
+        var n = function (v) { return Number.isFinite(v) ? v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "–"; };
+        var txt = hm(b.mm) + "–" + hm(b.mm + 5) + "  O " + n(b.o) + "  H " + n(b.hi) + "  L " + n(b.lo) + "  C " + n(b.cl);
+        if (showAvg && Number.isFinite(b.vwap)) txt += "  · " + d.vwapLabel + " " + n(b.vwap);
+        $("cinfo").textContent = txt;
       });
-      g.globalAlpha = 1; g.setLineDash([]);
-      if (!inR(s.entry)) return;
-      g.fillStyle = col; g.beginPath();
-      var ey = y(s.entry);
-      if (long) { g.moveTo(xa, ey - 2); g.lineTo(xa - 6, ey + 9); g.lineTo(xa + 6, ey + 9); }
-      else { g.moveTo(xa, ey + 2); g.lineTo(xa - 6, ey - 9); g.lineTo(xa + 6, ey - 9); }
-      g.closePath(); g.fill();
-      g.textAlign = "left"; g.textBaseline = long ? "top" : "bottom";
-      g.fillText(SHORT[s.strategy] + (long ? " CE" : " PE"), xa + 8, long ? ey + 3 : ey - 3);
-      [[s.x1, true], [s.x2, false]].forEach(function (p) {
-        var x = p[0]; if (!x.exitMM || x.outcome === "OPEN" || !inR(x.exitPrice)) return;
-        g.beginPath(); g.arc(xb(x.exitMM), y(x.exitPrice), p[1] ? 3.5 : 3, 0, 6.2832);
-        g.strokeStyle = x.r > 0 ? C.green : C.red; g.fillStyle = x.r > 0 ? C.green : C.red;
-        if (p[1]) g.fill(); else g.stroke();
-      });
-    });
-    // crosshair
-    if (chart.hover >= 0 && chart.hover < d.bars.length) {
-      var hb = d.bars[chart.hover], hx = Math.round(xc(hb.mm)) + 0.5;
-      g.strokeStyle = C.muted; g.setLineDash([3, 3]);
-      g.beginPath(); g.moveTo(hx, T); g.lineTo(hx, T + ph); g.stroke(); g.setLineDash([]);
+    } else {
+      $("cinfo").textContent = chart.baseInfo;
     }
-    // last price tag
-    var lb = d.bars[d.bars.length - 1];
-    g.fillStyle = lb.cl >= lb.o ? C.green : C.red;
-    g.fillRect(L + pw + 2, y(lb.cl) - 8, R - 4, 16);
-    g.fillStyle = "#04120a"; g.textAlign = "left"; g.textBaseline = "middle";
-    g.fillText(lb.cl.toLocaleString("en-IN", { maximumFractionDigits: 1 }), L + pw + 5, y(lb.cl));
-    // day change vs previous close, so the size of the move is read, not guessed
-    if (Number.isFinite(d.prevClose) && d.prevClose > 0) {
-      var chg = (lb.cl - d.prevClose) / d.prevClose * 100;
-      var txt = (chg >= 0 ? "▲ " : "▼ ") + Math.abs(chg).toFixed(2) + "% vs prev close";
-      var bcol = chg >= 0 ? C.green : C.red;
-      g.font = "bold 13px system-ui, sans-serif";
-      var tw = Math.ceil(g.measureText(txt).width) + 14;
-      g.fillStyle = "rgba(6,11,24,.82)";
-      g.fillRect(L + 2, T + 2, tw, 20);
-      g.strokeStyle = bcol; g.lineWidth = 1;
-      g.strokeRect(L + 2.5, T + 2.5, tw - 1, 19);
-      g.fillStyle = bcol; g.textAlign = "left"; g.textBaseline = "top";
-      g.fillText(txt, L + 9, T + 5);
-      g.font = "11px system-ui, sans-serif";
-    }
+
     var lg = $("cleg");
     lg.textContent = "";
-    lg.appendChild(document.createTextNode("5-minute candles. Blue band: 9:15 to 9:30 opening range. Amber line: " + d.vwapLabel.toLowerCase() + ". "));
-    if (d.vwapIsProxy) lg.appendChild(el("b", null, "This is NOT a true VWAP: the index feed has no volume, so the line is an equal-weighted session average (proxy), and the VWAP rules do not trade on it. "));
-    lg.appendChild(document.createTextNode("Triangle: where a rule would have said BUY. Red dashed: stop. Green dashed: T1 (solid shade) and T2 (faint). Filled dot: exit under the T1 plan, ring: exit under the T2 plan."));
+    lg.appendChild(document.createTextNode("5-minute closed candles. Blue dashed lines: opening range high/low. Amber line: " + d.vwapLabel.toLowerCase() + "."));
+    if (d.vwapIsProxy) lg.appendChild(el("b", null, " This is NOT a true VWAP: the index feed has no volume, so the line is an equal-weighted session average (proxy), and the VWAP rules do not trade on it."));
+    if (showSig) lg.appendChild(document.createTextNode(" Triangles: rule entries. Thin dashed red/green: stop and targets for those entries; exact levels are in the signal list below."));
+    else lg.appendChild(document.createTextNode(" Signal markers are hidden."));
+    if (!showOrb) lg.appendChild(document.createTextNode(" Opening range is hidden."));
+    if (!showAvg) lg.appendChild(document.createTextNode(" Average price is hidden."));
+    lg.appendChild(document.createTextNode(" Last chart price is the last closed bar's close, not the live LTP."));
   }
-
-  function chartPoint(ev) {
-    var cv = $("cv"), r = cv.getBoundingClientRect(), d = chart.data, G = chart.geo;
-    if (!d || !G) return;
-    var i = Math.floor((ev.clientX - r.left - G.L) / G.slot);
-    var idx = -1;
-    for (var k = 0; k < d.bars.length; k++) if ((d.bars[k].mm - OPEN_MM) / 5 === i) { idx = k; break; }
-    chart.hover = idx;
-    if (idx >= 0) {
-      var b = d.bars[idx], n = function (v) { return v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
-      $("cinfo").textContent = hm(b.mm) + "  O " + n(b.o) + "  H " + n(b.hi) + "  L " + n(b.lo) + "  C " + n(b.cl) + "  · " + d.vwapLabel.toLowerCase() + " " + n(d.vwap[idx]);
-    }
-    drawChart();
-  }
-  $("cv").addEventListener("pointermove", chartPoint);
-  $("cv").addEventListener("pointerdown", chartPoint);
-  $("cv").addEventListener("pointerleave", function () { chart.hover = -1; drawChart(); });
 
   function outTxt(x) {
     if (!x) return "";
@@ -798,10 +770,10 @@
       $("view").querySelectorAll("button").forEach(function (x) { x.classList.toggle("on", x === b); });
       $("liveView").hidden = bt;
       $("btView").hidden = !bt;
-      if (bt) btRender(); else { drawChart(); }
+      if (bt) btRender(); else { drawChart(true); }
     });
   });
-  window.addEventListener("resize", function () { if (!$("liveView").hidden) drawChart(); else btDrawEquity(); });
+  window.addEventListener("resize", function () { if ($("liveView").hidden) btDrawEquity(); });
 
   function btShowBanner(kind, msg) { var b = $("btBanner"); b.className = "banner " + kind; b.textContent = msg; }
   function btClearBanner() { var b = $("btBanner"); b.className = "banner"; b.textContent = ""; }

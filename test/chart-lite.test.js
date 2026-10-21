@@ -54,3 +54,15 @@ test("the chart badge mirrors the read tier and side", () => {
     { text: "no CE/PE lean — two-way", side: "flat" }
   );
 });
+
+test("a page can supply a neutral chart badge without inventing a CE/PE lean", () => {
+  assert.deepEqual(
+    C.badgeFor({ badge: { text: "NIFTY 50 · 21 Oct 2026", side: "info" } }),
+    { text: "NIFTY 50 · 21 Oct 2026", side: "info" }
+  );
+  assert.deepEqual(
+    C.badgeFor({ read: { trend: { side: "down", tier: "moderate", agree: 3, total: 4 } } }),
+    { text: "PE lean · building · 3/4 checks", side: "down" }
+  );
+  assert.deepEqual(C.badgeFor({}), { text: "no CE/PE lean — two-way", side: "flat" });
+});
