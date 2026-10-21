@@ -44,6 +44,7 @@
 <body>
 <div class="page">
   <nav class="tabs" aria-label="Scanners">
+    <a href="/monitor.html">Trade Monitor</a>
     <a href="/">Breakouts</a>
     <a href="/sector.html">Sector Scope</a>
     <a href="/calls.html" aria-current="page">Live Calls</a>
@@ -487,7 +488,7 @@ function getJSON(url) {
   return fetch(url).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
 }
 
-// ---------- live auto-refresh (pauses in a background tab) ----------
+// ---------- live auto-refresh (background tab polling may be throttled) ----------
 var SEC_MS = 60000, RETRY_MS = 20000;
 var live = true, nextAt = 0, loading = false;
 var alertReady = false, alertBaselineSet = false, alertSeen = {};
@@ -516,12 +517,13 @@ function notifyCalls(data) {
     try { localStorage.setItem(ALERT_STORAGE, JSON.stringify(alertSeen)); } catch (e) {}
     return;
   }
-  var canNotify = alertReady && marketOpenIST();
+  var meta = data && data.meta || {};
+  var canNotify = alertReady && marketOpenIST() && meta.marketOpen && Number.isFinite(meta.lagMin) && meta.lagMin <= 5;
   signals.forEach(function (r) {
     var key = callsKey(r);
     if (alertSeen[key]) return;
     alertSeen[key] = true;
-    if (!canNotify) return;
+    if (!canNotify || !Number.isFinite(r.asOfTs) || Date.now() / 1000 - r.asOfTs > 300) return;
     var ref = refInfo(r), side = r.read.trend.side;
     var target = ref.cl != null ? ref.cl * (side === "up" ? 1.005 : 0.995) : null;
     var stop = ref.cl != null ? ref.cl * (side === "up" ? 0.995 : 1.005) : null;

@@ -64,6 +64,7 @@ module.exports = async function handler(req, res) {
     live: isToday,
     nowSec,
     asOf: formatIST(day[day.length - 1].t),
+    sourceAsOfTs: Number.isFinite(data.p5.meta && data.p5.meta.regularMarketTime) ? data.p5.meta.regularMarketTime : null,
     vwapLabel: hasVol ? "VWAP" : "Session average price",
     vwapIsProxy: !hasVol,
     prevClose: prev ? prev.cl : null,

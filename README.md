@@ -2,7 +2,9 @@
 
 Zero-dependency Vercel app (Node 22, CommonJS serverless functions in `api/`, static pages in `public/`).
 
-Pages: Breakouts (`/`), Ichimoku Cloud (`/ichimoku.html`), Index Options (`/indices.html`), Full Chart (`/chart.html`), Journal (`/journal.html`).
+Pages: Trade Monitor (`/monitor.html`), Breakouts (`/`), Sector Scope (`/sector.html`), Live Calls (`/calls.html`), Skew Map (`/skew.html`), Ichimoku Cloud (`/ichimoku.html`), Index Options (`/indices.html`), Full Chart (`/chart.html`), Journal (`/journal.html`).
+Trade Monitor (`/monitor.html`) is the single intraday review screen. It combines fresh index-option rulebook calls and F&O stock-option reads, caps the visible list at ten, and opens the selected underlying chart with its reference levels. Alerts are opt-in browser notifications; stale or timestamp-missing prices are suppressed.
+To use it, open `/monitor.html`, choose **Enable browser alerts**, and leave that page open in a running browser while you work. Clicking an alert selects its chart in the monitor.
 Full Chart adds a simple closed-bar ORB retest setup with entry, stop, T1/T2 and 1:2 R:R. It is separate from the backtested rulebook, is index-level only, and its paper alerts are stored in this browser; it is not a server-side alert service.
 Data: Yahoo Finance chart API. No API keys are needed, so there is nothing secret in this repo.
 
@@ -11,6 +13,7 @@ Data: Yahoo Finance chart API. No API keys are needed, so there is nothing secre
 - Rules use finished candles only (no look-ahead). Parameters are fixed in advance and are not tuned on the backtest.
 - Index feeds carry no volume, so index VWAP is not available. The VWAP strategies show NO TRADE until a broker feed with volume is configured.
 - Option P&L in the backtest is a Black-Scholes approximation using India VIX. It is not real premium data.
+- Trade Monitor polls while the page is open. Browser notifications can arrive with the tab in the background, but the browser/device must remain running. Vercel Hobby cron runs at most once per day, so it cannot deliver intraday alerts when the browser is closed. A truly unattended push service needs a separate scheduler and subscription storage.
 
 ## Broker adapter (not configured)
 `lib/broker.js` is the single plug-in point. All three functions throw `No broker adapter configured`:

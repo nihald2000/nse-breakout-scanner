@@ -12,7 +12,7 @@
 // market data, not a modelled premium; the F&O ban list is a separate NSE publication and
 // is still not checked here.
 
-const { FO_INDEX, getUniverse, formatIST, mapPool } = require("../lib/common");
+const { FO_INDEX, getUniverse, formatIST, mapPool, sessionFraction, istParts } = require("../lib/common");
 const { OTHER } = require("../lib/sector");
 const opts = require("../lib/options");
 const { TFS, computeRows } = require("./sectorstocks")._internals;
@@ -172,6 +172,8 @@ module.exports = async function handler(req, res) {
       moderate: signals.filter((r) => r.read.trend.tier === "moderate").length,
       weakHidden: leaning.length - signals.length,
       asOf: newestTs ? formatIST(newestTs) : null,
+      marketOpen: sessionFraction(istParts()) < 1,
+      lagMin: newestTs ? Math.max(0, Math.round(Date.now() / 1000 - newestTs) / 60) : null,
       option: optionMeta,
       notes: [
         "CE / PE is the side the closed-candle checks lean - a count of agreeing facts, not a probability of profit and not a buy or sell order.",

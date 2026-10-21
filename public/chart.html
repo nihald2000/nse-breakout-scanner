@@ -91,6 +91,7 @@
 <body>
 <div class="page">
   <nav class="tabs" aria-label="Scanners">
+    <a href="/monitor.html">Trade Monitor</a>
     <a href="/">Breakouts</a>
     <a href="/sector.html">Sector Scope</a>
     <a href="/calls.html">Live Calls</a>
@@ -284,7 +285,8 @@
       if (d.setup && window.AlertsStore) {
         var up = window.AlertsStore.upsert(d.setup, { date: d.date, index: d.index, name: d.name });
         state.alertCreated = !!up.created;
-        if (up.created && d.setup.fresh && d.live && /^BUY /.test(d.setup.action || "")) notify(d.setup, d);
+        var sourceFresh = Number.isFinite(d.sourceAsOfTs) && Date.now() / 1000 - d.sourceAsOfTs <= 300;
+        if (up.created && d.setup.fresh && d.live && sourceFresh && /^BUY /.test(d.setup.action || "")) notify(d.setup, d);
       }
       drawChart();
       renderRec();

@@ -130,6 +130,7 @@ async function computeRows(symbols, tfKey, labelOf) {
 
     rows.push({
       sym: g.sym,
+      asOfTs: Number.isFinite(m.regularMarketTime) ? m.regularMarketTime : null,
       industry: labelOf ? labelOf(g.sym) : null,
       ltp,
       pchg,
