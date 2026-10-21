@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="en">
+<head>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23060b18'/><path d='M6 24 L12 16 L18 20 L26 8' stroke='%2322c55e' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/><circle cx='26' cy='8' r='2.5' fill='%2322c55e'/></svg>">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#060b18">
+<meta name="description" content="Full interactive NSE index chart with the ORB retest setup, entry, stop, targets, risk/reward and automatic paper alerts. Index levels only; option premiums are not quoted.">
+<title>Full Chart and Trade Desk - NSE Breakout Scanner</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+  .page { max-width: 1440px; }
+  .panel { border: 1px solid var(--line); border-radius: 12px; background: var(--card); padding: 12px; margin: 0 0 12px; }
+  .panel h2 { font-size: 14px; margin: 0 0 8px; letter-spacing: .2px; }
+  .panel .controls { margin-bottom: 6px; }
+  .dim { color: var(--muted); }
+  .notice { border: 1px solid #5b4516; background: #1c170b; color: #ffd98a; border-radius: 10px; padding: 9px 12px; font-size: 13px; margin: 0 0 10px; }
+  .fc-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(310px, .8fr); gap: 12px; align-items: start; }
+  @media (max-width: 980px) { .fc-grid { grid-template-columns: 1fr; } }
+  .chartbox { width: 100%; height: 560px; margin: 4px 0 0; }
+  @media (max-width: 700px) { .chartbox { height: 360px; } }
+  .cinfo { color: var(--muted); font-size: 12.5px; min-height: 18px; margin: 6px 0 0; font-variant-numeric: tabular-nums; }
+  .cleg { color: var(--muted); font-size: 12px; margin: 4px 0 0; line-height: 1.5; }
+  .chiprow { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0 0; }
+  .chip { display: inline-block; font-size: 10.5px; font-weight: 650; border-radius: 5px; padding: 1px 6px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .chip + .chip { margin-left: 4px; }
+  .chip.good { color: var(--green); border-color: rgba(34,197,94,.45); }
+  .chip.warn { color: var(--amber); border-color: rgba(245,158,11,.45); }
+  .chip.bad { color: var(--red); border-color: rgba(239,68,68,.5); }
+  .rec-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .rec-action { font-size: 24px; font-weight: 800; letter-spacing: .3px; line-height: 1.1; padding: 6px 10px; border-radius: 9px; border: 1px solid var(--line); }
+  .rec-action.buy { color: var(--green); background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.5); }
+  .rec-action.sell { color: var(--red); background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.5); }
+  .rec-action.wait { color: var(--amber); background: rgba(245,158,11,.1); border-color: rgba(245,158,11,.45); }
+  .rec-action.none { color: var(--muted); background: rgba(138,151,184,.1); }
+  .rec-state { font-size: 11.5px; color: var(--muted); font-weight: 650; text-transform: uppercase; letter-spacing: .35px; }
+  .rec-sub { color: var(--muted); font-size: 12.5px; margin: 4px 0 10px; }
+  .levels { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 8px 0; }
+  .level { border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; background: rgba(255,255,255,.015); }
+  .level span { display: block; color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .35px; }
+  .level b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; margin-top: 1px; }
+  .level small { display: block; color: var(--muted); font-size: 10.5px; margin-top: 1px; }
+  .rrbar { border: 1px solid #2a3d6e; background: rgba(59,130,246,.08); border-radius: 8px; padding: 7px 9px; font-size: 12.5px; margin: 7px 0; }
+  .rrbar b { color: #dbe6ff; }
+  .rec p { font-size: 12.5px; line-height: 1.5; color: #c9d4ee; margin: 7px 0; }
+  .rec ul.checks { margin: 7px 0 0; padding-left: 17px; color: var(--muted); font-size: 11.5px; line-height: 1.45; }
+  .rec ul.checks li { margin: 0 0 3px; }
+  .rec ul.checks li.ok::marker { color: var(--green); }
+  .rec ul.checks li.no::marker { color: var(--amber); }
+  .rec-warn { border: 1px solid #8a2b2b; background: rgba(239,68,68,.08); color: #ffc9c9; border-radius: 8px; padding: 7px 9px; font-size: 12px; margin: 7px 0; }
+  .rec-caveat { border-top: 1px solid var(--line); margin-top: 9px; padding-top: 7px; color: var(--muted); font-size: 11.5px; line-height: 1.45; }
+  .rules-table { min-width: 760px; width: 100%; table-layout: fixed; }
+  .rules-table th, .rules-table td { padding: 8px 9px; font-size: 12.5px; white-space: normal; }
+  .rules-table th:nth-child(1) { width: 18%; }
+  .rules-table th:nth-child(2) { width: 10%; }
+  .rules-table th:nth-child(3) { width: 13%; }
+  .rules-table th:nth-child(4) { width: 18%; }
+  .rules-table th:nth-child(5) { width: 17%; }
+  .rules-table th:nth-child(6) { width: 24%; }
+  .rules-table td.l { text-align: left; }
+  .rules-table tr.setuprow td { background: rgba(59,130,246,.06); }
+  .planline { display: block; font-variant-numeric: tabular-nums; line-height: 1.35; }
+  .alerts-table { min-width: 760px; width: 100%; table-layout: fixed; }
+  .alerts-table th, .alerts-table td { padding: 8px 9px; font-size: 12.5px; white-space: normal; }
+  .alerts-table th:nth-child(1) { width: 11%; }
+  .alerts-table th:nth-child(2) { width: 8%; }
+  .alerts-table th:nth-child(3) { width: 10%; }
+  .alerts-table th:nth-child(4) { width: 14%; }
+  .alerts-table th:nth-child(5) { width: 14%; }
+  .alerts-table th:nth-child(6) { width: 23%; }
+  .alerts-table th:nth-child(7) { width: 20%; }
+  .mini-btn { min-height: 30px; padding: 4px 9px; border-radius: 7px; font-size: 12px; }
+  .fc-meta { color: var(--muted); font-size: 12.5px; min-height: 18px; }
+  .fc-meta b { color: var(--text); font-weight: 600; }
+  .srcnote { color: var(--muted); font-size: 11.5px; line-height: 1.5; margin: 7px 0 0; }
+  @media (max-width: 700px) {
+    .rec-action { font-size: 21px; }
+    .level b { font-size: 15px; }
+    .fc-meta { font-size: 12px; }
+    .seg { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; overflow: visible; border: 0; }
+    .seg button { flex: 1 1 30%; min-height: 36px; padding: 7px 6px; font-size: 12px; border: 1px solid var(--line); border-radius: 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <nav class="tabs" aria-label="Scanners">
+    <a href="/">Breakouts</a>
+    <a href="/sector.html">Sector Scope</a>
+    <a href="/calls.html">Live Calls</a>
+    <a href="/skew.html">Skew Map</a>
+    <a href="/ichimoku.html">Ichimoku Cloud</a>
+    <a href="/indices.html">Index Options</a>
+    <a href="/chart.html" aria-current="page">Full Chart</a>
+    <a href="/journal.html">Journal</a>
+  </nav>
+
+  <h1>Full Chart &amp; Trade Desk</h1>
+  <p class="sub">One interactive chart for the selected index, the simple ORB retest setup with entry, stop, T1/T2 and R:R, plus every existing rulebook row. Alerts are paper-only and are logged in this browser for later review.</p>
+  <div class="notice"><b>Read this before using a call.</b> The chart setup is new and is not in the backtested rulebook yet. It gives index levels, not option premiums. Option IV, bid/ask spread, open interest and slippage are not checked here. A BUY CE/PE label means the index setup triggered; only a <b>LIVE</b> badge is actionable, and even then you must check the chain and paper-trade first.</div>
+
+  <div class="panel">
+    <div class="controls">
+      <div class="seg" id="fcIx" role="group" aria-label="Index"></div>
+      <select id="fcDate" aria-label="Session"></select>
+      <label class="chk"><input type="checkbox" id="fcLive" checked> Live refresh</label>
+      <button id="fcRefresh" type="button">Refresh</button>
+      <span class="fc-meta" id="fcMeta">Loading...</span>
+    </div>
+    <div class="fc-meta" id="fcInfo"></div>
+  </div>
+
+  <div class="fc-grid">
+    <div class="panel">
+      <div class="controls">
+        <label class="chk"><input type="checkbox" id="fcOrb" checked> Opening range</label>
+        <label class="chk"><input type="checkbox" id="fcAvg" checked> <span id="fcAvgName">Average price</span></label>
+        <label class="chk"><input type="checkbox" id="fcRulesOn" checked> Rule signals</label>
+      </div>
+      <div class="chartbox" id="fcChart" role="img" aria-label="Interactive 5-minute candlestick chart with the ORB retest setup"></div>
+      <div class="cinfo" id="fcHover">Hover or touch the chart to read a candle.</div>
+      <div class="cleg" id="fcLegend"></div>
+    </div>
+
+    <aside class="panel rec" id="fcRec" aria-live="polite">
+      <h2>Recommendation</h2>
+      <div class="dim">Loading the setup...</div>
+    </aside>
+  </div>
+
+  <div class="panel">
+    <h2>All rule rows <span class="dim" style="font-weight:400;font-size:12px">&middot; latest live session</span></h2>
+    <p class="srcnote">These are the existing rulebook rows from the Index Options page. The old ORB rows deliberately stop after both edges of the opening range have broken; the chart setup above deliberately re-arms after a failed break. The new setup is shown separately and is not part of the backtest summary.</p>
+    <div class="wrap"><table class="rules-table" id="fcRulesTable"></table></div>
+    <div class="srcnote" id="fcRulesNote"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Automated chart alerts <span class="dim" id="fcAlertCount" style="font-weight:400;font-size:12px"></span></h2>
+    <div class="controls">
+      <button id="fcNotify" type="button">Enable browser alerts</button>
+      <button id="fcAlertCsv" type="button" class="mini-btn">Export alerts CSV</button>
+      <a href="/journal.html" style="color:var(--blue);font-size:13px">Open Journal</a>
+    </div>
+    <p class="srcnote">Every <b>new</b> trigger seen while this page is open is saved once in this browser; on a later load, the latest trigger for that session is backfilled. A row logged while the trigger was still fresh is marked live; a row logged after the fact is marked <b>backfilled</b>, so the record cannot look better than what was actually seen. The Journal has a separate <b>Automated chart alerts</b> table, so these index-level rows do not get mixed into option-premium statistics. The page must stay open to poll; browsers may throttle a background tab, and there is no server-side push or email. All alerts are paper alerts.</p>
+    <div class="wrap"><table class="alerts-table" id="fcAlertsTable"></table></div>
+  </div>
+</div>
+
+<script src="/vendor/lightweight-charts.standalone.production.js"></script>
+<script src="/chart-lite.js"></script>
+<script src="/index-chart-data.js"></script>
+<script src="/alerts-store.js"></script>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var INDICES = [
+    { key: "NIFTY", name: "NIFTY 50" },
+    { key: "BANKNIFTY", name: "NIFTY BANK" },
+    { key: "FINNIFTY", name: "NIFTY FIN SERVICE" },
+    { key: "MIDCPNIFTY", name: "NIFTY MIDCAP SELECT" },
+    { key: "NIFTYNXT50", name: "NIFTY NEXT 50" }
+  ];
+  var state = {
+    ix: "NIFTY",
+    date: "",
+    live: true,
+    livePref: true,
+    data: null,
+    rules: null,
+    rulesAt: 0,
+    busy: false,
+    pending: false,
+    handle: null,
+    lastKey: "",
+    lastSig: "",
+    lastCount: 0,
+    alertCreated: false,
+    timer: null,
+    err: ""
+  };
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function nf(v, d) {
+    return Number.isFinite(v) ? v.toLocaleString("en-IN", { minimumFractionDigits: d == null ? 2 : d, maximumFractionDigits: d == null ? 2 : d }) : "\u2013";
+  }
+  function hm(mm) {
+    if (!Number.isFinite(mm)) return "";
+    var h = Math.floor(mm / 60), m = Math.round(mm % 60);
+    return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
+  }
+  function dateLabel(iso) {
+    if (!iso) return "";
+    var p = String(iso).split("-");
+    if (p.length !== 3) return iso;
+    var m = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return Number(p[2]) + " " + (m[Number(p[1]) - 1] || p[1]) + " " + p[0];
+  }
+  function signed(v, d) {
+    if (!Number.isFinite(v)) return "\u2013";
+    return (v >= 0 ? "+" : "") + v.toFixed(d);
+  }
+
+  function buildIndexButtons() {
+    var box = $("fcIx");
+    box.textContent = "";
+    INDICES.forEach(function (ix) {
+      var b = el("button", ix.key === state.ix ? "on" : "", ix.key);
+      b.type = "button";
+      b.addEventListener("click", function () {
+        if (state.ix === ix.key) return;
+        state.ix = ix.key;
+        state.date = "";
+        buildIndexButtons();
+        load(false);
+      });
+      box.appendChild(b);
+    });
+  }
+
+  async function getJson(url) {
+    var ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var timer = ctl ? setTimeout(function () { ctl.abort(); }, 20000) : null;
+    try {
+      var res = await fetch(url, { signal: ctl ? ctl.signal : undefined });
+      var d = await res.json();
+      if (!res.ok) throw new Error((d && d.error ? d.error : "HTTP " + res.status) + (d && d.detail ? " [" + d.detail + "]" : ""));
+      return d;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  async function load(silent) {
+    if (state.busy) { state.pending = true; return; }
+    state.busy = true;
+    var wantedIx = state.ix, wantedDate = state.date;
+    if (!silent) $("fcInfo").textContent = "Loading chart and rules...";
+    try {
+      var q = "/api/indexchart?index=" + encodeURIComponent(state.ix) + (state.date ? "&date=" + encodeURIComponent(state.date) : "");
+      var needRules = !silent || !state.rules || Date.now() - state.rulesAt > 60000;
+      var rulesP = needRules ? getJson("/api/indices").catch(function () { return null; }) : Promise.resolve(state.rules);
+      var d = await getJson(q);
+      if (wantedIx !== state.ix || wantedDate !== state.date) { state.pending = true; return; }
+      state.data = d;
+      state.date = d.date;
+      state.err = "";
+      try { state.rules = await rulesP; state.rulesAt = needRules ? Date.now() : state.rulesAt; } catch (e) { state.rules = null; }
+      fillDates(d);
+      $("fcLive").disabled = !d.live;
+      $("fcLive").checked = !!d.live && state.livePref;
+      state.live = $("fcLive").checked;
+      var closed = window.IndexChartData ? window.IndexChartData.sessionBars(d) : [];
+      var last = closed.length ? closed[closed.length - 1] : null;
+      var info = d.name + " \u00b7 " + dateLabel(d.date) + " \u00b7 data to " + d.asOf + ". ";
+      if (d.live) info += "Session in progress; the chart plots closed 5-minute bars only." + (last ? " Latest closed: " + hm(last.mm) + "\u2013" + hm(last.mm + 5) + "." : "");
+      else info += "Completed session.";
+      if (d.expiry) info += " Expiry day: the existing rulebook is blocked; the chart setup is still shown.";
+      $("fcInfo").textContent = info;
+      $("fcAvgName").textContent = d.vwapIsProxy ? "Session average price" : "VWAP";
+      $("fcMeta").textContent = "5m \u00b7 " + d.name + " \u00b7 " + (d.live ? "live" : "closed session") + " \u00b7 " + closed.length + " closed bars";
+      // Auto-journal every trigger, including a stale one for review. Only a
+      // fresh trigger may produce a browser notification.
+      state.alertCreated = false;
+      if (d.setup && window.AlertsStore) {
+        var up = window.AlertsStore.upsert(d.setup, { date: d.date, index: d.index, name: d.name });
+        state.alertCreated = !!up.created;
+        if (up.created && d.setup.fresh && d.live && /^BUY /.test(d.setup.action || "")) notify(d.setup, d);
+      }
+      drawChart();
+      renderRec();
+      renderRules();
+      renderAlerts();
+    } catch (e) {
+      state.err = e.name === "AbortError" ? "Timed out" : e.message;
+      $("fcInfo").textContent = "Could not load the desk: " + state.err;
+      $("fcMeta").textContent = "Load failed";
+      if (!state.data) {
+        $("fcChart").textContent = "Chart unavailable: " + state.err;
+        $("fcRec").innerHTML = "";
+        $("fcRec").appendChild(el("h2", null, "Recommendation"));
+        $("fcRec").appendChild(el("div", "rec-warn", "Could not load the setup: " + state.err));
+      }
+    } finally {
+      state.busy = false;
+      if (state.pending) { state.pending = false; load(true); }
+    }
+  }
+
+  function fillDates(d) {
+    var sel = $("fcDate");
+    var want = d.date;
+    sel.textContent = "";
+    (d.dates || []).forEach(function (x, i) {
+      var o = el("option", null, x + (i === 0 ? " (latest)" : ""));
+      o.value = x;
+      sel.appendChild(o);
+    });
+    sel.value = want;
+  }
+
+  function overlayStart(s, bars) {
+    if (!s || !Number.isFinite(s.entryMM)) return null;
+    var trigger = s.entryMM - 5;
+    for (var i = 0; i < bars.length; i++) if (bars[i].mm === trigger) return trigger;
+    for (var j = 0; j < bars.length; j++) if (bars[j].mm === s.entryMM) return s.entryMM;
+    return null;
+  }
+
+  function addOverlays(handle, d, bars) {
+    if (!handle || !handle.chart || !handle.series) return;
+    var lib = window.LightweightCharts;
+    if (!lib) return;
+    var lastMM = bars.length ? bars[bars.length - 1].mm : null;
+    var groups = {};
+    function addMarker(mm, side, label) {
+      if (!Number.isFinite(mm)) return;
+      var g = groups[mm];
+      if (!g) g = groups[mm] = { mm: mm, labels: [], long: false, short: false };
+      g.labels.push(label);
+      if (side === "long") g.long = true; else g.short = true;
+    }
+
+    if ($("fcRulesOn").checked && window.IndexChartData) {
+      var ov = window.IndexChartData.signalOverlays(d.signals, bars);
+      ov.markers.forEach(function (m) { addMarker(m.mm, m.side, (m.strategy === "orb_retest" ? "ORB retest" : m.strategy === "orb_break" ? "ORB break" : m.strategy) + (m.side === "long" ? " CE" : " PE")); });
+      var COL = { sl: "#ef4444", t1: "#22c55e", t2: "rgba(34,197,94,.55)" };
+      ov.levels.forEach(function (l) {
+        var t0 = window.NseChart.sessionTime(l.fromMM), t1 = window.NseChart.sessionTime(l.toMM);
+        if (t0 == null || t1 == null || t1 <= t0) return;
+        handle.chart.addSeries(lib.LineSeries, {
+          color: COL[l.kind] || "#8a97b8",
+          lineWidth: 1,
+          lineStyle: lib.LineStyle.Dashed,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+          autoscaleInfoProvider: function () { return null; }
+        }).setData([{ time: t0, value: l.price }, { time: t1, value: l.price }]);
+      });
+    }
+
+    var s = d.setup;
+    if (s && Number.isFinite(s.entry) && Number.isFinite(s.sl)) {
+      var start = overlayStart(s, bars);
+      if (start != null) {
+        var side = s.side === "long" ? "long" : "short";
+        addMarker(start, side, "SETUP " + (side === "long" ? "BUY CE" : "BUY PE") + " \u00b7 " + (s.rr || "1:2"));
+      }
+      // Horizontal price lines keep the exact setup levels readable even when
+      // the chart is zoomed to a different part of the session. Price lines do
+      // not change the candle autoscale.
+      [
+        { key: "entry", title: "Setup entry", color: "#dbe6ff", style: lib.LineStyle.Solid },
+        { key: "sl", title: "Setup SL", color: "#ef4444", style: lib.LineStyle.Dashed },
+        { key: "t1", title: "Setup T1 1R", color: "#22c55e", style: lib.LineStyle.Dashed },
+        { key: "t2", title: "Setup T2 2R", color: "rgba(34,197,94,.65)", style: lib.LineStyle.Dotted }
+      ].forEach(function (line) {
+        if (!Number.isFinite(s[line.key])) return;
+        handle.series.createPriceLine({
+          price: s[line.key],
+          color: line.color,
+          lineWidth: 1,
+          lineStyle: line.style,
+          axisLabelVisible: false,
+          title: ""
+        });
+      });
+    }
+
+    var marks = Object.keys(groups).map(function (k) { return groups[k]; }).sort(function (a, b) { return a.mm - b.mm; }).map(function (g) {
+      var mixed = g.long && g.short;
+      return {
+        time: window.NseChart.sessionTime(g.mm),
+        position: g.short && !g.long ? "aboveBar" : "belowBar",
+        color: mixed ? "#f59e0b" : g.long ? "#22c55e" : "#ef4444",
+        shape: mixed ? "circle" : g.long ? "arrowUp" : "arrowDown",
+        text: g.labels.join(" / ")
+      };
+    }).filter(function (m) { return m.time != null; });
+    if (marks.length) handle.markers = lib.createSeriesMarkers(handle.series, marks);
+  }
+
+  function drawChart(force) {
+    var host = $("fcChart"), d = state.data;
+    if (!window.NseChart || !window.IndexChartData) {
+      host.textContent = "Chart engine failed to load. Refresh the page.";
+      return;
+    }
+    if (!d || !d.bars || !d.bars.length) {
+      host.textContent = state.err ? "Chart unavailable: " + state.err : "No candles yet.";
+      return;
+    }
+    var bars = window.IndexChartData.sessionBars(d);
+    var last = bars.length ? bars[bars.length - 1] : null;
+    var s = d.setup || {};
+    var sig = [state.ix, d.date, bars.length, last ? last.mm : "", last ? last.cl : "", last ? last.hi : "", last ? last.lo : "", last ? last.vwap : "", d.prevClose, d.orb ? d.orb.hi : "", d.orb ? d.orb.lo : "", $("fcOrb").checked ? 1 : 0, $("fcAvg").checked ? 1 : 0, $("fcRulesOn").checked ? 1 : 0, (d.signals || []).length, s.entryMM || "", s.state || "", s.outcome || ""].join("|");
+    if (!force && sig === state.lastSig) return;
+
+    var keep = state.handle && state.lastKey === state.ix + "|" + d.date;
+    var range = keep && state.handle.chart ? state.handle.chart.timeScale().getVisibleLogicalRange() : null;
+    var oldCount = state.lastCount;
+    var follow = !range || !oldCount || range.to >= oldCount - 1;
+    var move = last && Number.isFinite(d.prevClose) && d.prevClose > 0 ? (last.cl - d.prevClose) / d.prevClose * 100 : null;
+    var setupBadge = "";
+    var badgeSide = move == null || move === 0 ? "info" : move > 0 ? "up" : "down";
+    if (s && Number.isFinite(s.entry) && Number.isFinite(s.entryMM)) {
+      var tag = s.fresh ? "LIVE" : /STALE/.test(s.state || "") ? "STALE" : /CUTOFF/.test(s.state || "") ? "CUTOFF" : /RISK TOO WIDE/.test(s.state || "") ? "WIDE" : /T1 ALREADY HIT/.test(s.state || "") ? "T1 HIT" : "";
+      setupBadge = (s.side === "short" ? "BUY PE" : "BUY CE") + " \u00b7 " + hm(s.entryMM) + " \u00b7 R:R " + (s.rr || "1:2") + (tag ? " \u00b7 " + tag : "") + " \u00b7 ";
+      badgeSide = s.side === "short" ? "down" : "up";
+    }
+    var badgeText = setupBadge + (move == null ? "" : (move >= 0 ? "+" : "") + move.toFixed(2) + "% vs prev \u00b7 ") + d.name + " \u00b7 " + dateLabel(d.date);
+    var handle;
+    try {
+      handle = window.NseChart.create(host, {
+        bars: bars,
+        timeframe: "5m",
+        badge: { text: badgeText, side: badgeSide },
+        prevClose: d.prevClose,
+        or: $("fcOrb").checked ? d.orb : null,
+        lines: $("fcAvg").checked ? [{ key: "vwap", label: d.vwapLabel, color: "#f59e0b", dashed: false }] : [],
+        empty: state.err ? "Chart unavailable: " + state.err : "No closed 5-minute candles yet."
+      });
+    } catch (e) {
+      host.textContent = "Chart engine error: " + e.message;
+      return;
+    }
+    state.handle = handle;
+    state.lastKey = state.ix + "|" + d.date;
+    state.lastSig = sig;
+    state.lastCount = bars.length;
+    addOverlays(handle, d, bars);
+
+    if (handle.chart) {
+      if (range && !follow) handle.chart.timeScale().setVisibleLogicalRange(range);
+      handle.chart.subscribeCrosshairMove(function (param) {
+        if (!param || param.time == null) { $("fcHover").textContent = "Hover or touch the chart to read a candle."; return; }
+        var b = null;
+        for (var i = 0; i < bars.length; i++) if (window.NseChart.sessionTime(bars[i].mm) === param.time) { b = bars[i]; break; }
+        if (!b) return;
+        var txt = hm(b.mm) + "\u2013" + hm(b.mm + 5) + "  O " + nf(b.o) + "  H " + nf(b.hi) + "  L " + nf(b.lo) + "  C " + nf(b.cl);
+        if ($("fcAvg").checked && Number.isFinite(b.vwap)) txt += "  \u00b7 " + d.vwapLabel + " " + nf(b.vwap);
+        $("fcHover").textContent = txt;
+      });
+    }
+
+    var lg = $("fcLegend");
+    lg.textContent = "";
+    lg.appendChild(document.createTextNode("5-minute closed candles. Blue dashed lines: opening range high/low. Amber line: " + d.vwapLabel.toLowerCase() + "."));
+    if (d.vwapIsProxy) lg.appendChild(el("b", null, " This is NOT a true VWAP: the index feed has no volume, so the line is an equal-weighted session average (proxy)."));
+    lg.appendChild(document.createTextNode(" Setup entry/SL/T1/T2 are horizontal lines; the marker shows the trigger candle. Rule-signal triangles and dashed segments are the existing replayable rules."));
+    var ss = d.setup;
+    if (ss && Number.isFinite(ss.entry) && Number.isFinite(ss.sl)) {
+      lg.appendChild(document.createTextNode(" Setup levels: entry " + nf(ss.entry) + " (white), SL " + nf(ss.sl) + " (red), T1 " + nf(ss.t1) + " (green dashed), T2 " + nf(ss.t2) + " (green dotted)."));
+    }
+    lg.appendChild(document.createTextNode(" Last chart price is the last closed bar's close, not the live LTP."));
+  }
+
+  function outcomeText(s) {
+    if (!s) return "";
+    if (s.outcome === "T2") return "T2 reached" + (Number.isFinite(s.exitMM) ? " at " + hm(s.exitMM) : "") + " (+2R)";
+    if (s.outcome === "SL") return "Stopped out" + (Number.isFinite(s.exitMM) ? " at " + hm(s.exitMM) : "") + " (-1R)";
+    if (s.outcome === "T1 then stop") return "T1 touched, then stopped" + (Number.isFinite(s.exitMM) ? " at " + hm(s.exitMM) : "") + ". R is n/a because a partial exit at T1 is not modelled.";
+    if (s.outcome === "OPEN") return "Still open at the last closed bar";
+    return "";
+  }
+
+  function renderRec() {
+    var box = $("fcRec"), d = state.data;
+    box.textContent = "";
+    box.appendChild(el("h2", null, "Recommendation"));
+    if (!d || !d.setup) {
+      box.appendChild(el("div", "dim", d ? "No chart setup data in the response." : "Loading the setup..."));
+      return;
+    }
+    var s = d.setup;
+    var actionable = s.fresh && /^BUY /.test(s.action || "");
+    var hasLevels = Number.isFinite(s.entry) && Number.isFinite(s.sl);
+    var cls = actionable ? (s.side === "short" ? "sell" : "buy") : (hasLevels ? (s.side === "short" ? "sell" : "buy") : (s.action === "WAIT" ? "wait" : "none"));
+    var label = hasLevels ? (s.side === "short" ? "BUY PE" : "BUY CE") : (s.action === "WAIT" ? "WAIT" : "NO TRADE");
+    var action = el("div", "rec-action " + cls, label);
+    var head = el("div", "rec-head");
+    head.appendChild(action);
+    head.appendChild(el("span", "rec-state", s.state || "NO SETUP"));
+    box.appendChild(head);
+    box.appendChild(el("div", "rec-sub", s.label + " \u00b7 " + d.name + " \u00b7 " + dateLabel(d.date) + (s.entryMM ? " \u00b7 trigger close " + hm(s.entryMM) : "")));
+
+    var chips = el("div", "chiprow");
+    chips.appendChild(el("span", "chip good", "Chart setup"));
+    if (hasLevels) chips.appendChild(el("span", "chip", "R:R " + (s.rr || "1:2")));
+    if (actionable) chips.appendChild(el("span", "chip good", "LIVE PAPER ALERT"));
+    else if (hasLevels) chips.appendChild(el("span", "chip warn", "NO NEW ENTRY"));
+    if (s.vixWarning) chips.appendChild(el("span", "chip warn", "VIX elevated"));
+    if (d.hasVolume === false) chips.appendChild(el("span", "chip", "no index volume"));
+    box.appendChild(chips);
+
+    if (hasLevels) {
+      var grid = el("div", "levels");
+      [
+        { k: "entry", label: "Entry", sub: s.entryMM ? hm(s.entryMM) + " IST" : "", cls: "" },
+        { k: "sl", label: "Stop", sub: Number.isFinite(s.riskPct) ? s.riskPct.toFixed(2) + "% risk" : "", cls: "down" },
+        { k: "t1", label: "T1", sub: "1R", cls: "up" },
+        { k: "t2", label: "T2", sub: "2R", cls: "up" }
+      ].forEach(function (x) {
+        var cell = el("div", "level");
+        cell.appendChild(el("span", null, x.label));
+        cell.appendChild(el("b", x.cls, nf(s[x.k])));
+        cell.appendChild(el("small", null, x.sub));
+        grid.appendChild(cell);
+      });
+      box.appendChild(grid);
+      var rr = el("div", "rrbar");
+      rr.appendChild(el("b", null, "Risk/reward 1:2 "));
+      rr.appendChild(document.createTextNode("\u00b7 1R = " + nf(Math.abs(s.entry - s.sl)) + " index points \u00b7 paper plan: stop is checked before targets inside a candle."));
+      box.appendChild(rr);
+    }
+
+    var out = outcomeText(s);
+    if (out) box.appendChild(el("div", hasLevels ? "srcnote" : "dim", "Outcome: " + out + "."));
+    if (s.note) box.appendChild(el("p", null, s.note));
+
+    if (hasLevels && !actionable) {
+      var notFresh = /RISK TOO WIDE/.test(s.state || "")
+        ? "The stop distance is wider than the 0.7% risk cap. The levels are shown for reference, not as a trade."
+        : /T1 ALREADY HIT/.test(s.state || "")
+          ? "T1 has already traded before this page saw the trigger. The original 1:2 setup is no longer available; do not chase the remainder."
+          : /CUTOFF/.test(s.state || "")
+            ? "This trigger came after the 14:00 entry cutoff. The levels are shown for review, not as a fresh entry."
+            : "This trigger is historical or stale. The levels are shown for review, not as a fresh entry. Do not chase it.";
+      box.appendChild(el("div", "rec-warn", notFresh));
+    }
+    if (s.vixWarning) {
+      box.appendChild(el("div", "rec-warn", "India VIX is above its 60th percentile, so option premium may be expensive. If a BUY setup appears, the existing rulebook would hold it back; the chart setup still shows it as a warning, not a hidden block."));
+    }
+
+    if (s.checks && s.checks.length) {
+      var ul = el("ul", "checks");
+      s.checks.forEach(function (c) {
+        var li = el("li", c.ok ? "ok" : "no", c.text);
+        ul.appendChild(li);
+      });
+      box.appendChild(ul);
+    }
+
+    if (state.alertCreated) box.appendChild(el("div", "srcnote", "This trigger was added to the browser Journal automatically."));
+    box.appendChild(el("div", "rec-caveat", "Index-level paper alert only. Entry is the confirmation bar's close, not a modelled fill. No option premium, IV, bid/ask, open interest or slippage is modelled. Check the chain before acting. The setup is not yet in the backtest sample."));
+  }
+
+  function setupRuleRow(d) {
+    var s = d.setup || {};
+    return {
+      label: s.label || "ORB retest (chart setup)",
+      action: s.action || "NO TRADE",
+      state: s.state || "NO SETUP",
+      level: s.entryMM ? "trigger " + hm(s.entryMM) + " @ " + nf(s.entry) : (s.note || ""),
+      sl: s.sl, t1: s.t1, t2: s.t2,
+      note: s.note || "",
+      tags: ["chart setup", s.fresh ? "live" : "not fresh"],
+      setup: true
+    };
+  }
+
+  function renderRules() {
+    var t = $("fcRulesTable"), d = state.data;
+    t.textContent = "";
+    var head = el("tr");
+    ["Rule", "Action", "State", "Level / trigger", "Plan (SL / T1 / T2)", "Why"].forEach(function (h) { head.appendChild(el("th", null, h)); });
+    t.appendChild(el("thead")).appendChild(head);
+    var tb = el("tbody");
+    if (d) {
+      var sr = setupRuleRow(d);
+      appendRuleRow(tb, sr);
+    }
+    var ix = null;
+    if (state.rules && state.rules.indices) {
+      for (var i = 0; i < state.rules.indices.length; i++) if (state.rules.indices[i].index === state.ix) { ix = state.rules.indices[i]; break; }
+    }
+    if (ix && ix.rows && ix.rows.length) {
+      ix.rows.forEach(function (r) { appendRuleRow(tb, r); });
+    } else {
+      var tr = el("tr"), td = el("td", "dim", state.rules ? "No live rule rows for this index." : "Live rule rows unavailable.");
+      td.colSpan = 6; tr.appendChild(td); tb.appendChild(tr);
+    }
+    t.appendChild(tb);
+    var note = "The chart setup row is computed from the selected session. The rule rows below it are the latest live session and are not replayed for a past date.";
+    if (ix && Number.isFinite(ix.chgPct)) note += " Live " + ix.name + " " + signed(ix.chgPct, 2) + "%.";
+    $("fcRulesNote").textContent = note;
+  }
+
+  function appendRuleRow(tb, r) {
+    var tr = el("tr", r.setup ? "setuprow" : "");
+    function cell(v, cls) { var td = el("td", cls || "num", v == null ? "\u2013" : v); tr.appendChild(td); return td; }
+    var name = el("td", "l");
+    name.appendChild(el("b", null, r.label || r.strategy || ""));
+    if (r.setup) { name.appendChild(document.createTextNode(" ")); name.appendChild(el("span", "chip good", "new")); }
+    if (r.blockedBy) { name.appendChild(document.createTextNode(" ")); name.appendChild(el("span", "chip warn", "blocked: " + r.blockedBy)); }
+    tr.appendChild(name);
+    cell(r.action || "\u2013", "l " + (/BUY/.test(r.action || "") ? (r.side === "short" ? "down" : "up") : "dim"));
+    cell(r.state || "\u2013", "l dim");
+    var lvl = r.level;
+    if (Number.isFinite(lvl)) lvl = nf(lvl);
+    else lvl = lvl || r.levelNote || "\u2013";
+    cell(lvl, "l");
+    var plan = el("td", "l");
+    if (Number.isFinite(r.sl) || Number.isFinite(r.t1) || Number.isFinite(r.t2)) {
+      plan.appendChild(el("span", "planline", "SL " + nf(r.sl)));
+      plan.appendChild(el("span", "planline", "T1 " + nf(r.t1)));
+      plan.appendChild(el("span", "planline", "T2 " + nf(r.t2)));
+    } else {
+      plan.textContent = "\u2013";
+    }
+    tr.appendChild(plan);
+    var why = el("td", "l dim");
+    why.textContent = r.note || (r.tags && r.tags.length ? r.tags.join(" \u00b7 ") : "");
+    tr.appendChild(why);
+    tb.appendChild(tr);
+  }
+
+  function renderAlerts() {
+    var t = $("fcAlertsTable"), d = state.data;
+    t.textContent = "";
+    var head = el("tr");
+    ["Date", "Time", "Call", "Entry", "SL", "T1 / T2", "Status"].forEach(function (h) { head.appendChild(el("th", null, h)); });
+    t.appendChild(el("thead")).appendChild(head);
+    var tb = el("tbody");
+    var all = window.AlertsStore ? window.AlertsStore.list() : [];
+    var rows = d ? all.filter(function (a) { return a.index === d.index && a.date === d.date; }) : [];
+    $("fcAlertCount").textContent = rows.length ? "\u00b7 " + rows.length + " saved for this session" : "\u00b7 none saved for this session";
+    if (!rows.length) {
+      var tr = el("tr"), td = el("td", "dim", "No chart trigger has been logged for this session yet.");
+      td.colSpan = 7; tr.appendChild(td); tb.appendChild(tr);
+    } else {
+      rows.forEach(function (a) {
+        var tr = el("tr");
+        function cell(v, cls) { tr.appendChild(el("td", cls || "num", v == null ? "\u2013" : v)); }
+        cell(a.date, "l"); cell(hm(a.entryMM), "num"); cell(a.side === "long" ? "BUY CE" : "BUY PE", "l " + (a.side === "long" ? "up" : "down"));
+        cell(nf(a.entry)); cell(nf(a.sl)); cell(nf(a.t1) + " / " + nf(a.t2));
+        var status = (a.rr || "1:2") + " \u00b7 " + (a.outcome === "T2" ? "T2 +2R" : a.outcome === "SL" ? "SL -1R" : a.outcome === "T1 then stop" ? "T1 then stop (R n/a)" : a.outcome === "OPEN" ? "open" : (a.state || ""));
+        if (!a.liveAtLog) status += " \u00b7 backfilled";
+        cell(status, "l " + (a.outcome === "T2" ? "up" : a.outcome === "SL" ? "down" : "dim"));
+        tb.appendChild(tr);
+      });
+    }
+    t.appendChild(tb);
+  }
+
+  function notify(s, d) {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    try {
+      var call = s.side === "long" ? "BUY CE" : "BUY PE";
+      new Notification(d.name + " \u00b7 " + call, {
+        body: "Entry " + nf(s.entry) + " \u00b7 SL " + nf(s.sl) + " \u00b7 T1 " + nf(s.t1) + " \u00b7 T2 " + nf(s.t2) + " \u00b7 R:R " + (s.rr || "1:2") + " \u00b7 index-level paper alert",
+        tag: d.date + "|" + d.index + "|" + s.entryMM + "|" + s.side
+      });
+    } catch (e) { /* notification permission or platform issue */ }
+  }
+
+  function updateNotifyBtn() {
+    var b = $("fcNotify");
+    if (!("Notification" in window)) { b.textContent = "Browser alerts unavailable"; b.disabled = true; return; }
+    b.textContent = Notification.permission === "granted" ? "Browser alerts on" : Notification.permission === "denied" ? "Browser alerts blocked" : "Enable browser alerts";
+    b.disabled = Notification.permission === "denied";
+  }
+
+  function exportAlerts() {
+    var all = window.AlertsStore ? window.AlertsStore.list() : [];
+    if (!all.length) { alert("No chart alerts saved in this browser yet."); return; }
+    var head = ["date", "index", "name", "strategy", "side", "action", "state", "entry_time_ist", "entry", "sl", "t1", "t2", "risk_pct", "rr", "outcome", "r", "exit_time_ist", "live_at_log", "logged_at", "note"];
+    var lines = [head.join(",")];
+    all.forEach(function (a) {
+      lines.push([a.date, a.index, a.name, a.strategy, a.side, a.action, a.state, hm(a.entryMM), a.entry, a.sl, a.t1, a.t2, a.riskPct, a.rr, a.outcome, a.r, hm(a.exitMM), a.liveAtLog ? "live" : "backfilled", a.createdAt ? new Date(a.createdAt).toISOString() : "", a.note].map(function (v) {
+        var s = v == null ? "" : String(v);
+        return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      }).join(","));
+    });
+    var blob = new Blob([lines.join("\r\n") + "\r\n"], { type: "text/csv;charset=utf-8" });
+    var url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url; a.download = "chart-alerts-" + new Date().toISOString().slice(0, 10) + ".csv";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  $("fcRefresh").addEventListener("click", function () { load(false); });
+  $("fcLive").addEventListener("change", function () { state.livePref = $("fcLive").checked; state.live = state.livePref; });
+  $("fcDate").addEventListener("change", function () { state.date = $("fcDate").value; load(false); });
+  ["fcOrb", "fcAvg", "fcRulesOn"].forEach(function (id) { $(id).addEventListener("change", function () { drawChart(true); }); });
+  $("fcNotify").addEventListener("click", function () {
+    if (!("Notification" in window)) return;
+    Notification.requestPermission().then(updateNotifyBtn).catch(updateNotifyBtn);
+  });
+  $("fcAlertCsv").addEventListener("click", exportAlerts);
+
+  buildIndexButtons();
+  updateNotifyBtn();
+  load(false);
+  state.timer = setInterval(function () {
+    if (state.live && state.data && state.data.live && state.data.date === (state.data.dates || [])[0]) load(true);
+  }, 30000);
+})();
+</script>
+</body>
+</html>

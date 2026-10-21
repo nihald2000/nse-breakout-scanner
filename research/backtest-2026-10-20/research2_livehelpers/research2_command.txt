@@ -1,0 +1,1 @@
+node research\backtest-2026-10-20\run_research2.js --data research\backtest-2026-10-20\data --out research\backtest-2026-10-20\research2_livehelpers --cost 0.05 --fix none

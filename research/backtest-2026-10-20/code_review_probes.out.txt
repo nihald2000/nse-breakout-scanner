@@ -1,0 +1,17 @@
+== P1 vwapSeries with a zero-volume bar (parseIdx turns a missing volume into 0)
+  running VWAP should stay near 100 through the empty bar; got: 100.000, 103.000, 100.000
+== P2 lineState: pullback test uses the CURRENT Tenkan/Kijun for past bars (look=20 here only to exaggerate; the live default is look=2, so the live effect is at most one bar of line drift; context-only, not in the lean)
+  with the live default look=2 the tag is:  (steady 0.1/bar uptrend, no pullback exists)
+  now: tenkan 107.10 kijun 106.25 | 20 bars ago the lines were 105.20 / 104.35 | held tag: held at Kijun
+== P3 intradayRvol: a missing bar in an earlier session shifts that session's baseline
+  RVOL with complete history: 1.000 | same data but the 09:25 bar missing in the 3 earlier sessions: 0.949 (true value is unchanged)
+== P4 live RVOL includes the forming bar (computeRows passes `today`, not the closed bars)
+  closed bars only: 1.000 | with the forming bar: 0.886 (the live call mixes a partial bar into a count-matched baseline of full bars)
+== P5 orStats: the first break wins forever
+  OR 99.90 - 100.20 | brokeUp 570 brokeDown 585 | last close 98.7 => check reports UP although price is now 1.4% below the range (earlier break wins)
+== P6 volSpike: a 09:20 spike keeps the 'volume' helper on until the close
+  at 09:30: {"mm":560,"x":5} | at 11:35 (25 quiet bars later): {"mm":560,"x":5}
+== P7 rangeVsNormal: part-day range vs full-day mean
+  an EXACTLY average day: ratio at 09:30 = 0.43 | 10:30 = 0.72 | 12:30 = 1.00 | 15:15 = 1.00 (a 1.15x helper therefore means different things at different hours)
+== P8 candlebacktest.measureOutcome: a truncated horizon is reported as 'timeout'
+  signal on bar 22 of 25 with h=6: {"result":"timeout","fav":0.1,"adv":0.1,"move":0,"bars":2} => labelled timeout after only 2 bars (not 'open')

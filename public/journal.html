@@ -45,6 +45,7 @@
     <a href="/skew.html">Skew Map</a>
     <a href="/ichimoku.html">Ichimoku Cloud</a>
     <a href="/indices.html">Index Options</a>
+    <a href="/chart.html">Full Chart</a>
     <a href="/journal.html" aria-current="page">Journal</a>
   </nav>
   <h1>Paper Trade Journal</h1>
@@ -79,6 +80,17 @@
       <div class="wide"><button class="primary" type="submit">Save entry</button> <span id="fMsg" class="dim" style="color:var(--muted);font-size:13px;margin-left:8px"></span></div>
     </form>
     <p class="cleg">Option R = (exit − entry) ÷ (entry − planned stop premium). Leave the stop blank if you have none; the % result still counts. Leave the exit blank while a trade is open. For a skipped signal only the date, index, strategy and side are needed.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Automated chart alerts <span style="color:var(--muted);font-weight:400;font-size:12px">&middot; index levels from Full Chart</span></h2>
+    <p class="cleg">Every new trigger seen while the Full Chart page is open is saved here automatically. On a later load, only the latest trigger for that session is backfilled, not every earlier attempt. Rows logged after the trigger are marked <b>(backfilled)</b>; only rows marked without that suffix were logged while the setup was still fresh. These are underlying index levels, not option premiums, so they are kept separate from the paper option statistics above. The Full Chart page must be open to poll; no server-side alert is stored.</p>
+    <div class="controls" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      <button id="aexp" class="tiny" type="button">Export alerts CSV</button>
+      <button id="aclear" class="tiny" type="button">Clear alerts</button>
+      <a href="/chart.html" style="color:var(--blue);font-size:13px;align-self:center">Open Full Chart</a>
+    </div>
+    <div class="wrap"><table class="jt" id="atbl"></table></div>
   </div>
 
   <div class="panel">
@@ -132,6 +144,7 @@
   </div>
 </div>
 
+<script src="/alerts-store.js"></script>
 <script>
 (function () {
   "use strict";
@@ -251,7 +264,77 @@
     });
     t.appendChild(tb);
     renderCmp(all);
+    renderAlerts();
   }
+
+  function renderAlerts() {
+    var t = $("atbl"); t.textContent = "";
+    var hr = el("tr");
+    ["Date", "Time", "Index", "Call", "Setup", "Entry", "SL", "T1", "T2", "R:R", "Result", ""].forEach(function (h) { hr.appendChild(el("th", null, h)); });
+    t.appendChild(el("thead")).appendChild(hr);
+    var tb = el("tbody");
+    var rows = window.AlertsStore ? window.AlertsStore.list() : [];
+    if (!rows.length) {
+      var er = el("tr"), ec = el("td", "empty", "No automated chart alerts saved in this browser yet. Open Full Chart while the market is live; every trigger is logged here once.");
+      ec.colSpan = 12; er.appendChild(ec); tb.appendChild(er);
+    }
+    function time(mm) {
+      if (!Number.isFinite(mm)) return "–";
+      var h = Math.floor(mm / 60), m = mm % 60;
+      return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
+    }
+    function result(a) {
+      if (a.outcome === "T2") return "T2 +2R";
+      if (a.outcome === "SL") return "SL -1R";
+      if (a.outcome === "T1 then stop") return "T1 then stop (R n/a)";
+      if (a.outcome === "OPEN") return "open";
+      return a.state || "\u2013";
+    }
+    rows.forEach(function (a) {
+      var tr = el("tr");
+      function cell(v, cls) { tr.appendChild(el("td", cls || "num", v == null ? "\u2013" : v)); }
+      cell(a.date, "l"); cell(time(a.entryMM)); cell(a.index, "l");
+      cell(a.side === "long" ? "BUY CE" : "BUY PE", "l " + (a.side === "long" ? "up" : "down"));
+      cell(a.label, "l"); cell(nf(a.entry, 2)); cell(nf(a.sl, 2)); cell(nf(a.t1, 2)); cell(nf(a.t2, 2)); cell(a.rr || "1:2");
+      cell(result(a) + (a.liveAtLog ? "" : " (backfilled)"), "l " + (a.outcome === "T2" ? "up" : a.outcome === "SL" ? "down" : "dim"));
+      var del = el("button", "tiny", "Delete"); del.type = "button"; del.setAttribute("aria-label", "Delete automated alert " + a.date + " " + a.index);
+      del.addEventListener("click", function () { if (window.AlertsStore) window.AlertsStore.remove(a.id); renderAlerts(); });
+      var dc = el("td", "num"); dc.appendChild(del); tr.appendChild(dc);
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+  }
+
+  $("aexp").addEventListener("click", function () {
+    var rows = window.AlertsStore ? window.AlertsStore.list() : [];
+    if (!rows.length) { alert("No automated chart alerts saved in this browser yet."); return; }
+    function time(mm) {
+      if (!Number.isFinite(mm)) return "";
+      var h = Math.floor(mm / 60), m = mm % 60;
+      return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
+    }
+    var head = ["date", "index", "name", "strategy", "side", "action", "state", "entry_time_ist", "entry", "sl", "t1", "t2", "risk_pct", "rr", "outcome", "r", "exit_time_ist", "live_at_log", "logged_at", "note"];
+    var lines = [head.join(",")];
+    rows.forEach(function (a) {
+      lines.push([a.date, a.index, a.name, a.strategy, a.side, a.action, a.state, time(a.entryMM), a.entry, a.sl, a.t1, a.t2, a.riskPct, a.rr, a.outcome, a.r, time(a.exitMM), a.liveAtLog ? "live" : "backfilled", a.createdAt ? new Date(a.createdAt).toISOString() : "", a.note].map(function (v, i) {
+        var s = v == null ? "" : String(v);
+        if (i < 7 && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
+        return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      }).join(","));
+    });
+    var blob = new Blob([lines.join("\r\n") + "\r\n"], { type: "text/csv;charset=utf-8" });
+    var url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url; a.download = "chart-alerts-" + istToday() + ".csv";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  });
+  $("aclear").addEventListener("click", function () {
+    if (!window.AlertsStore || !window.AlertsStore.list().length) return;
+    if (window.confirm("Delete every automated chart alert in this browser? The paper option journal is not touched.")) {
+      window.AlertsStore.clear();
+      renderAlerts();
+    }
+  });
 
   function renderCmp(all) {
     var box = $("cmp"); box.textContent = "";

@@ -1,0 +1,130 @@
+{
+ "names": 20,
+ "sessions": 7,
+ "events": 2392,
+ "delays": {
+  "fixed 0.5/0.5|0": {
+   "events": 2392,
+   "decidable": 1391,
+   "hit": 0.5061107117181883,
+   "both": 0,
+   "timeout": 1001,
+   "grossExp": 0.007573195958496256,
+   "netExp": -0.09242680404150375
+  },
+  "fixed 0.5/0.5|1": {
+   "events": 2300,
+   "decidable": 1360,
+   "hit": 0.5161764705882353,
+   "both": 0,
+   "timeout": 940,
+   "grossExp": 0.011347577525833114,
+   "netExp": -0.0886524224741669
+  },
+  "fixed 0.5/0.5|2": {
+   "events": 2300,
+   "decidable": 1326,
+   "hit": 0.5090497737556561,
+   "both": 1,
+   "timeout": 973,
+   "grossExp": 0.0075752832279334424,
+   "netExp": -0.09242471677206657
+  },
+  "fixed 0.5/0.5|3": {
+   "events": 2300,
+   "decidable": 1316,
+   "hit": 0.5220364741641338,
+   "both": 0,
+   "timeout": 984,
+   "grossExp": 0.01557401037862699,
+   "netExp": -0.08442598962137302
+  },
+  "fixed 0.5/0.5|5": {
+   "events": 2300,
+   "decidable": 1305,
+   "hit": 0.5157088122605364,
+   "both": 0,
+   "timeout": 995,
+   "grossExp": 0.011000678402177583,
+   "netExp": -0.08899932159782242
+  },
+  "fixed 1.0/1.0|0": {
+   "events": 2392,
+   "decidable": 348,
+   "hit": 0.5258620689655172,
+   "both": 0,
+   "timeout": 2044,
+   "grossExp": 0.019410093133470904,
+   "netExp": -0.0805899068665291
+  },
+  "fixed 1.0/1.0|1": {
+   "events": 2300,
+   "decidable": 349,
+   "hit": 0.5243553008595988,
+   "both": 0,
+   "timeout": 1951,
+   "grossExp": 0.020656377535482915,
+   "netExp": -0.0793436224645171
+  },
+  "fixed 1.0/1.0|2": {
+   "events": 2300,
+   "decidable": 341,
+   "hit": 0.5249266862170088,
+   "both": 0,
+   "timeout": 1959,
+   "grossExp": 0.02072806943317135,
+   "netExp": -0.07927193056682866
+  },
+  "fixed 1.0/1.0|3": {
+   "events": 2300,
+   "decidable": 336,
+   "hit": 0.5327380952380952,
+   "both": 0,
+   "timeout": 1964,
+   "grossExp": 0.02571408740967861,
+   "netExp": -0.0742859125903214
+  },
+  "fixed 1.0/1.0|5": {
+   "events": 2300,
+   "decidable": 330,
+   "hit": 0.5424242424242425,
+   "both": 0,
+   "timeout": 1970,
+   "grossExp": 0.02627979673104887,
+   "netExp": -0.07372020326895114
+  }
+ },
+ "flips": {
+  "checks": 12647,
+  "flipped": 849,
+  "byMinute": {
+   "1": {
+    "checks": 3245,
+    "flipped": 136
+   },
+   "2": {
+    "checks": 3134,
+    "flipped": 185
+   },
+   "3": {
+    "checks": 3134,
+    "flipped": 245
+   },
+   "4": {
+    "checks": 3134,
+    "flipped": 283
+   }
+  }
+ },
+ "bothResolved": {
+  "fiveMinBoth": 2,
+  "resolvedTarget": 1,
+  "resolvedStop": 1,
+  "stillBoth": 0
+ },
+ "consistency": {
+  "compared": 2392,
+  "mismatched": 0
+ },
+ "note": "Tiny sample (about 5 sessions x 20 names): use it to size execution effects, never to judge the signal."
+}

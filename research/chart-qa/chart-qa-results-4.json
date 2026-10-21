@@ -1,0 +1,164 @@
+﻿{
+  "calls": {
+    "page": "calls",
+    "rows": 20,
+    "scaninfo": "Scanned: Capital Goods -3.55% ┬╖ money 0.82├ù normalChemicals -3.05% ┬╖ money 0.95├ù normalConsumer Services -2.50% ┬╖ money 0.64├ù normalAutomobile and Auto Components -2.37% ┬╖ money 0.73├ù normalServices -2.14% ┬╖ money 0.70├ù normalInformation Technology +1.74% ┬╖ money 1.37├ù normalLoaded 72 of 72 stocks ┬╖ signals: 61 strong, 4 moderate ┬╖ weak hidden: 1 ┬╖ option quotes 65/65 ┬╖ showing 20 of 65 matching ┬╖ sector ranking 0m old.",
+    "open": {
+      "legend": "O 428.25\nH 430.40\nL 427.60\nC 428.45\nVol 90.8k\nTenkan(9) 435.90\nKijun(26) 435.90",
+      "badge": "PE lean ┬╖ one-sided ┬╖ 6/6 checks",
+      "meta": "15m closed",
+      "range": {
+        "from": 0,
+        "to": 14
+      },
+      "series": true
+    },
+    "openChart": {
+      "w": 560,
+      "h": 476,
+      "canvases": 7,
+      "canvasW": 508,
+      "canvasH": 420,
+      "nonTransparent": 213360,
+      "colors": 545
+    },
+    "hover": {
+      "legend": "O 443.75\nH 445.15\nL 443.05\nC 443.30\nVol 27.5k\nTenkan(9) 443.30\nKijun(26) 443.30",
+      "tooltip": false
+    },
+    "pan": {
+      "rangeBefore": {
+        "from": 0,
+        "to": 14
+      },
+      "rangeAfter": {
+        "from": 4.133858267716533,
+        "to": 18.133858267716533
+      }
+    },
+    "zoom": {
+      "rangeBeforeWheel": {
+        "from": 4.133858267716533,
+        "to": 18.133858267716533
+      },
+      "rangeAfterWheel": {
+        "from": 4.8854686313528966,
+        "to": 17.521832267716533
+      }
+    },
+    "width860": {
+      "w": 796,
+      "h": 300,
+      "canvases": 7,
+      "canvasW": 744,
+      "canvasH": 244,
+      "nonTransparent": 181536,
+      "colors": 601
+    },
+    "mobile": {
+      "w": 326,
+      "h": 260,
+      "canvases": 7,
+      "canvasW": 274,
+      "canvasH": 204,
+      "nonTransparent": 55896,
+      "colors": 379
+    },
+    "mobileLayout": {
+      "chart": {
+        "x": 25,
+        "y": 565.609375,
+        "w": 326,
+        "h": 260
+      },
+      "panel": {
+        "x": 25,
+        "y": 847.609375,
+        "w": 326,
+        "h": 665.671875
+      },
+      "scrollW": 390,
+      "clientW": 390
+    },
+    "closed": {
+      "hidden": true,
+      "children": 0,
+      "handle": false,
+      "charts": 0
+    },
+    "afterRefresh": {
+      "rows": 20,
+      "charts": 1,
+      "open": true,
+      "handle": true,
+      "canvas": true
+    },
+    "afterRefreshChart": {
+      "w": 560,
+      "h": 476,
+      "canvases": 7,
+      "canvasW": 508,
+      "canvasH": 420,
+      "nonTransparent": 213360,
+      "colors": 545
+    },
+    "errors": [],
+    "warnings": []
+  },
+  "sector": {
+    "page": "sector",
+    "sectors": 19,
+    "stocks": 26,
+    "open": {
+      "sym": "LTM",
+      "legend": "O 4,278.80\nH 4,283.80\nL 4,260.50\nC 4,261.50\nVol 15.9k\nTenkan(9) 4,297.25\nKijun(26) 4,297.25",
+      "badge": "PE lean ┬╖ building ┬╖ 5/5 checks",
+      "range": {
+        "from": 1.7763568394002505e-15,
+        "to": 14
+      }
+    },
+    "openChart": {
+      "w": 560,
+      "h": 337,
+      "canvases": 7,
+      "canvasW": 500,
+      "canvasH": 280,
+      "nonTransparent": 140000,
+      "colors": 432
+    },
+    "hover": "O 4,296.80\nH 4,307.20\nL 4,277.70\nC 4,294.20\nVol 58.7k\nTenkan(9) 4,298.15\nKijun(26) 4,303.75",
+    "mobile": {
+      "w": 326,
+      "h": 260,
+      "canvases": 7,
+      "canvasW": 266,
+      "canvasH": 204,
+      "nonTransparent": 54264,
+      "colors": 338
+    },
+    "mobileLayout": {
+      "chart": {
+        "x": 38,
+        "y": 564.515625,
+        "w": 326,
+        "h": 260
+      },
+      "scrollW": 390,
+      "clientW": 390
+    },
+    "pauseResume": {
+      "before": {
+        "charts": 1,
+        "handle": true
+      },
+      "after": {
+        "charts": 1,
+        "handle": true,
+        "canvas": true
+      }
+    },
+    "errors": [],
+    "warnings": []
+  }
+}

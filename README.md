@@ -2,7 +2,8 @@
 
 Zero-dependency Vercel app (Node 22, CommonJS serverless functions in `api/`, static pages in `public/`).
 
-Pages: Breakouts (`/`), Ichimoku Cloud (`/ichimoku.html`), Index Options (`/indices.html`), Journal (`/journal.html`).
+Pages: Breakouts (`/`), Ichimoku Cloud (`/ichimoku.html`), Index Options (`/indices.html`), Full Chart (`/chart.html`), Journal (`/journal.html`).
+Full Chart adds a simple closed-bar ORB retest setup with entry, stop, T1/T2 and 1:2 R:R. It is separate from the backtested rulebook, is index-level only, and its paper alerts are stored in this browser; it is not a server-side alert service.
 Data: Yahoo Finance chart API. No API keys are needed, so there is nothing secret in this repo.
 
 ## Honesty rules

@@ -1,0 +1,218 @@
+[
+ {
+  "c": 0,
+  "name": "fixed 0.5/0.5; 3 bars (45m); entry bar close"
+ },
+ {
+  "c": 1,
+  "name": "fixed 0.5/0.5; 3 bars (45m); entry next 5m open"
+ },
+ {
+  "c": 2,
+  "name": "fixed 0.5/0.5; 6 bars (90m); entry bar close"
+ },
+ {
+  "c": 3,
+  "name": "fixed 0.5/0.5; 6 bars (90m); entry next 5m open"
+ },
+ {
+  "c": 4,
+  "name": "fixed 0.5/0.5; 12 bars (180m); entry bar close"
+ },
+ {
+  "c": 5,
+  "name": "fixed 0.5/0.5; 12 bars (180m); entry next 5m open"
+ },
+ {
+  "c": 6,
+  "name": "fixed 1.0/0.5; 3 bars (45m); entry bar close"
+ },
+ {
+  "c": 7,
+  "name": "fixed 1.0/0.5; 3 bars (45m); entry next 5m open"
+ },
+ {
+  "c": 8,
+  "name": "fixed 1.0/0.5; 6 bars (90m); entry bar close"
+ },
+ {
+  "c": 9,
+  "name": "fixed 1.0/0.5; 6 bars (90m); entry next 5m open"
+ },
+ {
+  "c": 10,
+  "name": "fixed 1.0/0.5; 12 bars (180m); entry bar close"
+ },
+ {
+  "c": 11,
+  "name": "fixed 1.0/0.5; 12 bars (180m); entry next 5m open"
+ },
+ {
+  "c": 12,
+  "name": "fixed 0.5/1.0; 3 bars (45m); entry bar close"
+ },
+ {
+  "c": 13,
+  "name": "fixed 0.5/1.0; 3 bars (45m); entry next 5m open"
+ },
+ {
+  "c": 14,
+  "name": "fixed 0.5/1.0; 6 bars (90m); entry bar close"
+ },
+ {
+  "c": 15,
+  "name": "fixed 0.5/1.0; 6 bars (90m); entry next 5m open"
+ },
+ {
+  "c": 16,
+  "name": "fixed 0.5/1.0; 12 bars (180m); entry bar close"
+ },
+ {
+  "c": 17,
+  "name": "fixed 0.5/1.0; 12 bars (180m); entry next 5m open"
+ },
+ {
+  "c": 18,
+  "name": "fixed 1.0/1.0; 3 bars (45m); entry bar close"
+ },
+ {
+  "c": 19,
+  "name": "fixed 1.0/1.0; 3 bars (45m); entry next 5m open"
+ },
+ {
+  "c": 20,
+  "name": "fixed 1.0/1.0; 6 bars (90m); entry bar close"
+ },
+ {
+  "c": 21,
+  "name": "fixed 1.0/1.0; 6 bars (90m); entry next 5m open"
+ },
+ {
+  "c": 22,
+  "name": "fixed 1.0/1.0; 12 bars (180m); entry bar close"
+ },
+ {
+  "c": 23,
+  "name": "fixed 1.0/1.0; 12 bars (180m); entry next 5m open"
+ },
+ {
+  "c": 24,
+  "name": "ATR 0.5x/1.0x; 3 bars (45m); entry bar close"
+ },
+ {
+  "c": 25,
+  "name": "ATR 0.5x/1.0x; 3 bars (45m); entry next 5m open"
+ },
+ {
+  "c": 26,
+  "name": "ATR 0.5x/1.0x; 6 bars (90m); entry bar close"
+ },
+ {
+  "c": 27,
+  "name": "ATR 0.5x/1.0x; 6 bars (90m); entry next 5m open"
+ },
+ {
+  "c": 28,
+  "name": "ATR 0.5x/1.0x; 12 bars (180m); entry bar close"
+ },
+ {
+  "c": 29,
+  "name": "ATR 0.5x/1.0x; 12 bars (180m); entry next 5m open"
+ },
+ {
+  "c": 30,
+  "name": "ATR 0.5x/0.5x; 3 bars (45m); entry bar close"
+ },
+ {
+  "c": 31,
+  "name": "ATR 0.5x/0.5x; 3 bars (45m); entry next 5m open"
+ },
+ {
+  "c": 32,
+  "name": "ATR 0.5x/0.5x; 6 bars (90m); entry bar close"
+ },
+ {
+  "c": 33,
+  "name": "ATR 0.5x/0.5x; 6 bars (90m); entry next 5m open"
+ },
+ {
+  "c": 34,
+  "name": "ATR 0.5x/0.5x; 12 bars (180m); entry bar close"
+ },
+ {
+  "c": 35,
+  "name": "ATR 0.5x/0.5x; 12 bars (180m); entry next 5m open"
+ },
+ {
+  "c": 36,
+  "name": "ATR 1.0x/1.0x; 3 bars (45m); entry bar close"
+ },
+ {
+  "c": 37,
+  "name": "ATR 1.0x/1.0x; 3 bars (45m); entry next 5m open"
+ },
+ {
+  "c": 38,
+  "name": "ATR 1.0x/1.0x; 6 bars (90m); entry bar close"
+ },
+ {
+  "c": 39,
+  "name": "ATR 1.0x/1.0x; 6 bars (90m); entry next 5m open"
+ },
+ {
+  "c": 40,
+  "name": "ATR 1.0x/1.0x; 12 bars (180m); entry bar close"
+ },
+ {
+  "c": 41,
+  "name": "ATR 1.0x/1.0x; 12 bars (180m); entry next 5m open"
+ },
+ {
+  "c": 42,
+  "name": "Kijun stop 1:1; 3 bars (45m); entry bar close"
+ },
+ {
+  "c": 43,
+  "name": "Kijun stop 1:1; 3 bars (45m); entry next 5m open"
+ },
+ {
+  "c": 44,
+  "name": "Kijun stop 1:1; 6 bars (90m); entry bar close"
+ },
+ {
+  "c": 45,
+  "name": "Kijun stop 1:1; 6 bars (90m); entry next 5m open"
+ },
+ {
+  "c": 46,
+  "name": "Kijun stop 1:1; 12 bars (180m); entry bar close"
+ },
+ {
+  "c": 47,
+  "name": "Kijun stop 1:1; 12 bars (180m); entry next 5m open"
+ },
+ {
+  "c": 48,
+  "name": "Kijun stop capped 0.5% 1:1; 3 bars (45m); entry bar close"
+ },
+ {
+  "c": 49,
+  "name": "Kijun stop capped 0.5% 1:1; 3 bars (45m); entry next 5m open"
+ },
+ {
+  "c": 50,
+  "name": "Kijun stop capped 0.5% 1:1; 6 bars (90m); entry bar close"
+ },
+ {
+  "c": 51,
+  "name": "Kijun stop capped 0.5% 1:1; 6 bars (90m); entry next 5m open"
+ },
+ {
+  "c": 52,
+  "name": "Kijun stop capped 0.5% 1:1; 12 bars (180m); entry bar close"
+ },
+ {
+  "c": 53,
+  "name": "Kijun stop capped 0.5% 1:1; 12 bars (180m); entry next 5m open"
+ }
+]

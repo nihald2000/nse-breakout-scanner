@@ -1,0 +1,3 @@
+node research\backtest-2026-10-20\parity.js --data C:\NSE\nse-breakout-scanner\research\backtest-2026-10-20\data --out C:\NSE\nse-breakout-scanner\research\backtest-2026-10-20 --n 200
+node research\backtest-2026-10-20\run_backtest.js --data C:\NSE\nse-breakout-scanner\research\backtest-2026-10-20\data --out C:\NSE\nse-breakout-scanner\research\backtest-2026-10-20 --mode live --cost 0.05
+node research\backtest-2026-10-20\timing_1m.js --data C:\NSE\nse-breakout-scanner\research\backtest-2026-10-20\data --out C:\NSE\nse-breakout-scanner\research\backtest-2026-10-20 --cost 0.05

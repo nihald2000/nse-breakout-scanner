@@ -6,6 +6,7 @@
 const { istParts, sessionFraction, formatIST, indiaVix, vixState } = require("../lib/common");
 const { _internals: I } = require("./indices");
 const { fetchData, replayDay, sessionDates } = require("../lib/replay");
+const { computeChartSetup } = require("../lib/chart_setup");
 
 const { INDICES, P } = I;
 
@@ -44,13 +45,15 @@ module.exports = async function handler(req, res) {
     return sp / (k + 1);
   });
 
-  const orBars = day.filter((b) => b.mm >= P.orStart && b.mm < P.orEnd);
+  const closedDay = isToday ? day.filter((b) => b.t + 300 <= nowSec) : day;
+  const orBars = closedDay.filter((b) => b.mm >= P.orStart && b.mm < P.orEnd);
   const orb = orBars.length === 3 ? { hi: Math.max(...orBars.map((b) => b.hi)), lo: Math.min(...orBars.map((b) => b.lo)) } : null;
   const prev = [...b5].reverse().find((b) => b.d < date);
 
   // India VIX as known at the start of that session (previous close vs the 60 sessions before it).
   const vs = vixState(vixRaw, date, false);
   const rep = replayDay(ix, data, date, isToday ? nowSec : null, { vix: vs.ok ? vs : null });
+  const setup = computeChartSetup(closedDay, { orb, vix: vs.ok ? vs : null, live: isToday });
 
   res.setHeader("Cache-Control", isToday ? "public, s-maxage=20, stale-while-revalidate=40" : "public, s-maxage=300");
   return res.status(200).json({
@@ -69,6 +72,7 @@ module.exports = async function handler(req, res) {
     bars: day.map((b) => ({ t: b.t, mm: b.mm, o: b.o, hi: b.hi, lo: b.lo, cl: b.cl })),
     vwap,
     signals: rep.signals,
+    setup,
     blocked: rep.blocked || [],
     vix: vs.ok ? { value: vs.value, p60: vs.p60, blocked: vs.blocked } : { unavailable: vs.note },
     hasVolume: hasVol,

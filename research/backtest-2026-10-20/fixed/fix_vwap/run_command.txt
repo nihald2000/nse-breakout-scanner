@@ -1,0 +1,1 @@
+node research/backtest-2026-10-20/run_fixed.js (variant fix_vwap)
