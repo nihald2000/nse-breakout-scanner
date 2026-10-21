@@ -103,8 +103,8 @@
   </nav>
 
   <h1>Full Chart &amp; Trade Desk</h1>
-  <p class="sub">One interactive chart for the selected index, the simple ORB retest setup with entry, stop, T1/T2 and R:R, plus every existing rulebook row. Alerts are paper-only and are logged in this browser for later review.</p>
-  <div class="notice"><b>Read this before using a call.</b> The chart setup is new and is not in the backtested rulebook yet. It gives index levels, not option premiums. Option IV, bid/ask spread, open interest and slippage are not checked here. A BUY CE/PE label means the index setup triggered; only a <b>LIVE</b> badge is actionable, and even then you must check the chain and paper-trade first.</div>
+  <p class="sub">One interactive chart for reviewing rulebook calls, the exploratory ORB retest setup, and the underlying price levels. Use Trade Monitor as the single alert inbox; choose a call there to see its chart and plan.</p>
+  <div class="notice"><b>Read this before using a call.</b> The chart ORB setup is exploratory and has not been validated as profitable. It gives index levels, not option premiums. This page does not send alerts. Check source time, the option chain, spread and liquidity, then decide yourself.</div>
 
   <div class="panel">
     <h2>Live index call board <span class="dim" style="font-weight:400;font-size:12px">· up to 10 fresh rulebook calls across all five indices</span></h2>
@@ -150,13 +150,12 @@
   </div>
 
   <div class="panel">
-    <h2>Automated chart alerts <span class="dim" id="fcAlertCount" style="font-weight:400;font-size:12px"></span></h2>
+    <h2>Chart setup journal <span class="dim" id="fcAlertCount" style="font-weight:400;font-size:12px"></span></h2>
     <div class="controls">
-      <button id="fcNotify" type="button">Enable browser alerts</button>
       <button id="fcAlertCsv" type="button" class="mini-btn">Export alerts CSV</button>
       <a href="/journal.html" style="color:var(--blue);font-size:13px">Open Journal</a>
     </div>
-    <p class="srcnote">Every <b>new</b> trigger seen while this page is open is saved once in this browser; on a later load, the latest trigger for that session is backfilled. A row logged while the trigger was still fresh is marked live; a row logged after the fact is marked <b>backfilled</b>, so the record cannot look better than what was actually seen. The Journal has a separate <b>Automated chart alerts</b> table, so these index-level rows do not get mixed into option-premium statistics. The page must stay open to poll; browsers may throttle a background tab, and there is no server-side push or email. All alerts are paper alerts.</p>
+    <p class="srcnote">Every trigger seen while this page is open is saved once in this browser. A row logged after it became stale is marked <b>backfilled</b>. These exploratory index-level rows are journal records, not calls or evidence of profitability. Browser alerts are sent only by Trade Monitor, which must stay open on a running device.</p>
     <div class="wrap"><table class="alerts-table" id="fcAlertsTable"></table></div>
   </div>
 </div>
@@ -279,14 +278,11 @@
       $("fcInfo").textContent = info;
       $("fcAvgName").textContent = d.vwapIsProxy ? "Session average price" : "VWAP";
       $("fcMeta").textContent = "5m \u00b7 " + d.name + " \u00b7 " + (d.live ? "live" : "closed session") + " \u00b7 " + closed.length + " closed bars";
-      // Auto-journal every trigger, including a stale one for review. Only a
-      // fresh trigger may produce a browser notification.
+      // Auto-journal every trigger, including a stale one for review.
       state.alertCreated = false;
       if (d.setup && window.AlertsStore) {
         var up = window.AlertsStore.upsert(d.setup, { date: d.date, index: d.index, name: d.name });
         state.alertCreated = !!up.created;
-        var sourceFresh = Number.isFinite(d.sourceAsOfTs) && Date.now() / 1000 - d.sourceAsOfTs <= 300;
-        if (up.created && d.setup.fresh && d.live && sourceFresh && /^BUY /.test(d.setup.action || "")) notify(d.setup, d);
       }
       drawChart();
       renderRec();
@@ -613,16 +609,19 @@
     var host = $("fcDesk");
     host.textContent = "";
     var calls = [];
+    var marketOpen = !!(data && data.meta && data.meta.marketOpen);
+    var nowSec = Date.now() / 1000;
     (data && data.indices || []).forEach(function (ix) {
+      var sourceFresh = Number.isFinite(ix.asOfTs) && nowSec >= ix.asOfTs && nowSec - ix.asOfTs <= 300;
       (ix.rows || []).forEach(function (r) {
-        if (!r.info && /^BUY (CE|PE)$/.test(r.action || "")) calls.push({ ix: ix, row: r });
+        if (marketOpen && sourceFresh && !r.info && /^BUY (CE|PE)$/.test(r.action || "")) calls.push({ ix: ix, row: r });
       });
     });
     calls = calls.slice(0, 10);
     $("fcDeskMeta").textContent = (data && data.meta && data.meta.asOf ? "Prices as of " + data.meta.asOf : "Index feed timestamp unavailable") +
-      (data && data.meta && data.meta.marketOpen ? " · market open · paper calls only" : " · market closed · no fresh entries");
+      (marketOpen ? " · only per-index quotes no older than 5 minutes are listed · paper calls only" : " · market closed · no fresh entries");
     if (!calls.length) {
-      host.appendChild(el("div", "desk-none", "WAIT · no fresh index rulebook calls across the five indices. Select an index below to inspect its chart setup and blocked or stale rules."));
+      host.appendChild(el("div", "desk-none", marketOpen ? "WAIT · no current BUY trigger with a quote timestamp from the last 5 minutes. Select an index below to inspect its chart and blocked rules." : "WAIT · market closed. Select an index below to inspect its chart setup and rulebook rows."));
       return;
     }
     calls.forEach(function (item) {
@@ -710,24 +709,6 @@
     t.appendChild(tb);
   }
 
-  function notify(s, d) {
-    if (!("Notification" in window) || Notification.permission !== "granted") return;
-    try {
-      var call = s.side === "long" ? "BUY CE" : "BUY PE";
-      new Notification(d.name + " \u00b7 " + call, {
-        body: "Entry " + nf(s.entry) + " \u00b7 SL " + nf(s.sl) + " \u00b7 T1 " + nf(s.t1) + " \u00b7 T2 " + nf(s.t2) + " \u00b7 R:R " + (s.rr || "1:2") + " \u00b7 index-level paper alert",
-        tag: d.date + "|" + d.index + "|" + s.entryMM + "|" + s.side
-      });
-    } catch (e) { /* notification permission or platform issue */ }
-  }
-
-  function updateNotifyBtn() {
-    var b = $("fcNotify");
-    if (!("Notification" in window)) { b.textContent = "Browser alerts unavailable"; b.disabled = true; return; }
-    b.textContent = Notification.permission === "granted" ? "Browser alerts on" : Notification.permission === "denied" ? "Browser alerts blocked" : "Enable browser alerts";
-    b.disabled = Notification.permission === "denied";
-  }
-
   function exportAlerts() {
     var all = window.AlertsStore ? window.AlertsStore.list() : [];
     if (!all.length) { alert("No chart alerts saved in this browser yet."); return; }
@@ -750,14 +731,9 @@
   $("fcLive").addEventListener("change", function () { state.livePref = $("fcLive").checked; state.live = state.livePref; });
   $("fcDate").addEventListener("change", function () { state.date = $("fcDate").value; load(false); });
   ["fcOrb", "fcAvg", "fcRulesOn"].forEach(function (id) { $(id).addEventListener("change", function () { drawChart(true); }); });
-  $("fcNotify").addEventListener("click", function () {
-    if (!("Notification" in window)) return;
-    Notification.requestPermission().then(updateNotifyBtn).catch(updateNotifyBtn);
-  });
   $("fcAlertCsv").addEventListener("click", exportAlerts);
 
   buildIndexButtons();
-  updateNotifyBtn();
   load(false);
   state.timer = setInterval(function () {
     if (state.live && state.data && state.data.live && state.data.date === (state.data.dates || [])[0]) load(true);
