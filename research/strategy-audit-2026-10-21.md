@@ -15,7 +15,7 @@ Only the first two may be shown in the monitor; neither is a promise of option P
 | Module | What it does today | Assessment |
 |---|---|---|
 | Sector Scope / Live Calls (`lib/sector.js`, `api/calls.js`) | Votes across VWAP, VWAP slope, Ichimoku position, swing structure, opening range, ADX, range expansion and volume. “Strong/moderate” indicate vote agreement. Candle labels do not enter the vote. | Reasonable descriptive ranking; **no validated entry, stop, target or option expectancy**. Do not call it BUY CE/PE. Strategy evidence: **1/10**. |
-| Candlestick labels (`patternAt`) | Heuristic engulfing, inside/outside, doji, hammer/star and marubozu shapes. No trend/location filter, confirmation, invalidation or position sizing. | Visualization only; a pattern name is not a strategy. Standalone strategy evidence: **1/10**. |
+| Candlestick labels (`patternAt`) | Heuristic engulfing, inside/outside, doji, hammer/star and marubozu shapes. No trend/location filter, confirmation, invalidation or position sizing. | Visualization only; a pattern name is not a strategy. Actionable strategy evidence: **0/10**; chart-context value: **1/10**. |
 | Index rulebook (ORB, Ichimoku/Fib, VWAP) | Fixed, explicit rules with closed bars, stops, targets, expiry/volatility/size guards and chart levels. Yahoo has limited history; index volume is absent; option results use a Black–Scholes proxy. | Best structured paper candidates in the repo, but **not proven profitable**. Rule clarity: **6/10**; evidence for trading: **2/10**. |
 | Swing Ichimoku / expiry max pain | Require Daily/4h or option-chain data; the current index backtest explicitly excludes them. | Not validated; do not display as proven live calls. |
 | Full Chart ORB retest | Separate 5m index chart setup with entry, structural stop and 1R/2R targets. | Clear paper trigger; no net-positive holdout evidence in the saved ORB tests. |
@@ -27,6 +27,14 @@ Scores are evidence/readiness ratings for this repository, not a rating of the u
 `research/backtest-2026-10-20/research2_livehelpers/research2_report.md` is a fixed discovery/validation replay across 39 sessions (2026-08-24 to 2026-10-19), 213 current F&O stocks, and 197,928 decision points. It tested the stock composite board, board caps/alignment, ORB variants, VWAP/trend and sector overlays. Of 1,076 eligible validation cells, zero had positive net expectancy at nominal p<0.05 and zero survived Benjamini–Hochberg correction at q<0.10. The sample was one falling-market regime and used an assumed 0.05% underlying cost per side. It did not model options, spreads, slippage, taxes or brokerage. Many decisions share the same session movement, so 197,928 is not an independent-trade sample.
 
 The old stock replay assumed entry at the same candle close that created the signal. This was not executable after the candle-close decision. It now uses the next 15-minute bar open, records the entry time, and omits last-bar signals with no later fill. The old hard-coded `63.6%`/`52.3%` UI claims were removed; those were small/gross-of-costs and overstated what the test showed.
+
+### Direct named-pattern replay
+
+`research/candlestick-2026-10-21/report.md` adds a fixed named-pattern replay using the same 213-symbol/39-session cache. It tests engulfing, hammer, shooting star, marubozu, outside-bar, and a separately defined inside-bar breakout; one eligible signal per pattern/symbol/session; 5m closed-bar trigger; next 5m open fill; stop at the pattern extreme; 1R or 2R target; end-of-day time exit; stop-first for same-bar ambiguity; and a 1% underlying stop-width ceiling. Costs are the existing research assumption of 0.05% per side. It compares the first 19 discovery sessions with the last 20 validation sessions and adjusts 16 pattern/target p-values.
+
+**None of the 16 validation rows is profitable net of the assumed underlying cost** (all one-sided p-values and BH q-values are 1.000). The better looking rows before costs still fail after costs: bearish engulfing at 2R has gross mean +0.098R but net mean -0.527R; bear marubozu at 2R has gross +0.095R but net -0.456R. The best net row is inside-bar breakout at 1R, -0.387R (95% day-cluster CI -0.437 to -0.336). These are underlying results, not option P&L. This small, falling-market sample is not enough to rule out every context-specific candle setup, but it gives no basis to promote one into actionable Live Calls.
+
+The earlier broad component study independently tested the aggregate latest directional pattern on 15m decisions: 50.6% hit at ±0.5% (60% cost-adjusted break-even) and 51.1% at ±1.0% (55% break-even), with negative validation net expectancy in both cases. Adding an on-side pattern to the existing strong/moderate read also remained net negative.
 
 ## Candlestick research synthesis
 
@@ -41,18 +49,21 @@ Therefore, candle labels remain chart context. Any candidate pattern strategy ne
 ## Live-call plan
 
 1. Keep ten as a display cap, not a quota; return fewer or zero when no fresh candidate passes.
-2. A stock directional score can raise a **WATCH CE SIDE / WATCH PE SIDE** notification. Show its last closed reference and actual prior-session high/low on the underlying chart. It must not invent an entry, stop, target, probability, or option return.
+2. Only a current closed-candle rule trigger with explicit underlying entry, invalidation and targets may send a browser alert. Stock directional scores stay in a separate non-alerting **WATCH CE SIDE / WATCH PE SIDE** section, with their last close and prior-session high/low on the chart. Do not invent an entry, stop, target, probability, or option return.
 3. Promote a stock to a paper **setup** only after a separately specified trigger fires. Suggested research candidate: opening-range break/retest with relative volume and broad-market direction as context, followed by a confirmation close; keep candle shape descriptive. The saved sample did not validate ORB, so this remains an experiment.
 4. Every paper call should record signal time, next-bar entry, invalidation, T1/T2, reason, spread/quote freshness, and an explicit stale/expired state. If stop/target are both touched in one candle, report ambiguous rather than a win.
 5. Use underlying rules only to decide the directional thesis. Option contract selection, quote age, spread, liquidity, IV and theta are separate checks; with free public data and no historical option trades, do not claim backtested CE/PE P&L.
-6. Keep alerts opt-in and paper-only. Current browser notifications need an open browser page; true delivery while the device/browser is closed needs a push/email service and credentials, which this free-data prototype does not provide.
+6. Keep alerts opt-in and paper-only. An alert click refreshes the feed and opens the chart only while the rule trigger remains current; expired or invalidated setups are called out as no longer current. Browser notifications need an open browser page; true delivery while the device/browser is closed needs a push service, an intraday scheduler, and subscription storage, which this free-data prototype does not provide.
 
 ## Changes in this audit
 
 - Stock calls are explicitly directional watches, not “BUY CE/PE” orders.
 - Removed synthetic ±0.5% stock stop/target levels from call charts, cards, copy text and notifications. Prior-session high/low and last reference close are labeled as references.
+- Added recent candle-shape context to stock watch cards and chart details without treating those shapes as triggers.
+- Made the Trade Monitor chart-first workday screen: explicit index rule triggers are listed first and alone can notify; stock trend scores remain separate non-alerting context watches. Notifications re-check the current feed before opening an item.
 - Repaired the candle replay fill assumption to next-bar open and removed the unsupported “evidence-backed / ranked #1” candlestick comment.
 - Added OHLC validity checks so missing/impossible candle inputs do not create pattern labels.
+- Added a reproducible, fixed-rule, next-bar-open study for named patterns; it does not silently feed a failed candidate into live calls.
 
 ## Next validation gate
 

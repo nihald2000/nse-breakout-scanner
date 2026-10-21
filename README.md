@@ -4,7 +4,9 @@ Zero-dependency Vercel app (Node 22, CommonJS serverless functions in `api/`, st
 
 Pages: Trade Monitor (`/monitor.html`), Breakouts (`/`), Sector Scope (`/sector.html`), Live Calls (`/calls.html`), Skew Map (`/skew.html`), Ichimoku Cloud (`/ichimoku.html`), Index Options (`/indices.html`), Full Chart (`/chart.html`), Journal (`/journal.html`).
 Trade Monitor (`/monitor.html`) is the single intraday review screen. It combines fresh index-option rulebook candidates and F&O stock directional watches, caps the visible list at ten, and opens the selected underlying chart. Stock watch scores do not have validated entries/stops/targets; the chart shows the last reference close and prior-session high/low. Alerts are opt-in browser notifications; stale or timestamp-missing prices are suppressed. The page must remain open for monitoring and notifications.
-To use it, open `/monitor.html`, choose **Enable browser alerts**, and leave that page open in a running browser while you work. Clicking an alert selects its chart in the monitor.
+Architecture: `api/indices` supplies rule triggers with underlying entry/stop/target levels; these are shown first and are the only alerts. `api/calls` supplies stock trend context in a separate, non-alerting watch section because its score has no validated trigger or risk levels. Selecting either item opens its underlying chart, where the user makes the final decision. The list is capped at ten per section; ten is a display limit, not a daily trade target.
+To use it, open `/monitor.html`, choose **Enable setup alerts**, and leave that page open in a running browser while you work. Alerts open only if the setup remains in the current fresh list. Clicking a watch opens its chart without sending a notification.
+Strategy ratings, research limits and the reproducible named-candlestick replay are documented in `research/strategy-audit-2026-10-21.md` and `research/candlestick-2026-10-21/`. The replay command is `node research/candlestick-2026-10-21/run-study.js` (uses the cached `research/backtest-2026-10-20/data`).
 Full Chart adds a simple closed-bar ORB retest setup with entry, stop, T1/T2 and 1:2 R:R. It is separate from the backtested rulebook, is index-level only, and its paper alerts are stored in this browser; it is not a server-side alert service.
 Data: Yahoo Finance chart API. No API keys are needed, so there is nothing secret in this repo.
 
@@ -13,7 +15,7 @@ Data: Yahoo Finance chart API. No API keys are needed, so there is nothing secre
 - Rules use finished candles only (no look-ahead). Parameters are fixed in advance and are not tuned on the backtest.
 - Index feeds carry no volume, so index VWAP is not available. The VWAP strategies show NO TRADE until a broker feed with volume is configured.
 - Option P&L in the backtest is a Black-Scholes approximation using India VIX. It is not real premium data.
-- Trade Monitor polls while the page is open. Browser notifications can arrive with the tab in the background, but the browser/device must remain running. Vercel Hobby cron runs at most once per day, so it cannot deliver intraday alerts when the browser is closed. A truly unattended push service needs a separate scheduler and subscription storage.
+- Trade Monitor polls while the page is open. Browser notifications can arrive with the tab in the background, but the browser/device must remain running. Vercel Hobby cron runs at most once per day, so it cannot deliver intraday alerts when the browser is closed. True unattended push requires a separate intraday scheduler and subscription storage; this free-data prototype does not provide those services.
 
 ## Broker adapter (not configured)
 `lib/broker.js` is the single plug-in point. All three functions throw `No broker adapter configured`:
