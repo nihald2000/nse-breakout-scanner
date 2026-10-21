@@ -127,6 +127,43 @@ test("summarizeChain marks a last-price fallback as thin", () => {
   assert.ok(s.flags.some((f) => f.includes("last price")), "last-price flag is present");
 });
 
+function syntheticChain(sym = "TEST") {
+  const spot = 100;
+  const ts = o.parseNseTimestamp(TS);
+  const exp = o.expiryMs(EXPIRY);
+  const T = (exp - ts) / (365 * DAY);
+  const rows = [];
+  for (let K = 80; K <= 120; K += 1.25) {
+    const call = bs.price(spot, K, T, R, 0.22, "call");
+    const put = bs.price(spot, K, T, R, 0.28, "put");
+    const q = (px) => ({ bid: px * 0.99, ask: px * 1.01, last: px, ivNse: 0, oi: 100, oiChg: 5, vol: 50 });
+    rows.push({ strike: K, ce: q(call), pe: q(put) });
+  }
+  return { sym, expiry: EXPIRY, ts: TS, spot, rows };
+}
+
+test("buildSkewMap retries a transient chain failure once", async () => {
+  const attempts = new Map();
+  const fakeFetchChain = async (sym) => {
+    const n = (attempts.get(sym) || 0) + 1;
+    attempts.set(sym, n);
+    if (sym === "BBB" && n === 1) throw new Error("NSE HTTP 403");
+    return syntheticChain(sym);
+  };
+  const map = await o.buildSkewMap({
+    universe: [{ sym: "AAA" }, { sym: "BBB" }],
+    industryOf: new Map([["AAA", "Banks"], ["BBB", "Banks"]]),
+    expiry: EXPIRY,
+    concurrency: 2,
+    nowMs: Date.UTC(2026, 9, 21, 4, 0, 0),
+    fetchChainFn: fakeFetchChain,
+  });
+  assert.equal(attempts.get("BBB"), 2);
+  assert.equal(map.meta.valid, 2);
+  assert.equal(map.meta.failed, 0);
+  assert.equal(map.meta.sectors, 1);
+});
+
 test("sectorSkew uses a median and reports agreement and sample size", () => {
   const universe = [{ sym: "A" }, { sym: "B" }, { sym: "C" }, { sym: "D" }];
   const industryOf = new Map([["A", "Banks"], ["B", "Banks"], ["C", "IT"], ["D", "Banks"]]);
