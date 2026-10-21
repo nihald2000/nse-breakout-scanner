@@ -21,6 +21,38 @@ const MAX_SECTORS = 8;
 const MAX_SYMBOLS = 100; // one request at concurrency 16 stays inside the 30s budget
 const MAX_PER_SECTOR = 40; // same cap as the sector panel
 
+// Build the ATM quote for one listed signal. The read side decides the contract:
+// up -> ATM CE, down -> ATM PE. Keeping this pure makes the label and the quote
+// impossible to drift apart.
+function optionForSummary(sum, side) {
+  if (!sum || !sum.atm || sum.atm.iv == null) return null;
+  const kind = side === "up" ? "call" : "put";
+  const q = sum.atm[kind];
+  if (!q || !(q.px > 0)) return null;
+  return {
+    expiry: sum.expiry,
+    dte: sum.dte,
+    asOf: opts.asOfIST(sum.asOfTs),
+    spot: sum.spot,
+    strike: sum.atm.strike,
+    type: side === "up" ? "CE" : "PE",
+    premium: q.px,
+    bid: q.bid,
+    ask: q.ask,
+    spreadPct: q.spreadPct,
+    iv: q.iv,
+    delta: q.delta,
+    oi: q.oi,
+    oiChg: q.oiChg,
+    vol: q.vol,
+    quality: q.spreadPct != null && q.spreadPct <= 0.15 && q.oi > 0 ? "ok" : "thin",
+    skewRaw: sum.rawSkew,
+    skewNorm: sum.normSkew,
+    flags: sum.flags,
+  };
+}
+
+
 module.exports = async function handler(req, res) {
   const t0 = Date.now();
   const q = (req && req.query) || {};
@@ -107,31 +139,7 @@ module.exports = async function handler(req, res) {
         const got = await opts.fetchChainForSymbol(s.sym, 2);
         if (!got.chain || !got.chain.rows.length) return null;
         const sum = opts.summarizeChain(got.chain);
-        if (!sum.atm || sum.atm.iv == null) return null;
-        const side = s.read.trend.side === "up" ? "call" : "put";
-        const q = sum.atm[side];
-        if (!q || !(q.px > 0)) return null;
-        return {
-          expiry: sum.expiry,
-          dte: sum.dte,
-          asOf: opts.asOfIST(sum.asOfTs),
-          spot: sum.spot,
-          strike: sum.atm.strike,
-          type: side === "up" ? "CE" : "PE",
-          premium: q.px,
-          bid: q.bid,
-          ask: q.ask,
-          spreadPct: q.spreadPct,
-          iv: q.iv,
-          delta: q.delta,
-          oi: q.oi,
-          oiChg: q.oiChg,
-          vol: q.vol,
-          quality: q.spreadPct != null && q.spreadPct <= 0.15 && q.oi > 0 ? "ok" : "thin",
-          skewRaw: sum.rawSkew,
-          skewNorm: sum.normSkew,
-          flags: sum.flags,
-        };
+        return optionForSummary(sum, s.read.trend.side);
       } catch (e) {
         return null;
       }
@@ -181,4 +189,4 @@ module.exports = async function handler(req, res) {
   });
 };
 
-module.exports._internals = { MAX_SECTORS, MAX_SYMBOLS, MAX_PER_SECTOR };
+module.exports._internals = { MAX_SECTORS, MAX_SYMBOLS, MAX_PER_SECTOR, optionForSummary };
