@@ -1,0 +1,717 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Options Skew Map for NSE F&O stocks: live 25-delta put and call IV, ATM IV, normalised skew and sector medians. India only; descriptive, not advice.">
+<title>Options Skew Map - NSE F&amp;O</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230e1628'/><path d='M5 25 L11 15 L17 19 L27 7' stroke='%23ef4444' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .ctl { color: var(--muted); font-size: 13px; display: inline-flex; gap: 6px; align-items: center; min-height: 40px; }
+  .ctl input { background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 10px;
+    padding: 9px 12px; font: inherit; min-height: 40px; width: 190px; }
+  .notice { border: 1px solid #2a3d6e; background: #101c36; color: #c9d6f5; border-radius: 10px;
+    padding: 10px 12px; margin: 8px 0 12px; font-size: 13px; line-height: 1.55; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 10px 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; }
+  .card .k { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .55px; }
+  .card .v { font-size: 21px; font-weight: 700; margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .card .s { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin: 12px 0; }
+  .panel h2 { font-size: 15px; margin: 0 0 4px; }
+  .panel .psub { color: var(--muted); font-size: 12px; margin: 0 0 10px; line-height: 1.5; }
+  canvas { display: block; width: 100%; }
+  #hist { height: 145px; }
+  #smile { height: 230px; }
+  .sector-row { border-top: 1px solid var(--line); padding: 10px 0 11px; }
+  .sector-row:first-child { border-top: 0; padding-top: 2px; }
+  .sector-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; margin-bottom: 7px; }
+  .sector-head b { font-size: 14px; }
+  .sector-head span { color: var(--muted); font-size: 11.5px; }
+  .cells { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 5px; }
+  .cell { border: 1px solid var(--line); border-radius: 9px; padding: 6px 8px; text-align: left;
+    color: var(--text); background: #0b1324; cursor: pointer; min-height: 51px; font: inherit; }
+  .cell:hover, .cell:focus { border-color: var(--blue); outline: none; }
+  .cell .s { font-weight: 650; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+  .cell .n { font-size: 13px; font-variant-numeric: tabular-nums; margin-top: 1px; }
+  .cell .r { color: var(--muted); font-size: 10px; margin-top: 1px; }
+  .cell.thin { border-style: dashed; }
+  .cell.miss { opacity: .45; cursor: default; }
+  .cell.miss:hover { border-color: var(--line); }
+  .cell.pos .n { color: #ff9c9c; }
+  .cell.neg .n { color: #8ef0b0; }
+  .q { display: inline-block; padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 700; margin-left: 4px; }
+  .q-ok { background: rgba(34,197,94,.15); color: var(--green); }
+  .q-thin { background: rgba(245,158,11,.15); color: var(--amber); }
+  .q-missing { background: rgba(138,151,184,.15); color: var(--muted); }
+  .bar2 { height: 6px; background: #1a2440; border-radius: 3px; overflow: hidden; min-width: 52px; margin-top: 3px; }
+  .bar2 i { display: block; height: 100%; }
+  .detailgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 820px) { .detailgrid { grid-template-columns: 1fr; } }
+  .kv { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); padding: 6px 0; font-size: 13px; }
+  .kv:last-child { border-bottom: 0; }
+  .kv span:first-child { color: var(--muted); }
+  .kv span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  .tiny { color: var(--muted); font-size: 11px; }
+  .legend2 { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin-top: 12px; }
+  .detail-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+  .detail-head h2 { margin: 0; }
+  .closebtn { min-height: 34px; padding: 6px 10px; }
+  .flag { color: var(--amber); font-size: 12px; }
+  @media (prefers-reduced-motion: reduce) { .cell { transition: none; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <nav class="tabs" aria-label="Scanners">
+    <a href="/">Breakouts</a>
+    <a href="/sector.html">Sector Scope</a>
+    <a href="/calls.html">Live Calls</a>
+    <a href="/skew.html" aria-current="page">Skew Map</a>
+    <a href="/ichimoku.html">Ichimoku Cloud</a>
+    <a href="/indices.html">Index Options</a>
+    <a href="/journal.html">Journal</a>
+  </nav>
+
+  <h1>Options Skew Map</h1>
+  <p class="sub">India only &mdash; every NSE F&amp;O stock, NSE monthly expiry at least 21 days out. The map reads the
+  live option chain and compares the 25&Delta; put IV with the 25&Delta; call IV, normalised by ATM IV.
+  Positive means puts are richer than calls (downside demand); negative means calls are richer.</p>
+
+  <div class="notice" id="caveat"><b>Descriptive positioning, not a forecast or a trade.</b>
+  IV is computed from NSE's quoted bid/ask mid with Black-Scholes (r=6.5%, no dividend), not from NSE's displayed IV.
+  Thin or wide quotes are marked and are never zero-filled. The F&amp;O ban list is a separate NSE publication and is
+  <b>not</b> checked here. This is a screening aid, not trading advice.</div>
+  <div class="banner" id="banner"></div>
+
+  <div class="controls">
+    <button class="primary" id="refresh">Refresh now</button>
+    <button id="pause">Pause live</button>
+    <label class="ctl">Expiry <select id="expirySel"><option>loading&hellip;</option></select></label>
+    <label class="ctl">Filter
+      <select id="filterSel">
+        <option value="all">All valid</option>
+        <option value="ok">Liquid only</option>
+        <option value="put">Put-rich only</option>
+        <option value="call">Call-rich only</option>
+        <option value="thin">Thin only</option>
+      </select>
+    </label>
+    <label class="ctl">Sort
+      <select id="sortSel">
+        <option value="liquid">Liquid first, then skew</option>
+        <option value="desc">Most put-rich</option>
+        <option value="asc">Most call-rich</option>
+        <option value="sym">Symbol A-Z</option>
+        <option value="sector">Sector, then skew</option>
+      </select>
+    </label>
+    <label class="ctl"><input id="search" type="search" placeholder="Search stock or sector" autocomplete="off"></label>
+    <span class="sub" id="livestate"></span>
+    <span class="sub" id="asof"></span>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <div class="cards">
+    <div class="card"><div class="k">Measured</div><div class="v" id="cardValid">&ndash;</div><div class="s" id="cardValidSub">of the F&amp;O universe</div></div>
+    <div class="card"><div class="k">Liquid</div><div class="v" id="cardLiquid">&ndash;</div><div class="s">tight quote + OI + delta gap</div></div>
+    <div class="card"><div class="k">Median normalised skew</div><div class="v" id="cardMedian">&ndash;</div><div class="s">all measured stocks</div></div>
+    <div class="card"><div class="k">Put-rich share</div><div class="v" id="cardPut">&ndash;</div><div class="s">normalised skew &gt; 0</div></div>
+    <div class="card"><div class="k">Expiry</div><div class="v" id="cardExpiry">&ndash;</div><div class="s" id="cardExpirySub">nearest monthly &ge; 21 DTE</div></div>
+    <div class="card"><div class="k">NSE chain as of</div><div class="v" id="cardAsOf">&ndash;</div><div class="s" id="cardAsOfSub">not loaded yet</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>Distribution of normalised skew</h2>
+    <p class="psub">One bar per bucket of (put25 &minus; call25) / ATM IV. Red = put-rich, green = call-rich.
+    The x-axis is clipped to keep the thin tail from flattening the middle; the count outside the axis is stated.</p>
+    <canvas id="hist" aria-label="Histogram of normalised skew"></canvas>
+    <p class="tiny" id="histNote"></p>
+  </div>
+
+  <div class="panel">
+    <h2>Sector map</h2>
+    <p class="psub">Each cell is one stock. The sector line is the median of its measured stocks and the share leaning
+    the same way. Dashed cells are thin; <span class="tiny">n/a</span> cells had no usable 25&Delta; bracket.
+    Click a cell for the smile and the exact strikes.</p>
+    <div id="map"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Stocks</h2>
+    <p class="psub" id="tableNote">Every measured stock, with the two 25&Delta; points and the quote quality. A liquid
+    tag needs a tight spread, non-zero OI at both 25&Delta; points and a narrow delta gap; it is not a recommendation.</p>
+    <div class="wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="l">Stock</th>
+            <th>Spot</th>
+            <th>ATM IV</th>
+            <th>Put 25&Delta; IV</th>
+            <th>Call 25&Delta; IV</th>
+            <th>Raw skew</th>
+            <th>Normalised</th>
+            <th>Put 25&Delta;</th>
+            <th>Call 25&Delta;</th>
+            <th class="l">Quality</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="tableEmpty" hidden></p>
+  </div>
+
+  <div class="panel" id="detailPanel" hidden>
+    <div class="detail-head">
+      <div><h2 id="detailTitle">Smile</h2><p class="psub" id="detailSub"></p></div>
+      <button class="closebtn" id="detailClose">Close</button>
+    </div>
+    <div class="detailgrid">
+      <div><canvas id="smile" aria-label="Implied volatility smile"></canvas></div>
+      <div id="detailStats"></div>
+    </div>
+    <div class="wrap" style="margin-top:10px">
+      <table>
+        <thead><tr><th class="l">Strike</th><th>Call IV</th><th>Call &Delta;</th><th>Call spread</th><th>Put IV</th><th>Put &Delta;</th><th>Put spread</th><th>OI CE / PE</th></tr></thead>
+        <tbody id="detailRows"></tbody>
+      </table>
+    </div>
+    <p class="tiny" id="detailNote"></p>
+  </div>
+
+  <p class="legend2"><b>How to read it:</b> a 25&Delta; put is roughly the downside hedge strike; a 25&Delta; call is the
+  upside strike. If puts are richer, the normalised skew is positive. The ATM IV is the average of the nearest-strike
+  call and put IVs. A stock with no bracket, no ATM quote or no usable bid/ask is shown as n/a, not as zero.
+  The <b>Raw skew</b> is in volatility points (a 3.2-point gap is not 3.2%). The <b>Normalised</b> column divides that
+  gap by ATM IV, so a 3-point gap in a 15% IV name is a larger number than the same gap in a 40% IV name.
+  The F&amp;O ban list, event calendar and your actual fill are outside this page. India only; no US/SPY comparison.
+  Screening aid, not trading advice.</p>
+</div>
+
+<script>
+"use strict";
+var $ = function (id) { return document.getElementById(id); };
+var DATA = null, EXPIRY = "", live = true, loading = false, nextAt = 0, openSym = null;
+
+function banner(kind, text) {
+  var b = $("banner");
+  if (!text) { b.className = "banner"; b.textContent = ""; return; }
+  b.className = "banner " + kind;
+  b.textContent = text;
+}
+function getJSON(url) {
+  return fetch(url, { cache: "no-store" }).then(function (r) {
+    return r.json().then(function (j) {
+      if (!r.ok) throw new Error((j && j.error) || ("HTTP " + r.status));
+      return j;
+    });
+  });
+}
+function median(a) {
+  var b = a.filter(function (x) { return isFinite(x); }).sort(function (x, y) { return x - y; });
+  if (!b.length) return null;
+  var k = (b.length - 1) / 2, lo = Math.floor(k), hi = Math.ceil(k);
+  return b[lo] + (b[hi] - b[lo]) * (k - lo);
+}
+function signedPct(v, d) {
+  if (v == null || !isFinite(v)) return "\u2013";
+  var x = v * 100;
+  return (x >= 0 ? "+" : "") + x.toFixed(d == null ? 1 : d) + "%";
+}
+function signedPts(v, d) {
+  if (v == null || !isFinite(v)) return "\u2013";
+  var x = v * 100;
+  return (x >= 0 ? "+" : "") + x.toFixed(d == null ? 1 : d) + " pts";
+}
+function ivTxt(v) { return v == null || !isFinite(v) ? "\u2013" : (v * 100).toFixed(1) + "%"; }
+function numTxt(v, d) {
+  if (v == null || !isFinite(v)) return "\u2013";
+  return Number(v).toLocaleString("en-IN", { maximumFractionDigits: d == null ? 2 : d, minimumFractionDigits: d == null ? 2 : d });
+}
+function dteTxt(v) {
+  if (v == null || !isFinite(v)) return "?";
+  return (v >= 10 ? v.toFixed(0) : v.toFixed(1)) + " DTE";
+}
+function qBadge(q) {
+  var s = document.createElement("span");
+  s.className = "q " + (q === "ok" ? "q-ok" : q === "thin" ? "q-thin" : "q-missing");
+  s.textContent = q === "ok" ? "Liquid" : q === "thin" ? "Thin" : "n/a";
+  return s;
+}
+function qClass(q) { return q === "ok" ? "pos" : q === "thin" ? "" : "miss"; }
+
+// ---------- load + render ----------
+function load(force) {
+  if (loading) return;
+  loading = true;
+  var st = $("status");
+  if (!DATA) st.innerHTML = '<span class="spin"></span>Reading NSE option chains for the F&amp;O universe\u2026';
+  var url = "/api/skew" + (EXPIRY ? "?expiry=" + encodeURIComponent(EXPIRY) : "");
+  getJSON(url).then(function (j) {
+    DATA = j;
+    EXPIRY = j.meta.expiry;
+    render();
+    var secs = j.meta.live ? 60000 : 300000;
+    nextAt = Date.now() + secs;
+    st.textContent = "";
+  }).catch(function (e) {
+    st.textContent = "";
+    banner("err", "Could not load the skew map: " + e.message + " \u2014 retrying automatically. " +
+      (DATA ? "The table still shows the previous NSE snapshot; the as-of line above is its timestamp." :
+        "No data is shown rather than a stale or made-up chain."));
+    nextAt = Date.now() + 30000;
+  }).then(function () { loading = false; });
+}
+
+function render() {
+  if (!DATA || !DATA.meta) return;
+  var m = DATA.meta;
+  $("asof").textContent = "NSE chain " + (m.asOf || "?") + " \u00b7 expiry " + m.expiry + " \u00b7 " + dteTxt(m.dte);
+  populateExpiries(m);
+  var vals = (DATA.stocks || []).map(function (s) { return s.normSkew; }).filter(function (x) { return isFinite(x); });
+  var med = median(vals);
+  var put = vals.filter(function (x) { return x > 0; }).length;
+  $("cardValid").textContent = m.valid + " / " + (m.universeCount != null ? m.universeCount : m.universe);
+  $("cardValidSub").textContent = m.missing + " no 25\u0394 bracket \u00b7 " + m.failed + " chain failure" + (m.failed === 1 ? "" : "s");
+  $("cardLiquid").textContent = m.ok;
+  $("cardMedian").textContent = signedPct(med);
+  $("cardPut").textContent = vals.length ? Math.round((put / vals.length) * 100) + "%" : "\u2013";
+  $("cardExpiry").textContent = m.expiry;
+  $("cardExpirySub").textContent = dteTxt(m.dte) + (m.dte >= 21 ? " \u00b7 default \u2265 21 DTE" : " \u00b7 selected expiry (<21 DTE)");
+  $("cardAsOf").textContent = m.asOf ? m.asOf.replace(" IST", "") : "\u2013";
+  $("cardAsOfSub").textContent = m.live ? "live NSE snapshot \u00b7 market open" : "last NSE snapshot \u00b7 market closed";
+  if (m.failed) banner("warn", m.failed + " stock chain" + (m.failed === 1 ? "" : "s") + " could not be loaded. The map shows the rest; missing is not zero.");
+  else if (m.missing) banner("warn", m.missing + " stock" + (m.missing === 1 ? "" : "s") + " had no usable 25\u0394 bracket and are shown as n/a. They are not zero-filled.");
+  else banner("");
+
+  var rows = sorted(filtered());
+  renderMap(rows);
+  renderTable(rows);
+  drawHist(rows);
+  if (openSym) openDetail(openSym, true);
+}
+
+function populateExpiries(m) {
+  var sel = $("expirySel");
+  var labels = (m.expiries || []).map(function (e) { return e.label + " \u00b7 " + dteTxt(e.dte); }).join("|");
+  if (sel.dataset.labels !== labels) {
+    sel.textContent = "";
+    (m.expiries || []).forEach(function (e) {
+      var o = document.createElement("option");
+      o.value = e.label;
+      o.textContent = e.label + " \u00b7 " + dteTxt(e.dte);
+      sel.appendChild(o);
+    });
+    sel.dataset.labels = labels;
+  }
+  sel.value = m.expiry;
+}
+
+function filtered() {
+  var q = $("search").value.trim().toLowerCase();
+  var f = $("filterSel").value;
+  return (DATA.stocks || []).filter(function (s) {
+    if (f === "ok" && s.quality !== "ok") return false;
+    if (f === "thin" && s.quality === "ok") return false;
+    if (f === "put" && !(s.normSkew > 0)) return false;
+    if (f === "call" && !(s.normSkew < 0)) return false;
+    if (q && String(s.sym).toLowerCase().indexOf(q) < 0 && String(s.industry || "").toLowerCase().indexOf(q) < 0) return false;
+    return true;
+  });
+}
+
+function sorted(rows) {
+  var mode = $("sortSel").value;
+  var a = rows.slice();
+  if (mode === "desc") a.sort(function (x, y) { return y.normSkew - x.normSkew; });
+  else if (mode === "asc") a.sort(function (x, y) { return x.normSkew - y.normSkew; });
+  else if (mode === "sym") a.sort(function (x, y) { return String(x.sym).localeCompare(String(y.sym)); });
+  else if (mode === "sector") a.sort(function (x, y) { return String(x.industry).localeCompare(String(y.industry)) || y.normSkew - x.normSkew; });
+  else a.sort(function (x, y) {
+    var qx = x.quality === "ok" ? 0 : 1, qy = y.quality === "ok" ? 0 : 1;
+    return qx - qy || y.normSkew - x.normSkew;
+  });
+  return a;
+}
+
+// ---------- histogram ----------
+function drawHist(rows) {
+  var c = $("hist");
+  if (!c) return;
+  var w = c.clientWidth || 800, h = 145, dpr = window.devicePixelRatio || 1;
+  c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
+  var ctx = c.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  var vals = rows.map(function (s) { return s.normSkew * 100; }).filter(function (x) { return isFinite(x); });
+  if (!vals.length) { $("histNote").textContent = "No measured stocks in this filter."; return; }
+  var s = vals.slice().sort(function (a, b) { return a - b; });
+  var p2 = s[Math.floor((s.length - 1) * 0.02)], p98 = s[Math.floor((s.length - 1) * 0.98)];
+  var axis = Math.min(60, Math.max(10, Math.ceil(Math.max(Math.abs(p2), Math.abs(p98)) / 5) * 5));
+  var bins = 21, width = (2 * axis) / bins, counts = new Array(bins).fill(0), outside = 0;
+  vals.forEach(function (v) {
+    if (v < -axis || v > axis) { outside++; return; }
+    var k = Math.min(bins - 1, Math.max(0, Math.floor((v + axis) / width)));
+    counts[k]++;
+  });
+  var top = Math.max.apply(null, counts.concat([1]));
+  var padL = 34, padR = 10, padT = 14, padB = 22;
+  var plotW = w - padL - padR, plotH = h - padT - padB;
+  var zeroX = padL + ((0 + axis) / (2 * axis)) * plotW;
+  ctx.font = "11px system-ui, sans-serif";
+  ctx.strokeStyle = "#1b2742"; ctx.lineWidth = 1;
+  for (var g = 0; g <= 4; g++) {
+    var y = padT + (plotH * g) / 4;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
+  }
+  for (var i = 0; i < bins; i++) {
+    if (!counts[i]) continue;
+    var x0 = padL + (i / bins) * plotW;
+    var bh = (counts[i] / top) * plotH;
+    var center = -axis + width * (i + 0.5);
+    ctx.fillStyle = center >= 0 ? "rgba(239,68,68,.72)" : "rgba(34,197,94,.72)";
+    ctx.fillRect(x0 + 1, padT + plotH - bh, plotW / bins - 2, bh);
+    if (counts[i] >= top * 0.55) {
+      ctx.fillStyle = "#c9d6f5"; ctx.textAlign = "center";
+      ctx.fillText(String(counts[i]), x0 + plotW / bins / 2, padT + plotH - bh - 3);
+    }
+  }
+  ctx.strokeStyle = "#3b82f6"; ctx.beginPath(); ctx.moveTo(zeroX, padT); ctx.lineTo(zeroX, padT + plotH); ctx.stroke();
+  ctx.fillStyle = "#8a97b8"; ctx.textAlign = "center";
+  ctx.fillText("-" + axis + "%", padL + 2, h - 7);
+  ctx.fillText("0", zeroX, h - 7);
+  ctx.fillText("+" + axis + "%", w - padR - 2, h - 7);
+  ctx.textAlign = "left";
+  ctx.fillText("stocks", 2, padT + 10);
+  ctx.fillText(String(top), 18, padT + 4);
+  $("histNote").textContent = "n = " + vals.length + " measured stocks \u00b7 axis clipped at \u00b1" + axis +
+    "% \u00b7 " + outside + " outside the axis" + (outside ? " (shown in the table)" : "") + ".";
+}
+
+// ---------- sector map ----------
+function renderMap(rows) {
+  var map = $("map");
+  map.textContent = "";
+  if (!rows.length) {
+    var p = document.createElement("p"); p.className = "empty"; p.textContent = "No stock matches this filter.";
+    map.appendChild(p); return;
+  }
+  var groups = {};
+  rows.forEach(function (s) { (groups[s.industry || "Other"] || (groups[s.industry || "Other"] = [])).push(s); });
+  var order = (DATA.sectors || []).map(function (s) { return s.sector; });
+  Object.keys(groups).forEach(function (k) { if (order.indexOf(k) < 0) order.push(k); });
+  order.forEach(function (sec) {
+    var list = groups[sec];
+    if (!list || !list.length) return;
+    var med = median(list.map(function (s) { return s.normSkew; }));
+    var agree = list.filter(function (s) { return (s.normSkew >= 0 ? 1 : -1) === (med >= 0 ? 1 : -1); }).length;
+    var ok = list.filter(function (s) { return s.quality === "ok"; }).length;
+    var head = document.createElement("div"); head.className = "sector-head";
+    var b = document.createElement("b"); b.textContent = sec; head.appendChild(b);
+    var st = document.createElement("span");
+    st.textContent = "median " + signedPct(med) + " \u00b7 " + agree + "/" + list.length + " same sign \u00b7 " +
+      list.length + " measured" + (ok ? " \u00b7 " + ok + " liquid" : "") + (list.length < 3 ? " \u00b7 low sample" : "");
+    head.appendChild(st);
+    var row = document.createElement("div"); row.className = "sector-row"; row.appendChild(head);
+    var cells = document.createElement("div"); cells.className = "cells";
+    list.slice().sort(function (a, b2) { return b2.normSkew - a.normSkew; }).forEach(function (s) {
+      cells.appendChild(mapCell(s));
+    });
+    row.appendChild(cells); map.appendChild(row);
+  });
+  // Missing stocks are visible in the unfiltered map, not silently dropped. A
+  // liquid-only, directional or thin-only filter deliberately hides them; the card still counts them.
+  var f = $("filterSel").value;
+  var miss = (f === "ok" || f === "put" || f === "call" || f === "thin") ? [] : (DATA.missingStocks || []).filter(function (s) {
+    var q = $("search").value.trim().toLowerCase();
+    return !q || String(s.sym).toLowerCase().indexOf(q) >= 0 || String(s.industry || "").toLowerCase().indexOf(q) >= 0;
+  });
+  if (miss.length) {
+    var row2 = document.createElement("div"); row2.className = "sector-row";
+    var h2 = document.createElement("div"); h2.className = "sector-head";
+    var bb = document.createElement("b"); bb.textContent = "No usable 25\u0394 bracket"; h2.appendChild(bb);
+    var ss = document.createElement("span"); ss.textContent = miss.length + " stock" + (miss.length === 1 ? "" : "s") + " \u2014 not zero-filled"; h2.appendChild(ss);
+    row2.appendChild(h2);
+    var cs = document.createElement("div"); cs.className = "cells";
+    miss.forEach(function (s) {
+      var b2 = document.createElement("button"); b2.type = "button"; b2.className = "cell miss";
+      b2.title = (s.flags || []).join(", ") || "no usable 25\u0394 bracket";
+      var t1 = document.createElement("div"); t1.className = "s"; t1.textContent = s.sym;
+      var t2 = document.createElement("div"); t2.className = "n"; t2.textContent = "n/a";
+      var t3 = document.createElement("div"); t3.className = "r"; t3.textContent = "no 25\u0394";
+      b2.appendChild(t1); b2.appendChild(t2); b2.appendChild(t3);
+      cs.appendChild(b2);
+    });
+    row2.appendChild(cs); map.appendChild(row2);
+  }
+}
+
+function mapCell(s) {
+  var b = document.createElement("button"); b.type = "button";
+  b.className = "cell " + (s.normSkew >= 0 ? "pos" : "neg") + (s.quality === "ok" ? "" : " thin");
+  var t = Math.min(Math.abs(s.normSkew) / 0.4, 1);
+  b.style.background = s.normSkew >= 0
+    ? "rgba(239,68,68," + (0.08 + 0.30 * t).toFixed(3) + ")"
+    : "rgba(34,197,94," + (0.08 + 0.30 * t).toFixed(3) + ")";
+  b.style.borderColor = s.normSkew >= 0 ? "rgba(239,68,68,.35)" : "rgba(34,197,94,.35)";
+  b.title = s.sym + " \u00b7 " + (s.industry || "") +
+    "\nATM IV " + ivTxt(s.atm && s.atm.iv) +
+    "\nPut 25\u0394 " + (s.put25 ? ivTxt(s.put25.iv) + " @ " + numTxt(s.put25.strike, 2) + " \u00b7 spread " + (s.put25.spreadPct == null ? "n/a" : (s.put25.spreadPct * 100).toFixed(1) + "%") : "n/a") +
+    "\nCall 25\u0394 " + (s.call25 ? ivTxt(s.call25.iv) + " @ " + numTxt(s.call25.strike, 2) + " \u00b7 spread " + (s.call25.spreadPct == null ? "n/a" : (s.call25.spreadPct * 100).toFixed(1) + "%") : "n/a") +
+    "\n" + (s.flags || []).join(", ");
+  var t1 = document.createElement("div"); t1.className = "s"; t1.textContent = s.sym;
+  var t2 = document.createElement("div"); t2.className = "n"; t2.textContent = signedPct(s.normSkew);
+  var t3 = document.createElement("div"); t3.className = "r"; t3.textContent = signedPts(s.rawSkew) + (s.quality === "ok" ? "" : " \u00b7 thin");
+  b.appendChild(t1); b.appendChild(t2); b.appendChild(t3);
+  b.addEventListener("click", function () { openDetail(s.sym); });
+  return b;
+}
+
+// ---------- table ----------
+function renderTable(rows) {
+  var tbody = $("rows");
+  tbody.textContent = "";
+  var empty = $("tableEmpty");
+  if (!rows.length) {
+    empty.hidden = false;
+    empty.textContent = "No stock matches this filter.";
+    $("tableNote").textContent = "No rows.";
+    return;
+  }
+  empty.hidden = true;
+  $("tableNote").textContent = rows.length + " stock" + (rows.length === 1 ? "" : "s") + " shown \u00b7 " +
+    (DATA.meta.live ? "live NSE chain" : "last NSE chain snapshot") + " \u00b7 " + DATA.meta.expiry + " \u00b7 " + dteTxt(DATA.meta.dte) +
+    " \u00b7 click a row for the smile.";
+  var maxAbs = Math.max.apply(null, rows.map(function (s) { return Math.abs(s.normSkew) || 0; }).concat([0.01]));
+  rows.forEach(function (s) {
+    var tr = document.createElement("tr"); tr.className = "rowmain"; tr.tabIndex = 0;
+    var c1 = document.createElement("td"); c1.className = "l";
+    var sym = document.createElement("div"); sym.className = "sym"; sym.textContent = s.sym; c1.appendChild(sym);
+    var sec = document.createElement("div"); sec.className = "tiny"; sec.textContent = s.industry || "\u2013"; c1.appendChild(sec);
+    tr.appendChild(c1);
+    tr.appendChild(cell(numTxt(s.spot), "num"));
+    tr.appendChild(cell(ivTxt(s.atm && s.atm.iv), "num"));
+    tr.appendChild(cell(ivTxt(s.put25 && s.put25.iv), "num"));
+    tr.appendChild(cell(ivTxt(s.call25 && s.call25.iv), "num"));
+    var raw = cell(signedPts(s.rawSkew), "num " + (s.rawSkew >= 0 ? "down" : "up"));
+    tr.appendChild(raw);
+    var cNorm = document.createElement("td"); cNorm.className = "num";
+    var nv = document.createElement("div"); nv.className = s.normSkew >= 0 ? "down" : "up"; nv.style.fontWeight = "650"; nv.textContent = signedPct(s.normSkew); cNorm.appendChild(nv);
+    var bar = document.createElement("div"); bar.className = "bar2";
+    var fill = document.createElement("i");
+    fill.style.width = Math.max(3, Math.min(100, (Math.abs(s.normSkew) / maxAbs) * 100)) + "%";
+    fill.style.background = s.normSkew >= 0 ? "var(--red)" : "var(--green)";
+    bar.appendChild(fill); cNorm.appendChild(bar);
+    tr.appendChild(cNorm);
+    tr.appendChild(strikeCell(s.put25, "put"));
+    tr.appendChild(strikeCell(s.call25, "call"));
+    var cq = document.createElement("td"); cq.className = "l"; cq.appendChild(qBadge(s.quality));
+    if (s.flags && s.flags.length) {
+      var fl = document.createElement("div"); fl.className = "flag"; fl.textContent = s.flags.slice(0, 2).join(" \u00b7 "); cq.appendChild(fl);
+    }
+    tr.appendChild(cq);
+    tr.title = (s.flags || []).join(", ");
+    tr.addEventListener("click", function () { openDetail(s.sym); });
+    tr.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDetail(s.sym); } });
+    tbody.appendChild(tr);
+  });
+}
+
+function cell(txt, cls) {
+  var d = document.createElement("td");
+  if (cls) d.className = cls;
+  d.textContent = txt == null ? "\u2013" : txt;
+  return d;
+}
+function strikeCell(p, side) {
+  var td = document.createElement("td"); td.className = "num";
+  if (!p) { td.textContent = "\u2013"; return td; }
+  var v = document.createElement("div");
+  v.textContent = (p.mode === "interp" ? "~" : "") + numTxt(p.strike, 2);
+  td.appendChild(v);
+  var sub = document.createElement("div"); sub.className = "tiny";
+  sub.textContent = "\u0394 " + (side === "put" ? "\u2212" : "+") + Math.abs(p.delta || 0.25).toFixed(2) +
+    (p.spreadPct == null ? "" : " \u00b7 spr " + (p.spreadPct * 100).toFixed(0) + "%");
+  td.appendChild(sub);
+  return td;
+}
+
+// ---------- detail ----------
+function openDetail(sym, quiet) {
+  openSym = sym;
+  var panel = $("detailPanel");
+  panel.hidden = false;
+  $("detailTitle").textContent = sym;
+  $("detailSub").textContent = "loading NSE smile\u2026";
+  $("detailStats").textContent = "";
+  $("detailRows").textContent = "";
+  $("detailNote").textContent = "";
+  if (!quiet) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  var s0 = (DATA.stocks || []).find(function (s) { return s.sym === sym; });
+  if (s0) $("detailSub").textContent = (s0.industry || "") + " \u00b7 " + EXPIRY + " \u00b7 " + dteTxt(DATA.meta.dte);
+  getJSON("/api/skew?symbol=" + encodeURIComponent(sym) + "&expiry=" + encodeURIComponent(EXPIRY)).then(function (j) {
+    if (!j.stock) throw new Error("no stock returned");
+    if (s0) j.stock.industry = s0.industry;
+    renderDetail(j.stock);
+  }).catch(function (e) {
+    $("detailSub").textContent = "NSE smile unavailable";
+    $("detailNote").textContent = "Could not load this stock's chain: " + e.message + ". The row values above are unchanged.";
+  });
+}
+
+function renderDetail(st) {
+  $("detailTitle").textContent = st.sym;
+  $("detailSub").textContent = (st.industry || "") + " \u00b7 " + st.expiry + " \u00b7 " + dteTxt(DATA.meta.dte) + " \u00b7 spot " + numTxt(st.spot);
+  var box = $("detailStats"); box.textContent = "";
+  function kv(k, v) {
+    var d = document.createElement("div"); d.className = "kv";
+    var a = document.createElement("span"); a.textContent = k;
+    var b = document.createElement("span"); b.textContent = v;
+    d.appendChild(a); d.appendChild(b); box.appendChild(d);
+  }
+  kv("ATM IV", ivTxt(st.atm && st.atm.iv));
+  kv("Put 25\u0394 IV", st.put25 ? ivTxt(st.put25.iv) + " @ " + numTxt(st.put25.strike, 2) : "n/a");
+  kv("Call 25\u0394 IV", st.call25 ? ivTxt(st.call25.iv) + " @ " + numTxt(st.call25.strike, 2) : "n/a");
+  kv("Raw skew", signedPts(st.rawSkew));
+  kv("Normalised skew", signedPct(st.normSkew));
+  kv("Quality", st.quality === "ok" ? "Liquid" : st.quality === "thin" ? "Thin" : "n/a");
+  kv("Quotes", "spread " + (st.maxSpreadPct == null ? "n/a" : (st.maxSpreadPct * 100).toFixed(1) + "%") +
+    " \u00b7 OI min " + (st.oiMin == null ? "n/a" : st.oiMin));
+  kv("NSE as of", st.asOf || "n/a");
+  if (st.flags && st.flags.length) kv("Flags", st.flags.join(" \u00b7 "));
+  drawSmile(st);
+  var tb = $("detailRows"); tb.textContent = "";
+  var pts = (st.points || []).filter(function (p) { return p.call || p.put; });
+  var spot = st.spot;
+  pts.sort(function (a, b) { return Math.abs(a.strike - spot) - Math.abs(b.strike - spot); });
+  pts = pts.slice(0, 18).sort(function (a, b) { return a.strike - b.strike; });
+  pts.forEach(function (p) {
+    var tr = document.createElement("tr");
+    tr.appendChild(cell(numTxt(p.strike, 2), "l"));
+    tr.appendChild(cell(ivTxt(p.call && p.call.iv), "num"));
+    tr.appendChild(cell(p.call && p.call.delta != null ? p.call.delta.toFixed(2) : "\u2013", "num"));
+    tr.appendChild(cell(p.call && p.call.spreadPct != null ? (p.call.spreadPct * 100).toFixed(1) + "%" : "\u2013", "num"));
+    tr.appendChild(cell(ivTxt(p.put && p.put.iv), "num"));
+    tr.appendChild(cell(p.put && p.put.delta != null ? p.put.delta.toFixed(2) : "\u2013", "num"));
+    tr.appendChild(cell(p.put && p.put.spreadPct != null ? (p.put.spreadPct * 100).toFixed(1) + "%" : "\u2013", "num"));
+    tr.appendChild(cell(numTxt(p.call && p.call.oi, 0) + " / " + numTxt(p.put && p.put.oi, 0), "num"));
+    tb.appendChild(tr);
+  });
+  $("detailNote").textContent = "Smile points are the NSE bid/ask mids inverted with Black-Scholes. " +
+    "The vertical ATM line is the nearest strike; the two markers are the interpolated 25\u0394 points. " +
+    "Thin strikes and last-price fallbacks are flagged above; a missing IV is not a zero.";
+}
+
+function drawSmile(st) {
+  var c = $("smile");
+  if (!c) return;
+  var w = c.clientWidth || 600, h = 230, dpr = window.devicePixelRatio || 1;
+  c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
+  var ctx = c.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  var pts = (st.points || []).filter(function (p) { return Math.abs(p.strike / st.spot - 1) <= 0.14; });
+  if (!pts.length) { ctx.fillStyle = "#8a97b8"; ctx.font = "12px system-ui"; ctx.fillText("No smile points in the ATM window.", 10, 24); return; }
+  var call = pts.filter(function (p) { return p.call && p.call.iv != null; }).map(function (p) { return { x: p.strike, y: p.call.iv * 100 }; });
+  var put = pts.filter(function (p) { return p.put && p.put.iv != null; }).map(function (p) { return { x: p.strike, y: p.put.iv * 100 }; });
+  var all = call.concat(put);
+  if (!all.length) return;
+  var xs = all.map(function (p) { return p.x; }), ys = all.map(function (p) { return p.y; });
+  var xmin = Math.min.apply(null, xs), xmax = Math.max.apply(null, xs);
+  var ymin = Math.min.apply(null, ys), ymax = Math.max.apply(null, ys);
+  var padY = Math.max(1, (ymax - ymin) * 0.15);
+  ymin = Math.max(0, ymin - padY); ymax = ymax + padY;
+  var padL = 42, padR = 12, padT = 20, padB = 26;
+  var pw = w - padL - padR, ph = h - padT - padB;
+  function X(x) { return padL + ((x - xmin) / (xmax - xmin || 1)) * pw; }
+  function Y(y) { return padT + (1 - (y - ymin) / (ymax - ymin || 1)) * ph; }
+  ctx.font = "11px system-ui, sans-serif"; ctx.fillStyle = "#8a97b8"; ctx.strokeStyle = "#1b2742";
+  for (var g = 0; g <= 4; g++) {
+    var y = padT + (ph * g) / 4;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
+    ctx.fillText((ymax - ((ymax - ymin) * g) / 4).toFixed(0) + "%", 4, y + 4);
+  }
+  [xmin, (xmin + xmax) / 2, xmax].forEach(function (x) {
+    ctx.textAlign = "center"; ctx.fillText(numTxt(x, 0), X(x), h - 8);
+  });
+  var atmX = X(st.atm && st.atm.strike ? st.atm.strike : st.spot);
+  ctx.strokeStyle = "#3b82f6"; ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(atmX, padT); ctx.lineTo(atmX, padT + ph); ctx.stroke(); ctx.setLineDash([]);
+  function line(arr, color) {
+    if (!arr.length) return;
+    arr.sort(function (a, b) { return a.x - b.x; });
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+    arr.forEach(function (p, i) { if (i) ctx.lineTo(X(p.x), Y(p.y)); else ctx.moveTo(X(p.x), Y(p.y)); });
+    ctx.stroke();
+    ctx.fillStyle = color;
+    arr.forEach(function (p) { ctx.beginPath(); ctx.arc(X(p.x), Y(p.y), 2.2, 0, Math.PI * 2); ctx.fill(); });
+  }
+  line(call, "#60a5fa");
+  line(put, "#f59e0b");
+  function mark(p, color) {
+    if (!p || p.strike == null) return;
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(X(p.strike), Y(p.iv * 100), 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = color; ctx.font = "10px system-ui";
+    ctx.fillText((color === "#60a5fa" ? "call25 " : "put25 ") + numTxt(p.strike, 0), X(p.strike) + 5, Y(p.iv * 100) - 5);
+  }
+  mark(st.call25, "#60a5fa");
+  mark(st.put25, "#f59e0b");
+  ctx.textAlign = "left"; ctx.fillStyle = "#60a5fa"; ctx.fillText("call IV", padL, 12);
+  ctx.fillStyle = "#f59e0b"; ctx.fillText("put IV", padL + 58, 12);
+  ctx.fillStyle = "#8a97b8"; ctx.fillText("strike", w - padR - 34, h - 8);
+}
+
+// ---------- controls ----------
+$("refresh").addEventListener("click", function () { load(true); });
+$("pause").addEventListener("click", function () {
+  live = !live;
+  this.textContent = live ? "Pause live" : "Resume live";
+  if (live) { nextAt = 0; load(true); }
+  else $("livestate").textContent = "paused \u2014 the data on screen is frozen";
+});
+$("expirySel").addEventListener("change", function () {
+  EXPIRY = this.value;
+  DATA = null;
+  openSym = null;
+  $("detailPanel").hidden = true;
+  $("rows").textContent = "";
+  $("map").textContent = "";
+  $("tableEmpty").hidden = true;
+  $("histNote").textContent = "";
+  ["cardValid", "cardLiquid", "cardMedian", "cardPut", "cardExpiry", "cardAsOf"].forEach(function (id) { $(id).textContent = "\u2013"; });
+  load(true);
+});
+$("filterSel").addEventListener("change", function () { if (DATA) render(); });
+$("sortSel").addEventListener("change", function () { if (DATA) renderTable(sorted(filtered())); });
+$("search").addEventListener("input", function () {
+  if (!DATA) return;
+  var rows = sorted(filtered());
+  renderMap(rows);
+  renderTable(rows);
+  drawHist(rows);
+});
+$("detailClose").addEventListener("click", function () { $("detailPanel").hidden = true; openSym = null; });
+window.addEventListener("resize", function () {
+  if (DATA) { drawHist(sorted(filtered())); if (openSym) { var s = DATA.stocks.find(function (x) { return x.sym === openSym; }); if (s) drawSmile(s); } }
+});
+
+setInterval(function () {
+  var ls = $("livestate"), n = Date.now();
+  if (!live) return;
+  if (document.hidden) { ls.textContent = "paused \u2014 tab in background"; return; }
+  if (nextAt && n >= nextAt) { load(true); return; }
+  if (nextAt) {
+    var left = Math.max(0, Math.ceil((nextAt - n) / 1000));
+    ls.textContent = (DATA && DATA.meta.live ? "live" : "market closed") + " \u00b7 next update in " + left + "s";
+  }
+}, 1000);
+document.addEventListener("visibilitychange", function () {
+  if (!document.hidden && live) { nextAt = 0; load(true); }
+});
+
+load(false);
+</script>
+</body>
+</html>

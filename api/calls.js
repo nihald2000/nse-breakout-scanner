@@ -8,10 +8,13 @@
 //
 // Facts from closed candles only - a count of agreeing checks, never a probability,
 // never an order. Weak reads are counted (meta.weakHidden) but not listed.
-// F&O ban and live option liquidity are not checked anywhere (no free source).
+// The board also attaches the ATM CE/PE quote from NSE's option-chain snapshot. That is
+// market data, not a modelled premium; the F&O ban list is a separate NSE publication and
+// is still not checked here.
 
-const { FO_INDEX, getUniverse, formatIST } = require("../lib/common");
+const { FO_INDEX, getUniverse, formatIST, mapPool } = require("../lib/common");
 const { OTHER } = require("../lib/sector");
+const opts = require("../lib/options");
 const { TFS, computeRows } = require("./sectorstocks")._internals;
 
 const MAX_SECTORS = 8;
@@ -80,6 +83,72 @@ module.exports = async function handler(req, res) {
       (b.rvol == null ? -1 : b.rvol) - (a.rvol == null ? -1 : a.rvol)
     );
 
+  // One NSE chain per listed signal, at the front expiry. This is deliberately after the
+  // board's own filters: we quote only the rows a reader can see, not all 100 scanned names.
+  const optionMeta = {
+    source: "NSE option-chain v3",
+    expiry: null,
+    asOf: null,
+    loaded: 0,
+    failed: 0,
+    note: "ATM CE for CE reads, ATM PE for PE reads. NSE snapshot, not a fill; F&O ban is not checked.",
+  };
+  if (signals.length) {
+    let front = null;
+    try {
+      const ref = await opts.getReferenceExpiries();
+      front = opts.pickExpiry(ref.expiries, 2);
+      optionMeta.expiry = front ? front.label : null;
+    } catch (e) {
+      // Every per-symbol fetch below still has its own fallback; no need to fail the board.
+    }
+    const quotes = await mapPool(signals, 8, async (s) => {
+      try {
+        const got = await opts.fetchChainForSymbol(s.sym, 2);
+        if (!got.chain || !got.chain.rows.length) return null;
+        const sum = opts.summarizeChain(got.chain);
+        if (!sum.atm || sum.atm.iv == null) return null;
+        const side = s.read.trend.side === "up" ? "call" : "put";
+        const q = sum.atm[side];
+        if (!q || !(q.px > 0)) return null;
+        return {
+          expiry: sum.expiry,
+          dte: sum.dte,
+          asOf: opts.asOfIST(sum.asOfTs),
+          spot: sum.spot,
+          strike: sum.atm.strike,
+          type: side === "up" ? "CE" : "PE",
+          premium: q.px,
+          bid: q.bid,
+          ask: q.ask,
+          spreadPct: q.spreadPct,
+          iv: q.iv,
+          delta: q.delta,
+          oi: q.oi,
+          oiChg: q.oiChg,
+          vol: q.vol,
+          quality: q.spreadPct != null && q.spreadPct <= 0.15 && q.oi > 0 ? "ok" : "thin",
+          skewRaw: sum.rawSkew,
+          skewNorm: sum.normSkew,
+          flags: sum.flags,
+        };
+      } catch (e) {
+        return null;
+      }
+    });
+    for (let i = 0; i < signals.length; i++) signals[i].option = quotes[i] || null;
+    const have = quotes.filter(Boolean);
+    optionMeta.loaded = have.length;
+    optionMeta.failed = signals.length - have.length;
+    const expiries = [...new Set(have.map((q) => q.expiry).filter(Boolean))];
+    if (expiries.length === 1) optionMeta.expiry = expiries[0];
+    else if (expiries.length > 1) optionMeta.expiry = expiries.join(", ");
+    const asOf = have.map((q) => q.asOf).filter(Boolean).sort().slice(-1)[0];
+    optionMeta.asOf = asOf || null;
+  } else {
+    for (const s of signals) s.option = null;
+  }
+
   res.setHeader("Cache-Control", "public, s-maxage=45, stale-while-revalidate=90");
   return res.status(200).json({
     meta: {
@@ -95,14 +164,16 @@ module.exports = async function handler(req, res) {
       moderate: signals.filter((r) => r.read.trend.tier === "moderate").length,
       weakHidden: leaning.length - signals.length,
       asOf: newestTs ? formatIST(newestTs) : null,
+      option: optionMeta,
       notes: [
         "CE / PE is the side the closed-candle checks lean - a count of agreeing facts, not a probability of profit and not a buy or sell order.",
         "Only strong and moderate reads are listed; weak ones are counted but hidden.",
-        "The replay behind this page measured +/-0.5% on the stock; option premium, spread and costs are not modeled.",
-        "F&O ban and live option liquidity are not checked anywhere here (no free source); they are never shown as checked.",
+        "The replay behind this page measured +/-0.5% on the stock; option premium, spread and costs are not modeled in that number.",
+        "The ATM option column is NSE's option-chain snapshot at the front expiry: real bid/ask, IV and OI when quoted. It is not a fill.",
+        "F&O ban is a separate NSE list and is NOT checked here; the board never shows it as checked.",
         "Screening aid, not trading advice.",
       ],
-      source: "Yahoo Finance",
+      source: "Yahoo Finance + NSE option chain",
       generatedAt: new Date().toISOString(),
       tookMs: Date.now() - t0,
     },

@@ -26,6 +26,9 @@
     },
     "api/candlebacktest.js": {
       "maxDuration": 30
+    },
+    "api/skew.js": {
+      "maxDuration": 60
     }
   }
 }

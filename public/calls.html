@@ -41,6 +41,7 @@
     <a href="/">Breakouts</a>
     <a href="/sector.html">Sector Scope</a>
     <a href="/calls.html" aria-current="page">Live Calls</a>
+    <a href="/skew.html">Skew Map</a>
     <a href="/ichimoku.html">Ichimoku Cloud</a>
     <a href="/indices.html">Index Options</a>
     <a href="/journal.html">Journal</a>
@@ -53,7 +54,8 @@
   <div class="banner warn" id="caveat">Replay on the last 20 sessions (38 stocks, closed 15-minute bars, entry at the signal bar close, underlying only, no costs):
   <b>strong</b> reads hit +0.5% before &minus;0.5% in <b>63.6%</b> of decidable cases (n=55, small), <b>moderate</b> in <b>52.3%</b> (n=543),
   weak in 51.3% (n=507), horizon 90 minutes. A 1:1 payoff needs more than 50% just to break even, and option spread, premium and costs are not
-  part of that number. Treat every row as a fact to check, not a promise.</div>
+  part of that number. The ATM option column is a real NSE chain snapshot; these hit rates are still
+  stock moves, not option P&amp;L. Treat every row as a fact to check, not a promise.</div>
   <div class="banner" id="banner"></div>
 
   <div class="controls">
@@ -100,6 +102,7 @@
           <th class="l">Checks</th>
           <th class="l">Ref close (15m)</th>
           <th>Now</th>
+          <th class="l">ATM option</th>
           <th>Target 0.5%</th>
           <th>Stop 0.5%</th>
           <th>RVOL</th>
@@ -117,8 +120,10 @@
   <b>Ref close</b> is the last closed 15-minute candle at the time of the read, the price the replay entered at.
   <b>Now</b> is the last traded price, with its drift from the ref close &mdash; if it has already run without you, the levels belong to the old entry, so re-anchor to your fill.
   <b>Target / Stop</b> are the tested &plusmn;0.5% barriers on the <b>stock</b>; on an option the premium moves roughly with delta &times; the stock move, but IV and time decay are not modeled here.
-  F&amp;O ban and option bid/ask are <b>not</b> checked (no free source) &mdash; check your broker before buying. Click any row for its candlestick chart and full read.
-  Screening aid, not trading advice.</p>
+  <b>ATM option</b> is the nearest-strike CE (for a CE read) or PE (for a PE read) from NSE's option-chain snapshot at the front expiry:
+  the premium is the bid/ask mid, with the quoted spread, IV, delta and OI. It is market data, not a fill; the quote can move before you act.
+  The <b>F&amp;O ban list</b> is a separate NSE publication and is <b>not</b> checked here &mdash; check it with your broker.
+  Click any row for its candlestick chart and full read. Screening aid, not trading advice.</p>
 </div>
 
 <script>
@@ -340,13 +345,63 @@ function buildRead(r) {
     pv.textContent = "none in the last hour of closed candles";
   }
   pr.appendChild(pl); pr.appendChild(pv); pan.appendChild(pr);
+  var o = r.option;
+  if (o) {
+    frow("ATM contract", o.strike + " " + o.type + " \u00b7 " + o.expiry + " (" + (o.dte == null ? "?" : o.dte) + " DTE)");
+    frow("Option quote", "\u20b9" + fnum(o.premium) + " mid \u00b7 bid " + fnum(o.bid) + " / ask " + fnum(o.ask) +
+      " \u00b7 " + (o.spreadPct == null ? "spread n/a" : (o.spreadPct * 100).toFixed(1) + "% spread"), o.quality === "thin" ? "down" : "");
+    frow("IV / delta", (o.iv == null ? "IV n/a" : (o.iv * 100).toFixed(1) + "% IV") +
+      " \u00b7 delta " + (o.delta == null ? "n/a" : o.delta.toFixed(2)) +
+      " \u00b7 OI " + oiTxt(o.oi) + (o.oiChg == null ? "" : " (" + (o.oiChg >= 0 ? "+" : "") + oiTxt(o.oiChg) + " today)"));
+    frow("25\u0394 skew", o.skewRaw == null ? "not enough 25\u0394 quotes" :
+      (o.skewRaw * 100).toFixed(1) + " vol pts \u00b7 " + (o.skewNorm >= 0 ? "+" : "") + (o.skewNorm * 100).toFixed(1) + "% normalised");
+    frow("Chain as of", o.asOf || "NSE timestamp unavailable");
+    if (o.flags && o.flags.length) frow("Quote flags", o.flags.join(" \u00b7 "), "down");
+  } else {
+    frow("ATM option", "NSE chain unavailable for this symbol at the last refresh", "");
+  }
   var note = document.createElement("p"); note.className = "readnote";
-  note.textContent = "Facts from closed candles only \u2014 a read, not a forecast.";
+  note.textContent = "Facts from closed candles only \u2014 a read, not a forecast. The option quote is an NSE snapshot, not a fill.";
   pan.appendChild(note);
   return pan;
 }
 
 // ---------- board ----------
+function fnum(n) {
+  if (n == null || !isFinite(n)) return "\u2013";
+  return Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+}
+function oiTxt(n) {
+  if (n == null || !isFinite(n)) return "\u2013";
+  if (n >= 1e7) return (n / 1e7).toFixed(2) + " Cr";
+  if (n >= 1e5) return (n / 1e5).toFixed(1) + " L";
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + "k";
+  return String(Math.round(n));
+}
+function optCell(o) {
+  var td = document.createElement("td"); td.className = "l";
+  if (!o) {
+    td.appendChild(document.createTextNode("\u2013"));
+    var no = document.createElement("div"); no.className = "tiny"; no.textContent = "NSE chain n/a";
+    td.appendChild(no);
+    td.title = "NSE option chain was unavailable for this symbol at the last refresh.";
+    return td;
+  }
+  var l1 = document.createElement("div"); l1.className = "sym"; l1.textContent = o.strike + " " + o.type;
+  var l2 = document.createElement("div"); l2.className = "tiny";
+  l2.textContent = "\u20b9" + fnum(o.premium) + " \u00b7 " + (o.spreadPct == null ? "spr n/a" : (o.spreadPct * 100).toFixed(1) + "% spr");
+  var l3 = document.createElement("div"); l3.className = "tiny";
+  l3.textContent = (o.iv == null ? "IV n/a" : (o.iv * 100).toFixed(1) + "% IV") + " \u00b7 OI " + oiTxt(o.oi) +
+    (o.quality === "thin" ? " \u00b7 thin" : "");
+  td.appendChild(l1); td.appendChild(l2); td.appendChild(l3);
+  td.title = "NSE " + o.expiry + " " + o.strike + " " + o.type +
+    " \u00b7 bid " + fnum(o.bid) + " / ask " + fnum(o.ask) +
+    " \u00b7 delta " + (o.delta == null ? "n/a" : o.delta.toFixed(2)) +
+    " \u00b7 OI change " + (o.oiChg == null ? "n/a" : oiTxt(o.oiChg)) +
+    " \u00b7 chain as of " + (o.asOf || "?") +
+    (o.flags && o.flags.length ? " \u00b7 " + o.flags.join(", ") : "");
+  return td;
+}
 function cell(txt, cls) {
   var d = document.createElement("td");
   if (cls) d.className = cls;
@@ -391,6 +446,7 @@ function render(secs, c) {
     (m.failed ? " (" + m.failed + " without data)" : "") +
     " \u00b7 signals: " + (m.strong == null ? "?" : m.strong) + " strong, " + (m.moderate == null ? "?" : m.moderate) + " moderate" +
     " \u00b7 weak hidden: " + (m.weakHidden == null ? "?" : m.weakHidden) +
+    (m.option ? " \u00b7 option quotes " + m.option.loaded + "/" + (m.option.loaded + m.option.failed) : "") +
     " \u00b7 showing " + shown.length + " of " + allCount + " matching" +
     (SECTS_AT ? " \u00b7 sector ranking " + Math.max(0, Math.round((Date.now() - SECTS_AT) / 60000)) + "m old" : "") +
     (m.truncated ? " \u00b7 symbol cap reached, some stocks not scanned" : "") + ".";
@@ -449,12 +505,14 @@ function render(secs, c) {
     cNow.appendChild(nsub);
     tr.appendChild(cNow);
 
+    tr.appendChild(optCell(r.option));
+
     tr.appendChild(cell(f2(tgt), "num"));
     tr.appendChild(cell(f2(stp), "num"));
     tr.appendChild(cell(r.rvol == null ? "\u2013" : r.rvol.toFixed(2) + "\u00d7", "num"));
 
     var detail = document.createElement("tr");
-    var td = document.createElement("td"); td.colSpan = 10;
+    var td = document.createElement("td"); td.colSpan = 11;
     var wrapDiv = document.createElement("div"); wrapDiv.className = "readwrap";
     var cvs = document.createElement("canvas"); cvs.dataset.sym = r.sym;
     wrapDiv.appendChild(cvs);
@@ -550,9 +608,11 @@ $("copyBtn").addEventListener("click", function () {
     var tv = r.read.trend, ref = refInfo(r);
     var tgt = ref.cl != null ? ref.cl * (tv.side === "up" ? 1.005 : 0.995) : null;
     var stp = ref.cl != null ? ref.cl * (tv.side === "up" ? 0.995 : 1.005) : null;
+    var opt = r.option ? " \u00b7 " + r.option.strike + " " + r.option.type + " \u20b9" + fnum(r.option.premium) +
+      (r.option.spreadPct == null ? "" : " (spr " + (r.option.spreadPct * 100).toFixed(1) + "%)") : " \u00b7 option n/a";
     return (tv.side === "up" ? "CE" : "PE") + " " + r.sym + " (" + (r.industry || "?") + ") " + tv.tier +
       " " + tv.agree + "/" + tv.total + " \u00b7 ref " + f2(ref.cl) + " " + hm(ref.mm) +
-      " \u00b7 now " + f2(r.ltp) + " \u00b7 target " + f2(tgt) + " \u00b7 stop " + f2(stp);
+      " \u00b7 now " + f2(r.ltp) + opt + " \u00b7 target " + f2(tgt) + " \u00b7 stop " + f2(stp);
   });
   var text = lines.join("\n");
   function done() { banner("", ""); $("copyBtn").textContent = "Copied " + lines.length; setTimeout(function () { $("copyBtn").textContent = "Copy list"; }, 1500); }

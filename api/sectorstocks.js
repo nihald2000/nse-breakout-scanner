@@ -3,7 +3,8 @@
 //   5m  : today's closed candles -> true VWAP, and "running volume so far vs the same clock time
 //         on the earlier sessions in the same fetch" (intraday RVOL, needs 3 prior sessions).
 //   tf  : 15m or 5m series -> Tenkan(9) / Kijun(26) line state, computed on closed bars only.
-// Tags: F&O ban is not checked (no free source); live option bid/ask is not available. Facts only.
+// Tags: F&O ban is not checked. This route does not attach option quotes; the Live Calls
+// board does that from NSE's option chain. Facts only.
 //   ltp, pchg, rvol (running), rvolNote, vwap, vwapDistPct, prev level hi/lo,
 //   lines: { tf, tenkan, kijun, pos, linePos, held, stop, dTenkan, dKijun }
 //
@@ -146,7 +147,7 @@ async function computeRows(symbols, tfKey, labelOf) {
       read,
       chart: { tf: tfKey, bars: chartBars },
       deliveryPct: delivery.map[g.sym] == null ? null : delivery.map[g.sym],
-      liquidityNote: "option bid/ask not available here; check your broker before buying",
+      liquidityNote: "option quote is not loaded in this route; see the Live Calls board",
     });
   }
 
@@ -194,7 +195,7 @@ module.exports = async function handler(req, res) {
       asOf: newestTs ? formatIST(newestTs) : null,
       notes: [
         "Tenkan(9)/Kijun(26) are computed on closed candles only and describe where price sits - they are not a buy or sell order.",
-        "F&O ban and live option liquidity are not checked anywhere here (no free source); they are never shown as checked.",
+        "This route does not check F&O ban or option quotes; the Live Calls board attaches NSE option-chain quotes.",
         "Screening aid, not trading advice.",
       ],
       source: "Yahoo Finance",

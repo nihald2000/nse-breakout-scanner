@@ -73,7 +73,7 @@
   @media (prefers-reduced-motion: reduce) {
     td.flash-up, td.flash-dn, .liveinfo .dot, .spin { animation: none; }
   }
-  .tabs { display: flex; gap: 6px; margin: 0 0 10px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
   .tabs a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 600; padding: 8px 14px;
     border: 1px solid var(--line); border-radius: 999px; background: var(--card); }
   .tabs a[aria-current="page"] { color: #fff; background: #1d2c52; border-color: #2a3d6e; }
