@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Live Calls - one board of the CE/PE side the closed-candle checks lean across today's hottest F&O sectors, strong and moderate reads only. Facts, not advice.">
-<title>Live Calls - strong &amp; moderate F&amp;O side leans</title>
+<meta name="description" content="Live Calls - one board of every CE/PE side the closed-candle checks lean across today's hottest F&O sectors, ranked strong, moderate, weak. Facts, not advice.">
+<title>Live Calls - every F&amp;O side lean, ranked</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230e1628'/><rect x='5' y='22' width='5' height='5' rx='1.5' fill='%23ef4444'/><rect x='13' y='13' width='5' height='14' rx='1.5' fill='%23f59e0b'/><rect x='21' y='6' width='5' height='21' rx='1.5' fill='%2322c55e'/></svg>">
 <link rel="stylesheet" href="/app.css">
 <style>
@@ -13,6 +13,7 @@
   .tier { display: inline-block; border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; font-size: 11.5px; font-weight: 650; }
   .tier.strong { border-color: #1d7a44; color: var(--green); }
   .tier.moderate { border-color: #8a6d1d; color: var(--amber); }
+  .tier.weak { border-color: var(--line); color: var(--muted); }
   .tiny { color: var(--muted); font-size: 11px; font-weight: 400; }
   .scanline { margin: 2px 0 10px; color: var(--muted); font-size: 12.5px; line-height: 1.9; }
   .scanline .chip { border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; margin-right: 6px; white-space: nowrap; }
@@ -55,7 +56,7 @@
     <a href="/journal.html">Journal</a>
   </nav>
   <h1>Live Calls</h1>
-  <p class="sub">Closed-candle directional watchlist across selected F&amp;O sectors. “Strong” and “moderate” describe context-check agreement; they are not probabilities, entries or validated strategies. This watch page sends no notifications. Use the <a href="/monitor.html">Trade Monitor</a> for fresh paper rule-trigger alerts and chart review.</p>
+  <p class="sub">Closed-candle directional watchlist across selected F&amp;O sectors. Every one-sided read is listed, ranked strong, moderate, then weak; the tier describes context-check agreement and is not a probability, entry or validated strategy. This watch page sends no notifications. Use the <a href="/monitor.html">Trade Monitor</a> for fresh paper rule-trigger alerts and chart review.</p>
 
   <div class="banner warn" id="caveat">The current stock-side score is a research watch filter, not a proven strategy. Saved holdout research (39 sessions, 213 F&amp;O stocks) found no tested board or strategy variant with positive net expectancy at the assumed 0.05% underlying cost per side; none of 1,076 eligible validation cells survived multiple-comparison correction. A named-candle replay tested 8 standalone patterns with 1R/2R targets, and a second tested 6 context filters on those patterns; all 112 validation rows were net-negative. Option premium, spread, slippage and brokerage are not modeled. Candlestick labels are descriptive context only.</div>
   <div class="banner" id="banner"></div>
@@ -74,16 +75,16 @@
     <label class="ctl">Scan
       <select id="topSel">
         <option value="4">4 sectors</option>
-        <option value="6" selected>6 sectors</option>
-        <option value="8">8 sectors</option>
+        <option value="6">6 sectors</option>
+        <option value="8" selected>8 sectors</option>
       </select>
     </label>
     <label class="ctl">Show
       <select id="showSel">
-        <option value="12">12 rows</option>
-        <option value="10" selected>10 rows</option>
+        <option value="10">10 rows</option>
         <option value="20">20 rows</option>
-        <option value="0">All</option>
+        <option value="50">50 rows</option>
+        <option value="0" selected>All</option>
       </select>
     </label>
     <button id="copyBtn">Copy list</button>
@@ -117,9 +118,9 @@
   <p class="empty" id="empty" hidden></p>
 
   <p class="legend">Scanned groups are the hottest F&amp;O industry groups by <b>absolute</b> turnover-weighted % move (2+ stocks), both directions, plus the money ratio.
-  <b>CE / PE</b> is the side the checks lean &mdash; CE = the facts point up, PE = down &mdash; strong (most checks agree and ADX + structure agree) or moderate (a majority with partial support);
-  weak reads are counted in the status line but not listed. Rows are ordered strong before moderate, then more agreeing checks,
-  more context signals, then higher running volume; the Show cap hides the tail of that order, not a judgement.
+  <b>CE / PE</b> is the side the checks lean &mdash; CE = the facts point up, PE = down &mdash; strong (most checks agree and ADX + structure agree), moderate (a majority with partial support) or weak (a thin majority, little confirmation).
+  All of them are listed; use <b>Strong only</b> to cut the list. Rows are ordered strong, moderate, weak, then more agreeing checks,
+  more context signals, then higher running volume. Option quotes are fetched for the best-ranked rows only; a row without one says so.
   <b>Last ref</b> is the last closed 15-minute candle at the time of the read. It is not an entry.
   <b>Now</b> is the last traded price, with its drift from that reference.
   <b>Prior high / low</b> are the actual previous session's high and low, drawn as reference levels; this directional score has no validated entry, stop or target.
@@ -360,8 +361,7 @@ function render(secs, c) {
   $("scaninfo").innerHTML = (info ? "Scanned: " + info + "<br>" : "") +
     "Loaded " + (m.loaded == null ? "?" : m.loaded) + " of " + (m.wanted == null ? "?" : m.wanted) + " stocks" +
     (m.failed ? " (" + m.failed + " without data)" : "") +
-    " \u00b7 signals: " + (m.strong == null ? "?" : m.strong) + " strong, " + (m.moderate == null ? "?" : m.moderate) + " moderate" +
-    " \u00b7 weak hidden: " + (m.weakHidden == null ? "?" : m.weakHidden) +
+    " \u00b7 signals: " + (m.strong == null ? "?" : m.strong) + " strong, " + (m.moderate == null ? "?" : m.moderate) + " moderate, " + (m.weak == null ? "?" : m.weak) + " weak" +
     (m.option ? " \u00b7 option quotes " + m.option.loaded + "/" + (m.option.loaded + m.option.failed) : "") +
     " \u00b7 showing " + shown.length + " of " + allCount + " matching" +
     (SECTS_AT ? " \u00b7 sector ranking " + Math.max(0, Math.round((Date.now() - SECTS_AT) / 60000)) + "m old" : "") +
@@ -401,7 +401,7 @@ function render(secs, c) {
     var cTier = document.createElement("td"); cTier.className = "l";
     var tchip = document.createElement("span");
     tchip.className = "tier " + tv.tier;
-    tchip.textContent = tv.tier === "strong" ? "Strong" : "Moderate";
+    tchip.textContent = tv.tier === "strong" ? "Strong" : tv.tier === "moderate" ? "Moderate" : "Weak";
     cTier.appendChild(tchip);
     tr.appendChild(cTier);
 
@@ -462,7 +462,7 @@ function render(secs, c) {
     empty.hidden = false;
     empty.textContent = LAST.length
       ? "No signal matches the filters right now (" + LAST.length + " hidden by the filter). Clear a filter or wait for the next candle."
-      : "No strong or moderate one-sided read in the scanned sectors at this moment. The checks are two-way or weak here \u2014 forcing a trade now means trading against the read. The board refreshes itself.";
+      : "No one-sided read in the scanned sectors at this moment. The checks are two-way or weak here \u2014 forcing a trade now means trading against the read. The board refreshes itself.";
   }
   $("livestate").textContent = "";
 }

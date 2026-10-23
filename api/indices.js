@@ -3,6 +3,9 @@
 //   Strategies  : ORB (breakout + retest tracks), Ichimoku + Fibonacci (intraday and Daily/4h swing),
 //                 VWAP (reclaim, pullback; needs true VWAP), expiry-day max pain (needs an option chain).
 // Rules live in lib/rules_*.js. India VIX is displayed as an option-cost caution; it does not gate triggers.
+// Listing policy: every call whose trigger fired is listed (BUY CE / BUY PE). Filters of the tested ruleset (risk cap,
+// expiry day, RSI band, entry cutoff, ORB size band, chop) show up as `cautions` on the row instead of hiding the call.
+// ?strict=1 restores the tested ruleset exactly (a failed filter becomes NO TRADE); the Backtest replay always runs strict.
 // It evaluates the INDEX price only. No option premium, bid/ask or open interest comes from Yahoo.
 // Screening aid only, not trading advice, and none of this is proof of an edge.
 
@@ -140,6 +143,7 @@ async function fetchIndex(ix, i) {
 
 async function handler(req, res) {
   const t0 = Date.now();
+  const strict = String(((req && req.query) || {}).strict || "") === "1";
   const now = istParts();
   const nowSec = Math.floor(Date.now() / 1000);
   const marketOpen = sessionFraction(now) < 1;
@@ -161,7 +165,7 @@ async function handler(req, res) {
       })
     );
   }
-  const ctx = { nowSec, todayISO: now.iso, marketOpen, expiry, vix: vs };
+  const ctx = { nowSec, todayISO: now.iso, marketOpen, expiry, vix: vs, strict };
 
   const got = await mapPool(INDICES, 5, (ix, i) => fetchIndex(ix, i));
   const failed = [];
@@ -192,6 +196,7 @@ async function handler(req, res) {
   return res.status(200).json({
     meta: {
       marketOpen,
+      strict,
       asOf: newest ? formatIST(newest) : null,
       generatedAt: new Date().toISOString(),
       tookMs: Date.now() - t0,

@@ -86,7 +86,7 @@
   </nav>
   <h1>Index Options Rulebook</h1>
   <p class="sub">NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY and NIFTYNXT50, checked against fixed rule sets (ORB, Ichimoku + Fib, VWAP, expiry-day max pain). Buy CE or buy PE only; nothing here sells options.</p>
-  <div class="notice">These are rule checks on the index price. No option premium, spread or open-interest data is used (Yahoo has none; a broker adapter would be needed). The rules are not proven: the Backtest tab replays them on about 40 recent sessions, which is too few to establish an edge. This is a sanity check on behaviour, not proof. Treat BUY as "all the rules line up, now check the option chain yourself", and paper-trade first (see the Journal tab).</div>
+  <div class="notice">These are rule checks on the index price. No option premium, spread or open-interest data is used (Yahoo has none; a broker adapter would be needed). The rules are not proven: the Backtest tab replays them on about 40 recent sessions, which is too few to establish an edge. This is a sanity check on behaviour, not proof. Treat BUY as "the trigger fired; read the cautions and check the option chain yourself", and paper-trade first (see the Journal tab).</div>
   <div class="vixbar" id="vixbar">India VIX: loading…</div>
 
   <div class="seg viewseg" id="view" role="group" aria-label="View">
@@ -131,6 +131,7 @@
       <option value="">All indices</option>
     </select>
     <label class="chk"><input type="checkbox" id="act"> Actionable only</label>
+    <label class="chk" title="Tested ruleset only: a call that fails any filter (risk cap, expiry day, RSI band, late entry, range size, choppy day) is shown as NO TRADE instead of being listed with cautions."><input type="checkbox" id="strict"> Strict (tested rules only)</label>
     <button class="primary" id="scan">Refresh</button>
     <label class="chk"><input type="checkbox" id="live" checked> Auto refresh (60s)</label>
   </div>
@@ -153,20 +154,20 @@
   </div>
 
   <div class="legend">
-    <p><b>Signal</b>: <b>BUY CE</b> (bullish) or <b>BUY PE</b> (bearish) appears only when the setup has triggered on a finished candle, the trigger is no more than 2 bars old, and every blocking rule passes. Elevated India VIX is shown as an option-cost caution; it does not suppress an index trigger because this project has no historical option-premium evidence for that rule. <b>WAIT</b> means a setup is forming; the line under it says what is needed. <b>NO TRADE</b> means a rule rules it out today. <b>INFO</b> rows are information only and never count as a signal. <b>CLOSED</b> shows the state at the end of the last session. Only finished candles are used, so a forming candle never triggers anything. "Actionable only" counts BUY rows and nothing else.</p>
+    <p><b>Signal</b>: <b>BUY CE</b> (bullish) or <b>BUY PE</b> (bearish) appears when the setup has triggered on a finished candle and the trigger is no more than 2 bars old. Filters of the tested ruleset (stop cap, expiry day, RSI band, late entry, range-size band, choppy day) no longer hide a call: it is listed with a <b>&#9888; caution</b> tag (hover for the reasons). Tick <b>Strict</b> to see only what the tested ruleset would take; the Backtest tab always uses the strict rules, so a call with cautions is outside its sample. Elevated India VIX is shown as an option-cost caution; it does not suppress an index trigger because this project has no historical option-premium evidence for that rule. <b>WAIT</b> means a setup is forming; the line under it says what is needed. <b>NO TRADE</b> means the setup itself failed (stopped out, structure broken, stop on the wrong side) or, in Strict mode, a filter failed. <b>INFO</b> rows are information only and never count as a signal. <b>CLOSED</b> shows the state at the end of the last session. Only finished candles are used, so a forming candle never triggers anything. "Actionable only" counts BUY rows and nothing else.</p>
     <p><b>Data-quality tags</b> on every row: <span class="tag good">true VWAP</span> volume exists so VWAP is real; <span class="tag warn">proxy</span> the line is only a session average; <span class="tag warn">no volume</span> the index feed has no volume, so volume filters are skipped (and say so in the checks); <span class="tag warn">VIX elevated</span> / <span class="tag good">VIX below p60</span> / <span class="tag warn">VIX n/a</span> option-cost context; <span class="tag good">chain ok</span> / <span class="tag warn">no chain</span> option-chain open interest (needs a broker adapter). A skipped data source is visible in the checks list (hover the check count) and in these tags.</p>
     <p><b>Stop, T1, T2</b> are levels on the <i>index</i>, not the option. An index stop does not give a fixed loss on the option: premium moves non-linearly, spreads widen and a stop can fill worse. <b>Risk %</b> is the index stop distance as a share of price. The multiples are starting points to test, not validated edges.</p>
     <ul>
       <li><b>ORB breakout (Track 1)</b> (5m): the opening range is the 9:15 to 9:30 high and low. A 5m close above the high plus a buffer of 10% of the range width (below the low for puts) is the trigger, with no retest. The breakout candle needs volume at least 1.5x the mean of up to 20 earlier bars of the session; with no index volume that filter is skipped and says so. Stop: the lowest low (highest high for puts) from the breakout candle to the latest bar, capped at 0.7% of price. Targets 2R and 3R. Trail (information only, not simulated): VWAP, or the 20 EMA when VWAP is only a proxy.</li>
-      <li><b>ORB retest (Track 2)</b>: the earlier retest logic, unchanged: break, a retest within 10% of the width that holds, then a close beyond the retest candle. A close back inside the range cancels it, with no second attempt. Targets 1R and 2R. It is evaluated only when Track 1 has not fired. Both tracks: skipped on chop (both edges broken), after 14:00, or with a stop over 0.7%. The opening-range width no longer blocks; it sets the size hint: <b>full</b> from 0.5x to 2x the recent typical width, <b>half</b> from 2x to 3x (counts as 0.5R in the backtest), <b>skip</b> beyond 3x or under 0.5x (no trade).</li>
+      <li><b>ORB retest (Track 2)</b>: the earlier retest logic, unchanged: break, a retest within 10% of the width that holds, then a close beyond the retest candle. A close back inside the range cancels it, with no second attempt. Targets 1R and 2R. It is evaluated only when Track 1 has not fired. Both tracks: a chop day (both edges broken), a trigger after 14:00 or a stop over 0.7% are cautions (strict: no trade); on a chop day the edge that broke last is followed. The opening-range width sets the size hint: <b>full</b> from 0.5x to 2x the recent typical width, <b>half</b> from 2x to 3x (counts as 0.5R in the backtest), <b>skip</b> beyond 3x or under 0.5x (a caution; strict: no trade).</li>
       <li><b>Ichimoku + Fib, intraday</b> (15m): the trend filter is ADX(14) on 15m at least 20 with +DI above -DI (long) or -DI above +DI (short); if ADX is unavailable the 5m 20-EMA slope over 10 bars is used. The 1h cloud is shown for information only and never blocks. On 15m, the last confirmed swing low then high (3 bars each side) is the leg; price must retrace 38.2% to 61.8% of it (deeper is PULLBACK TOO DEEP), then a candle must dip into the zone, close back beyond the 38.2% level and, when volume exists, have volume at least the mean of the prior 3 bars. No entries before 10:00 or after the 14:30 candle. Stop is the retrace extreme (cap 1.0%) and the prior swing must be at least 1R away.</li>
       <li><b>Ichimoku swing (Daily / 4h)</b>: the same logic one level up: Daily cloud and structure as the trend filter (cloud at least 0.25% wide), 4h pullback and trigger. Stop cap 4.0% (my assumption). It is shown here but not backtested, and it holds for days, so size it as a swing trade.</li>
       <li><b>VWAP reclaim</b> (5m, needs a true VWAP): at least 9 consecutive closes (45 minutes) on the trend side of VWAP, then 1 to 3 closes across it, then a close back with volume at least the mean of the prior 2 candles. Stop at the dip low, cap 0.5%, targets 2R and 3R. RSI(9) must be 38 to 58 at the dip low for calls (45 to 65 at the dip high for puts); skipped, with a note, if the dip is inside the first 15 bars.</li>
-      <li><b>VWAP pullback</b> (5m, needs a true VWAP): price on the trend side with the last two 5m swing lows rising; a dip to within 0.1% of VWAP that holds after 3 of the previous 6 closes were clear of it; trigger a close beyond that candle. Skipped on 3 or more VWAP crossings, a stop over 0.5%, or after 14:30; starts 9:50. Every VWAP row carries a reliability tag (high, medium, low); low means NO TRADE.</li>
+      <li><b>VWAP pullback</b> (5m, needs a true VWAP): price on the trend side with the last two 5m swing lows rising; a dip to within 0.1% of VWAP that holds after 3 of the previous 6 closes were clear of it; trigger a close beyond that candle. 3 or more VWAP crossings, a stop over 0.5% or a trigger after 14:30 are cautions (strict: no trade); starts 9:50. Every VWAP row carries a reliability tag (high, medium, low); low means NO TRADE because there is no true VWAP without volume.</li>
       <li><b>Expiry max pain</b> (NIFTY and BANKNIFTY, expiry days, 14:00 to 15:30): needs open interest from an option chain, which this app does not have. Without a broker adapter the row says NO TRADE and never guesses. With one: max pain is the strike where option writers lose least; a 5m close toward it while price is 0.5% to 1.5% away triggers; T1 is the max pain level.</li>
       <li><b>India VIX caution</b>: VIX above its 60th percentile of the prior 60 sessions flags potentially higher premium cost. It is informational only; the threshold has not been validated using historical option premiums, spreads or IV changes, so it does not block an index-level paper trigger.</li>
     </ul>
-    <p><b>Expiry days</b> are flagged, and ORB, Ichimoku and VWAP stay blocked on them. Expiry is taken as Tuesday: every Tuesday for NIFTY (weekly), the last Tuesday of the month for the others. This follows the schedule NSE moved to in September 2025, but it does not know exchange holidays that shift an expiry, so check the NSE calendar. Lot sizes change from time to time, so none are shown; check the current lot and margin with your broker. Strike steps used for the ATM strike (NIFTY 50, BANKNIFTY 100, FINNIFTY 50, MIDCPNIFTY 25, NIFTYNXT50 100) are typical values; confirm them in the option chain.</p>
+    <p><b>Expiry days</b> are flagged, and calls on them carry a caution (strict mode still blocks them). Expiry is taken as Tuesday: every Tuesday for NIFTY (weekly), the last Tuesday of the month for the others. This follows the schedule NSE moved to in September 2025, but it does not know exchange holidays that shift an expiry, so check the NSE calendar. Lot sizes change from time to time, so none are shown; check the current lot and margin with your broker. Strike steps used for the ATM strike (NIFTY 50, BANKNIFTY 100, FINNIFTY 50, MIDCPNIFTY 25, NIFTYNXT50 100) are typical values; confirm them in the option chain.</p>
     <p><b>Before any trade</b>: look at the actual option's bid, ask, volume and open interest, and skip it if the spread is wide. Size so that a stop-out loses only a small, fixed share of your account (0.25% to 0.5% is a common simulation range). No averaging down, no revenge trades, a daily loss limit, and exit everything by 15:15. A long option can lose its whole premium. Log 20 to 30 paper-trading sessions in the Journal tab, including the signals you skip, before putting real money behind any of these rules.</p>
     <p>Prices come from Yahoo Finance index tickers, polled rather than streamed, and may lag NSE. The newest tick time is shown above. This is a screening aid, not trading advice.</p>
   </div>
@@ -247,18 +248,20 @@
     vwap_reclaim: "VWAP reclaim", vwap_pullback: "VWAP pullback", vwap_info: "Session average (proxy) — information only", expiry_maxpain: "Expiry max-pain"
   };
   function lab(id) { return LABEL[id] || id; }
-  var state = { strat: "all", ix: "", actionable: false, live: true, busy: false, data: null, timer: null, failures: 0, last: {}, firstPaint: true };
+  var state = { strat: "all", ix: "", actionable: false, strict: false, live: true, busy: false, data: null, timer: null, failures: 0, last: {}, firstPaint: true };
 
   try {
     var saved = JSON.parse(localStorage.getItem(PREF_KEY) || "{}");
     if (/^(all|orb|ichi|vwap|expiry)$/.test(saved.strat)) state.strat = saved.strat;
     if (typeof saved.actionable === "boolean") state.actionable = saved.actionable;
     if (typeof saved.live === "boolean") state.live = saved.live;
+    if (typeof saved.strict === "boolean") state.strict = saved.strict;
   } catch (e) {}
   $("act").checked = state.actionable;
+  $("strict").checked = state.strict;
   $("live").checked = state.live;
   function savePrefs() {
-    try { localStorage.setItem(PREF_KEY, JSON.stringify({ strat: state.strat, actionable: state.actionable, live: state.live })); } catch (e) {}
+    try { localStorage.setItem(PREF_KEY, JSON.stringify({ strat: state.strat, actionable: state.actionable, strict: state.strict, live: state.live })); } catch (e) {}
   }
 
   function el(tag, cls, text) {
@@ -313,7 +316,9 @@
     return p.join(" · ");
   }
   function checksTip(r) {
-    return (r.checks || []).map(function (c) { return (c.ok ? "✓ " : (c.info ? "– " : "✗ ")) + c.text; }).join("\n");
+    var t = (r.checks || []).map(function (c) { return (c.ok ? "✓ " : (c.info ? "– " : "✗ ")) + c.text; }).join("\n");
+    if (r.cautions && r.cautions.length) t += "\n\nCautions (listed anyway):\n\u26a0 " + r.cautions.join("\n\u26a0 ");
+    return t;
   }
 
   function tagClass(t) {
@@ -325,7 +330,12 @@
     var d = el("div", "tags");
     (r.tags || []).forEach(function (t) { d.appendChild(el("span", "tag " + tagClass(t), t)); });
     if (r.reliability) d.appendChild(el("span", "tag " + (r.reliability === "high" ? "good" : r.reliability === "low" ? "bad" : "warn"), "reliability " + r.reliability));
-    if (r.sizeHint === "skip") d.appendChild(el("span", "tag bad", "size skip"));
+    if (r.cautions && r.cautions.length && isActionable(r.action)) {
+      var ct = el("span", "tag warn", "\u26a0 " + r.cautions.length + " caution" + (r.cautions.length > 1 ? "s" : ""));
+      ct.title = r.cautions.join("\n");
+      d.appendChild(ct);
+    }
+    if (r.sizeHint === "skip") d.appendChild(el("span", "tag " + (isActionable(r.action) ? "warn" : "bad"), isActionable(r.action) ? "outside size band" : "size skip"));
     else if (r.sizeHint && isActionable(r.action)) d.appendChild(el("span", "tag " + (r.sizeHint === "half" ? "warn" : "good"), "size " + r.sizeHint));
     if (r.trendSource) d.appendChild(el("span", "tag", "trend " + r.trendSource));
     if (r.blockedBy) d.appendChild(el("span", "tag bad", "held back by " + r.blockedBy));
@@ -337,7 +347,7 @@
     var tr = el("tr", (first ? "grp" : "") + (r.info ? " inforow" : ""));
     tr.dataset.strategy = r.strategy;
     var c0 = el("td", "sym", ix.name);
-    if (ix.expiry) { var e = el("span", "exp", "EXPIRY"); e.title = "Expiry day: ORB, Ichimoku and VWAP entries are blocked"; c0.appendChild(e); }
+    if (ix.expiry) { var e = el("span", "exp", "EXPIRY"); e.title = "Expiry day: the tested ORB, Ichimoku and VWAP rules stand aside. Calls are still listed with a caution (Strict mode blocks them)."; c0.appendChild(e); }
     c0.appendChild(el("div", "subsec", r.label || lab(r.strategy)));
     var sm = el("div", "sm");
     var b2 = el("span", "badge " + badgeClass(r.action), r.action);
@@ -479,7 +489,7 @@
     var ctrl = new AbortController();
     var to = setTimeout(function () { ctrl.abort(); }, 40000);
     try {
-      var res = await fetch("/api/indices", { signal: ctrl.signal });
+      var res = await fetch("/api/indices" + (state.strict ? "?strict=1" : ""), { signal: ctrl.signal });
       var data = await res.json();
       if (!res.ok) {
         state.failures++;
@@ -521,6 +531,7 @@
   });
   $("ixsel").addEventListener("change", function () { state.ix = $("ixsel").value; render(); });
   $("act").addEventListener("change", function () { state.actionable = $("act").checked; savePrefs(); render(); });
+  $("strict").addEventListener("change", function () { state.strict = $("strict").checked; savePrefs(); load(false); });
   $("scan").addEventListener("click", function () { load(false); });
   $("live").addEventListener("change", function () {
     state.live = $("live").checked;

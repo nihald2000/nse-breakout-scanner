@@ -7,7 +7,8 @@
 // picks today's hottest groups by |% change| and passes them in)
 //
 // Facts from closed candles only - a count of agreeing checks, never a probability,
-// never an order. Weak reads are counted (meta.weakHidden) but not listed.
+// never an order. EVERY one-sided read is listed (strong, moderate and weak, in that order) with its tier,
+// so the person decides what is worth a look; the page has a "Strong only" filter for those who want less.
 // The board also attaches the ATM CE/PE quote from NSE's option-chain snapshot. That is
 // market data, not a modelled premium; the F&O ban list is a separate NSE publication and
 // is still not checked here.
@@ -20,6 +21,7 @@ const { TFS, computeRows } = require("./sectorstocks")._internals;
 const MAX_SECTORS = 8;
 const MAX_SYMBOLS = 100; // one request at concurrency 16 stays inside the 30s budget
 const MAX_PER_SECTOR = 40; // same cap as the sector panel
+const MAX_OPTION_QUOTES = 40; // NSE chain lookups per request; the best-ranked rows get a quote, the rest say so
 
 // Build the ATM quote for one listed signal. The read side decides the contract:
 // up -> ATM CE, down -> ATM PE. Keeping this pure makes the label and the quote
@@ -52,6 +54,21 @@ function optionForSummary(sum, side) {
   };
 }
 
+
+// Every one-sided read, best first: strong before moderate before weak, then more agreeing checks, more context
+// signals, higher running volume. Nothing is dropped; a weak read is simply ranked last and labelled.
+const RANK = { strong: 0, moderate: 1, weak: 2 };
+function selectSignals(rows) {
+  const leaning = (rows || []).filter((r) => r.read && r.read.trend && r.read.trend.side);
+  const signals = leaning.slice().sort(
+    (a, b) =>
+      (RANK[a.read.trend.tier] ?? 3) - (RANK[b.read.trend.tier] ?? 3) ||
+      b.read.trend.agree - a.read.trend.agree ||
+      (b.read.trend.helpers || 0) - (a.read.trend.helpers || 0) ||
+      (b.rvol == null ? -1 : b.rvol) - (a.rvol == null ? -1 : a.rvol)
+  );
+  return { leaning, signals };
+}
 
 module.exports = async function handler(req, res) {
   const t0 = Date.now();
@@ -104,25 +121,18 @@ module.exports = async function handler(req, res) {
   const labelOf = (sym) => industryOf.get(sym) || OTHER;
   const { rows, failed, newestTs } = await computeRows(symbols, tfKey, labelOf);
 
-  const rank = { strong: 0, moderate: 1, weak: 2 };
-  const leaning = rows.filter((r) => r.read && r.read.trend && r.read.trend.side);
-  const signals = leaning
-    .filter((r) => r.read.trend.tier === "strong" || r.read.trend.tier === "moderate")
-    .sort((a, b) =>
-      rank[a.read.trend.tier] - rank[b.read.trend.tier] ||
-      b.read.trend.agree - a.read.trend.agree ||
-      (b.read.trend.helpers || 0) - (a.read.trend.helpers || 0) ||
-      (b.rvol == null ? -1 : b.rvol) - (a.rvol == null ? -1 : a.rvol)
-    );
+  const { leaning, signals } = selectSignals(rows);
 
-  // One NSE chain per listed signal, at the front expiry. This is deliberately after the
-  // board's own filters: we quote only the rows a reader can see, not all 100 scanned names.
+  // One NSE chain per listed signal, at the front expiry, for the best-ranked MAX_OPTION_QUOTES rows. Every row is
+  // listed; rows past the quote budget simply show no option quote (meta.option.notQuoted says how many).
+  const quoted = signals.slice(0, MAX_OPTION_QUOTES);
   const optionMeta = {
     source: "NSE option-chain v3",
     expiry: null,
     asOf: null,
     loaded: 0,
     failed: 0,
+    notQuoted: signals.length - quoted.length,
     note: "ATM CE for CE reads, ATM PE for PE reads. NSE snapshot, not a fill; F&O ban is not checked.",
   };
   if (signals.length) {
@@ -134,7 +144,7 @@ module.exports = async function handler(req, res) {
     } catch (e) {
       // Every per-symbol fetch below still has its own fallback; no need to fail the board.
     }
-    const quotes = await mapPool(signals, 8, async (s) => {
+    const quotes = await mapPool(quoted, 8, async (s) => {
       try {
         const got = await opts.fetchChainForSymbol(s.sym, 2);
         if (!got.chain || !got.chain.rows.length) return null;
@@ -144,10 +154,10 @@ module.exports = async function handler(req, res) {
         return null;
       }
     });
-    for (let i = 0; i < signals.length; i++) signals[i].option = quotes[i] || null;
+    for (let i = 0; i < signals.length; i++) signals[i].option = i < quoted.length ? quotes[i] || null : null;
     const have = quotes.filter(Boolean);
     optionMeta.loaded = have.length;
-    optionMeta.failed = signals.length - have.length;
+    optionMeta.failed = quoted.length - have.length;
     const expiries = [...new Set(have.map((q) => q.expiry).filter(Boolean))];
     if (expiries.length === 1) optionMeta.expiry = expiries[0];
     else if (expiries.length > 1) optionMeta.expiry = expiries.join(", ");
@@ -170,14 +180,14 @@ module.exports = async function handler(req, res) {
       signals: signals.length,
       strong: signals.filter((r) => r.read.trend.tier === "strong").length,
       moderate: signals.filter((r) => r.read.trend.tier === "moderate").length,
-      weakHidden: leaning.length - signals.length,
+      weak: signals.filter((r) => r.read.trend.tier === "weak").length,
       asOf: newestTs ? formatIST(newestTs) : null,
       marketOpen: sessionFraction(istParts()) < 1,
       lagMin: newestTs ? Math.max(0, Math.round(Date.now() / 1000 - newestTs) / 60) : null,
       option: optionMeta,
       notes: [
         "CE / PE is the side the closed-candle checks lean - a count of agreeing facts, not a probability of profit and not a buy or sell order.",
-        "Only strong and moderate reads are listed; weak ones are counted but hidden.",
+        "Every one-sided read is listed, ranked strong, then moderate, then weak. Nothing is hidden; filter on the page if you want fewer.",
         "This route is a directional watchlist, not a validated entry signal; do not infer stock or option profitability from the score.",
         "Option premium, bid/ask spread, slippage, theta, brokerage and taxes are not modeled as a strategy outcome.",
         "The ATM option column is NSE's option-chain snapshot at the front expiry: real bid/ask, IV and OI when quoted. It is not a fill.",
@@ -192,4 +202,4 @@ module.exports = async function handler(req, res) {
   });
 };
 
-module.exports._internals = { MAX_SECTORS, MAX_SYMBOLS, MAX_PER_SECTOR, optionForSummary };
+module.exports._internals = { MAX_SECTORS, MAX_SYMBOLS, MAX_PER_SECTOR, MAX_OPTION_QUOTES, optionForSummary, selectSignals };

@@ -12,6 +12,10 @@ Only the first two may be shown in the monitor; neither is a promise of option P
 
 Keep **strategy assessment** separate from **trade entry**. An evidence/readiness rating answers whether a rule deserves more research; it never creates an entry, direction, stop, target, or notification. A call is a time-stamped market event produced by a separately defined trigger, with its own levels and chart evidence. A user may inspect that chart and make the trading decision.
 
+## Listing-policy update (2026-10-22)
+
+The decision above stands: no rule or score has validated evidence of a positive edge, and nothing here changes that. What changed is the product policy. The owner wants a simple algorithmic call list and will pick the calls, so the tested filters now **annotate** calls instead of hiding them: each failed filter is listed on the call as a caution, every stock read (strong, moderate, weak) is listed with its tier, and the caps of ten were removed. `?strict=1` and the Backtest replay keep the tested behaviour. Calls that carry cautions were never part of any backtest sample, and the weak stock tier was never validated either, so both are labelled as such. Test coverage: `test/call-listing.test.js` proves, over 2,880 synthetic decision points covering all five replayable rulebook strategies, that a strict BUY is exactly a listed BUY with no cautions.
+
 ## Existing project strategy review
 
 | Module | What it does today | Assessment |
