@@ -12,18 +12,10 @@
 // is marked (inTopN) but not enforced. One Yahoo request per stock (1 month of 5m bars gives the 14-session baseline and
 // the ATR). Underlying levels only: nothing here is an option price, a fill or a promise.
 
-const { FO_INDEX, getUniverse, yahooChart, mapPool, formatIST } = require("../lib/common");
+const { yahooChart } = require("../lib/common");
 const { parseIdx } = require("./indices")._internals;
-const { SIP, evaluate, rankCalls, standalone, diagnose } = require("../lib/sip");
-
-// IST date and minutes from a unix time, so "today" and "market open" follow the request time and the data's own
-// session date (a holiday weekday serves the previous session and is correctly reported as not live).
-function istClock(nowSec) {
-  const d = new Date((nowSec + 19800) * 1000);
-  return { iso: d.toISOString().slice(0, 10), mm: d.getUTCHours() * 60 + d.getUTCMinutes() };
-}
-
-const reasonKey = (s) => String(s).replace(/\(have \d+\)/, "").trim();
+const { SIP, evaluate, standalone, diagnose } = require("../lib/sip");
+const { istClock, reasonKey, feedMeta, scanAll } = require("../lib/sipscan");
 
 // The rule, as shown to the reader (same in the list and in the one-stock reply).
 const RULE = {
@@ -43,18 +35,6 @@ const NOTES = [
   "Levels are for the underlying share. Option contract, premium, spread and liquidity are separate checks. F&O ban status is not checked.",
   "Screening aid, not trading advice, and not proof of an edge.",
 ];
-
-// Session and feed-age facts shared by both replies. "Today" follows the request time and the data's own session date.
-function feedMeta(sessionDate, newestTs, nowSec) {
-  const clock = istClock(nowSec);
-  return {
-    sessionDate: sessionDate || null,
-    showingLastSession: !!sessionDate && sessionDate !== clock.iso,
-    marketOpen: !!sessionDate && sessionDate === clock.iso && clock.mm >= SIP.firstBarMM && clock.mm < SIP.sessionEndMM,
-    asOf: newestTs ? formatIST(newestTs) : null,
-    lagMin: newestTs ? Math.max(0, Math.round(((nowSec - newestTs) / 60) * 10) / 10) : null,
-  };
-}
 
 async function oneStock(symRaw, nowSec, t0, res, debug) {
   const sym = String(symRaw).trim().toUpperCase();
@@ -83,65 +63,16 @@ async function oneStock(symRaw, nowSec, t0, res, debug) {
   });
 }
 
-// The whole-universe scan, shared by the list reply and the push-alert route (api/notify.js).
-// Returns { error: { code, error, hint } } when the universe cannot be loaded, otherwise the ranked calls and counts.
-async function scanAll(nowSec, minRvol) {
-  let universe;
-  try {
-    universe = await getUniverse(FO_INDEX);
-  } catch (e) {
-    return { error: { code: 502, error: "Could not load the F&O universe.", hint: "Try again in a minute." } };
-  }
-  let industryOf = new Map();
-  try {
-    const n500 = await getUniverse("NIFTY 500");
-    industryOf = new Map(n500.map((u) => [u.sym, u.industry]));
-  } catch (e) {
-    // The industry label is a convenience; the scan does not need it.
-  }
-
-  const got = await mapPool(universe, 16, async (u, i) => {
-    try {
-      const parsed = parseIdx(await yahooChart(u.sym + ".NS", i, "1mo", "5m"));
-      const out = evaluate(u.sym, parsed.bars, nowSec);
-      return { ...out, ts: parsed.meta && parsed.meta.regularMarketTime };
-    } catch (e) {
-      return { ok: false, failed: true };
-    }
-  });
-
-  const skipped = {};
-  const evaluated = [];
-  let failed = 0;
-  let newestTs = 0;
-  for (let i = 0; i < universe.length; i++) {
-    const g = got[i];
-    if (!g || g.failed) {
-      failed++;
-      continue;
-    }
-    if (Number.isFinite(g.ts)) newestTs = Math.max(newestTs, g.ts);
-    if (!g.ok) {
-      const k = reasonKey(g.skip);
-      skipped[k] = (skipped[k] || 0) + 1;
-      continue;
-    }
-    evaluated.push({ ...g.call, industry: industryOf.get(universe[i].sym) || null });
-  }
-
-  const ranked = rankCalls(evaluated, { minRvol });
-  const sessionDate = evaluated.reduce((m, c) => (c.session > m ? c.session : m), "");
-  const byStatus = {};
-  for (const c of ranked) byStatus[c.status] = (byStatus[c.status] || 0) + 1;
-  return { universe, evaluated, ranked, skipped, failed, newestTs, sessionDate, byStatus };
-}
-
 module.exports = async function handler(req, res) {
   const t0 = Date.now();
   const q = (req && req.query) || {};
   const asked = parseFloat(q.minRvol);
   const minRvol = Number.isFinite(asked) ? Math.min(50, Math.max(0, asked)) : SIP.minRvol;
   const nowSec = Math.floor(Date.now() / 1000);
+  // Two more routes live behind this one so the project stays inside the Hobby plan's 12-function limit.
+  // vercel.json rewrites /api/notify and /api/orbstudy to these modes.
+  if (q.mode === "notify") return require("../lib/notifyroute")(req, res);
+  if (q.mode === "study") return require("../lib/orbstudyroute")(req, res);
   if (q.sym != null && String(q.sym).trim() !== "") return oneStock(q.sym, nowSec, t0, res, q.debug != null && String(q.debug) !== "" && String(q.debug) !== "0");
 
   const scan = await scanAll(nowSec, minRvol);

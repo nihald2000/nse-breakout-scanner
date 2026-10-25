@@ -174,7 +174,7 @@ common.yahooChart = async (sym) => {
     indicators: { quote: [{ open: bs.map((b) => b.o), high: bs.map((b) => b.hi), low: bs.map((b) => b.lo), close: bs.map((b) => b.cl), volume: bs.map((b) => b.vol) }] },
   };
 };
-const handler = require("../api/orbstudy");
+const handler = require("../lib/orbstudyroute");
 async function get(query) {
   const res = { code: null, body: null, setHeader() {}, status(c) { this.code = c; return this; }, json(o) { this.body = o; return this; } };
   await handler({ query }, res);

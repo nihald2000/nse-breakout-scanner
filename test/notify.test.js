@@ -42,7 +42,7 @@ test.after(() => {
   Date.now = realNow;
 });
 
-const handler = require("../api/notify");
+const handler = require("../lib/notifyroute");
 const KEY = "k-secret-123";
 const ENV = { NOTIFY_KEY: KEY, TELEGRAM_BOT_TOKEN: "tok-SECRET", TELEGRAM_CHAT_ID: "42", NTFY_TOPIC: "my-topic" };
 

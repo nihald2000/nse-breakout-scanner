@@ -15,12 +15,6 @@
     "api/sip.js": {
       "maxDuration": 60
     },
-    "api/notify.js": {
-      "maxDuration": 60
-    },
-    "api/orbstudy.js": {
-      "maxDuration": 60
-    },
     "api/ichimoku.js": {
       "maxDuration": 60
     },
@@ -39,5 +33,9 @@
     "api/skew.js": {
       "maxDuration": 60
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/api/notify", "destination": "/api/sip?mode=notify" },
+    { "source": "/api/orbstudy", "destination": "/api/sip?mode=study" }
+  ]
 }
