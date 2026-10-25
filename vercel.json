@@ -18,6 +18,9 @@
     "api/notify.js": {
       "maxDuration": 60
     },
+    "api/orbstudy.js": {
+      "maxDuration": 60
+    },
     "api/ichimoku.js": {
       "maxDuration": 60
     },
