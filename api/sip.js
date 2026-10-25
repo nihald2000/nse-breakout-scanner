@@ -2,6 +2,7 @@
 //
 //   GET /api/sip                -> every F&O stock whose 09:15 five-minute candle traded at least 1.0x its normal volume
 //   GET /api/sip?minRvol=0      -> also list names under the threshold (flagged; the paper found them a slow loser)
+//   GET /api/sip?sym=RELIANCE&debug=1 -> the same, plus how its first-candle volume baseline was read (diagnostics)
 //   GET /api/sip?sym=RELIANCE   -> one stock only (what the chart pages use): its call or the reason it has none, plus the
 //                                  session's closed 5m bars for drawing. One Yahoo request; not ranked against the others.
 //
@@ -13,7 +14,7 @@
 
 const { FO_INDEX, getUniverse, yahooChart, mapPool, formatIST } = require("../lib/common");
 const { parseIdx } = require("./indices")._internals;
-const { SIP, evaluate, rankCalls, standalone } = require("../lib/sip");
+const { SIP, evaluate, rankCalls, standalone, diagnose } = require("../lib/sip");
 
 // IST date and minutes from a unix time, so "today" and "market open" follow the request time and the data's own
 // session date (a holiday weekday serves the previous session and is correctly reported as not live).
@@ -55,7 +56,7 @@ function feedMeta(sessionDate, newestTs, nowSec) {
   };
 }
 
-async function oneStock(symRaw, nowSec, t0, res) {
+async function oneStock(symRaw, nowSec, t0, res, debug) {
   const sym = String(symRaw).trim().toUpperCase();
   if (!/^[A-Z0-9&-]{1,20}$/.test(sym)) return res.status(400).json({ error: "Pass ?sym= with an NSE symbol such as RELIANCE." });
   let parsed;
@@ -78,23 +79,18 @@ async function oneStock(symRaw, nowSec, t0, res) {
     call,
     skip: out.ok ? null : reasonKey(out.skip),
     bars,
+    ...(debug ? { debug: diagnose(parsed.bars, nowSec) } : {}),
   });
 }
 
-module.exports = async function handler(req, res) {
-  const t0 = Date.now();
-  const q = (req && req.query) || {};
-  const asked = parseFloat(q.minRvol);
-  const minRvol = Number.isFinite(asked) ? Math.min(50, Math.max(0, asked)) : SIP.minRvol;
-  const nowSec = Math.floor(Date.now() / 1000);
-  if (q.sym != null && String(q.sym).trim() !== "") return oneStock(q.sym, nowSec, t0, res);
-
+// The whole-universe scan, shared by the list reply and the push-alert route (api/notify.js).
+// Returns { error: { code, error, hint } } when the universe cannot be loaded, otherwise the ranked calls and counts.
+async function scanAll(nowSec, minRvol) {
   let universe;
   try {
     universe = await getUniverse(FO_INDEX);
   } catch (e) {
-    res.setHeader("Cache-Control", "no-store");
-    return res.status(502).json({ error: "Could not load the F&O universe.", hint: "Try again in a minute." });
+    return { error: { code: 502, error: "Could not load the F&O universe.", hint: "Try again in a minute." } };
   }
   let industryOf = new Map();
   try {
@@ -137,6 +133,23 @@ module.exports = async function handler(req, res) {
   const sessionDate = evaluated.reduce((m, c) => (c.session > m ? c.session : m), "");
   const byStatus = {};
   for (const c of ranked) byStatus[c.status] = (byStatus[c.status] || 0) + 1;
+  return { universe, evaluated, ranked, skipped, failed, newestTs, sessionDate, byStatus };
+}
+
+module.exports = async function handler(req, res) {
+  const t0 = Date.now();
+  const q = (req && req.query) || {};
+  const asked = parseFloat(q.minRvol);
+  const minRvol = Number.isFinite(asked) ? Math.min(50, Math.max(0, asked)) : SIP.minRvol;
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (q.sym != null && String(q.sym).trim() !== "") return oneStock(q.sym, nowSec, t0, res, q.debug != null && String(q.debug) !== "" && String(q.debug) !== "0");
+
+  const scan = await scanAll(nowSec, minRvol);
+  if (scan.error) {
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(scan.error.code).json({ error: scan.error.error, hint: scan.error.hint });
+  }
+  const { universe, evaluated, ranked, skipped, failed, newestTs, sessionDate, byStatus } = scan;
 
   res.setHeader("Cache-Control", "public, s-maxage=45, stale-while-revalidate=90");
   return res.status(200).json({
@@ -162,4 +175,4 @@ module.exports = async function handler(req, res) {
   });
 };
 
-module.exports._internals = { istClock, reasonKey };
+module.exports._internals = { istClock, reasonKey, scanAll, feedMeta, SIP_RULE: RULE };
