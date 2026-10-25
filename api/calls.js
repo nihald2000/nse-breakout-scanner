@@ -5,6 +5,8 @@
 //
 // ?sectors=Construction,Banks&tf=15m   (sector names from /api/sectors; the board page
 // picks today's hottest groups by |% change| and passes them in)
+// &options=0                            (skip the NSE option-chain lookups; the Trade Monitor uses this for the batches
+//                                        of sectors past the hottest, so its all-F&O scan stays light on NSE)
 //
 // Facts from closed candles only - a count of agreeing checks, never a probability,
 // never an order. EVERY one-sided read is listed (strong, moderate and weak, in that order) with its tier,
@@ -74,6 +76,7 @@ module.exports = async function handler(req, res) {
   const t0 = Date.now();
   const q = (req && req.query) || {};
   const tfKey = TFS[q.tf] ? q.tf : "15m";
+  const wantOptions = String(q.options == null ? "1" : q.options) !== "0"; // ?options=0 skips the NSE chain lookups
   const names = [...new Set(String(q.sectors || "").split(",").map((s) => s.trim()).filter(Boolean))].slice(0, MAX_SECTORS);
 
   if (!names.length) {
@@ -132,10 +135,11 @@ module.exports = async function handler(req, res) {
     asOf: null,
     loaded: 0,
     failed: 0,
-    notQuoted: signals.length - quoted.length,
+    notQuoted: wantOptions ? signals.length - quoted.length : signals.length,
+    skipped: !wantOptions,
     note: "ATM CE for CE reads, ATM PE for PE reads. NSE snapshot, not a fill; F&O ban is not checked.",
   };
-  if (signals.length) {
+  if (signals.length && wantOptions) {
     let front = null;
     try {
       const ref = await opts.getReferenceExpiries();

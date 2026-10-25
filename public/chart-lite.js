@@ -164,6 +164,10 @@
     if (candles.length < 2) {
       stage.appendChild(el("div", "nsechart-empty", opts.empty || "not enough closed candles yet"));
       var emptyHandle = {
+        alive: function () { return host._nseChart === emptyHandle; },
+        addLevels: function () { return 0; },
+        setMarkers: function () { return false; },
+        note: function () {},
         destroy: function () {
           try { chart.remove(); } catch (e) { /* not created */ }
           host.textContent = "";
@@ -297,17 +301,24 @@
 
     // Optional entry / stop / target overlays used by the Live Calls paper desk.
     // These are reference levels on the underlying stock, not option-premium levels.
-    (opts.levels || []).forEach(function (line) {
-      if (!line || !finite(line.price)) return;
-      candleSeries.createPriceLine({
-        price: line.price,
-        color: line.color || "#8a97b8",
-        lineWidth: line.lineWidth || 1,
-        lineStyle: line.dashed ? lib.LineStyle.Dashed : lib.LineStyle.Solid,
-        axisLabelVisible: true,
-        title: line.title || ""
+    // addLevels() below draws more of them after the chart exists (the Stocks in Play overlay arrives that way).
+    function addLevels(list) {
+      var n = 0;
+      (list || []).forEach(function (line) {
+        if (!line || !finite(line.price)) return;
+        candleSeries.createPriceLine({
+          price: line.price,
+          color: line.color || "#8a97b8",
+          lineWidth: line.lineWidth || 1,
+          lineStyle: line.dashed ? lib.LineStyle.Dashed : lib.LineStyle.Solid,
+          axisLabelVisible: true,
+          title: line.title || ""
+        });
+        n++;
       });
-    });
+      return n;
+    }
+    addLevels(opts.levels);
 
     var byTime = new Map();
     candles.forEach(function (c) { byTime.set(c.time, c); });
@@ -373,9 +384,39 @@
       window.addEventListener("resize", relayout);
     }
 
+    // Markers: [{time, position, color, shape, text}] with time from sessionTime(bar.mm). Lightweight Charts v5 keeps them
+    // in a plugin object; older builds had series.setMarkers.
+    var markerApi = null;
+    function setMarkers(marks) {
+      var list = (marks || []).filter(function (m) { return m && finite(m.time); }).sort(function (a, b) { return a.time - b.time; });
+      try {
+        if (typeof candleSeries.setMarkers === "function") { candleSeries.setMarkers(list); return true; }
+        if (typeof lib.createSeriesMarkers !== "function") return false;
+        if (markerApi) markerApi.setMarkers(list);
+        else markerApi = lib.createSeriesMarkers(candleSeries, list);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    // A second header chip next to the lean badge (e.g. "ORB CE \u00b7 3.2x \u00b7 pending"); replaced on every call.
+    var noteEl = null;
+    function note(text, side) {
+      if (noteEl && noteEl.parentNode) noteEl.parentNode.removeChild(noteEl);
+      noteEl = null;
+      if (!text) return;
+      noteEl = el("span", "nsechart-badge " + (side || "info"), String(text));
+      head.insertBefore(noteEl, tf);
+    }
+
     var handle = {
       chart: chart,
       series: candleSeries,
+      alive: function () { return host._nseChart === handle; },
+      addLevels: addLevels,
+      setMarkers: setMarkers,
+      note: note,
       destroy: function () {
         if (ro) ro.disconnect(); else window.removeEventListener("resize", relayout);
         try { chart.remove(); } catch (e) { /* already removed */ }

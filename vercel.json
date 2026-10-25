@@ -12,6 +12,9 @@
     "api/calls.js": {
       "maxDuration": 30
     },
+    "api/sip.js": {
+      "maxDuration": 60
+    },
     "api/ichimoku.js": {
       "maxDuration": 60
     },

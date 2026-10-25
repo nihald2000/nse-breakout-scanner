@@ -40,6 +40,17 @@
   .chip.down { border-color: #8a2b2b; color: var(--red); }
   .chip.flat { color: var(--muted); }
   .readnote { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .sip { margin: 12px 0 16px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+  .siphead { display: flex; gap: 6px 14px; align-items: baseline; flex-wrap: wrap; }
+  .siphead h2 { font-size: 16px; margin: 0; }
+  .sipscroll { max-height: 460px; overflow: auto; }
+  .st { display: inline-block; border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; font-size: 11.5px; font-weight: 650; white-space: nowrap; }
+  .st.pend { border-color: #8a6d1d; color: var(--amber); }
+  .st.open { border-color: #1d7a44; color: var(--green); }
+  .st.stop { border-color: #8a2b2b; color: var(--red); }
+  .st.exit { border-color: #2a3d6e; color: var(--blue); }
+  .st.none { color: var(--muted); }
+  .cautlist { margin: 6px 0 0 16px; padding: 0; color: var(--muted); font-size: 12px; }
 </style>
 </head>
 <body>
@@ -56,7 +67,7 @@
     <a href="/journal.html">Journal</a>
   </nav>
   <h1>Live Calls</h1>
-  <p class="sub">Closed-candle directional watchlist across selected F&amp;O sectors. Every one-sided read is listed, ranked strong, moderate, then weak; the tier describes context-check agreement and is not a probability, entry or validated strategy. This watch page sends no notifications. Use the <a href="/monitor.html">Trade Monitor</a> for fresh paper rule-trigger alerts and chart review.</p>
+  <p class="sub">Closed-candle directional watchlist across selected F&amp;O sectors. Every one-sided read is listed, ranked strong, moderate, then weak; the tier describes context-check agreement and is not a probability, entry or validated strategy. The <b>Stocks in Play</b> table below lists every F&amp;O stock that is trading its first five-minute candle on heavy volume, with a stop-order level and a stop loss. This page sends no notifications. Use the <a href="/monitor.html">Trade Monitor</a> for alerts on every F&amp;O stock and index, and chart review.</p>
 
   <div class="banner warn" id="caveat">The current stock-side score is a research watch filter, not a proven strategy. Saved holdout research (39 sessions, 213 F&amp;O stocks) found no tested board or strategy variant with positive net expectancy at the assumed 0.05% underlying cost per side; none of 1,076 eligible validation cells survived multiple-comparison correction. A named-candle replay tested 8 standalone patterns with 1R/2R targets, and a second tested 6 context filters on those patterns; all 112 validation rows were net-negative. Option premium, spread, slippage and brokerage are not modeled. Candlestick labels are descriptive context only.</div>
   <div class="banner" id="banner"></div>
@@ -95,6 +106,44 @@
   <div class="status" id="status"></div>
   <p class="scanline" id="scaninfo"></p>
 
+  <section class="sip" id="sip">
+    <div class="siphead">
+      <h2>Stocks in Play &middot; opening range breakout</h2>
+      <label class="ctl"><input type="checkbox" id="sipAll"> Include names under 1.0&times; volume</label>
+      <button id="sipCopy">Copy ORB list</button>
+      <span class="sub" id="sipstate"></span>
+    </div>
+    <p class="scanline" id="sipinfo">Loading the Stocks in Play scan&hellip;</p>
+    <div class="wrap sipscroll" id="sipwrap" hidden>
+      <table>
+        <thead>
+          <tr>
+            <th class="l">#</th>
+            <th class="l">Side</th>
+            <th class="l">Stock</th>
+            <th class="l">Sector</th>
+            <th class="l">Status</th>
+            <th>1st-candle vol</th>
+            <th>Stop order</th>
+            <th>Stop loss</th>
+            <th>Risk / share</th>
+            <th>Costs</th>
+            <th>Now</th>
+            <th>Result</th>
+            <th class="l">Cautions</th>
+          </tr>
+        </thead>
+        <tbody id="siprows"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="sipempty" hidden></p>
+    <p class="legend">Every F&amp;O stock whose first five-minute candle (09:15&ndash;09:20) traded at least its normal volume (1.0&times; the same candle's 14-session average) is listed, highest first; the paper trades the top 20, marked <b>top 20</b>, and none is hidden.
+    The candle's colour sets the side: a <b>stop order</b> at its high (CE) or low (PE) with no retest, a <b>stop loss</b> of 10% of the 14-day ATR from the entry, no target, flat at 15:15 IST.
+    <b>PLAN</b> = the order has not been touched yet; <b>OPEN</b> = a closed candle touched it; <b>Result</b> is in R (multiples of that stop distance) and is a mark-to-market figure until the trade is stopped or flat.
+    <b>Costs</b> is the assumed 0.10% round trip expressed in R: with this tight a stop it can be a large fraction of an R before the trade moves.
+    From a US-equity study (Zarattini, Barbon &amp; Aziz, 2024, 2016&ndash;2023); <b>not tested on NSE here</b>, so nothing on it is a proven edge. Levels are for the underlying share, from closed Yahoo candles that can be a few minutes late; check the first-candle volume, the option contract and the F&amp;O ban list yourself. Click a row for its chart. Screening aid, not trading advice.</p>
+  </section>
+
   <div class="wrap" id="wrap" hidden>
     <table>
       <thead>
@@ -132,6 +181,7 @@
 
 <script src="/vendor/lightweight-charts.standalone.production.js"></script>
 <script src="/chart-lite.js"></script>
+<script src="/sip-overlay.js"></script>
 <script>
 "use strict";
 var $ = function (id) { return document.getElementById(id); };
@@ -164,7 +214,7 @@ function drawChart(host, r) {
   }
   var ref = refInfo(r);
   var side = r && r.read && r.read.trend ? r.read.trend.side : null;
-  window.NseChart.create(host, {
+  var handle = window.NseChart.create(host, {
     bars: (r && r.chart && r.chart.bars) || [],
     timeframe: (r && r.chart && r.chart.tf) || "15m",
     read: r && r.read,
@@ -181,6 +231,8 @@ function drawChart(host, r) {
     ],
     empty: "not enough closed candles yet"
   });
+  // Every stock chart also carries today's Stocks in Play plan for that stock (levels, fill/exit markers, status chip).
+  if (window.NseSip && r && r.sym) window.NseSip.attach(handle, r.sym, { bars: (r.chart && r.chart.bars) || [] });
 }
 
 // ---------- intraday read panel (same fields as Sector Scope) ----------
@@ -477,12 +529,148 @@ function getJSON(url) {
   return fetch(url).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
 }
 
+// ---------- Stocks in Play (opening range breakout) panel ----------
+var SIP_ROWS = [], SIP_META = null, sipOpen = null, sipLoading = false;
+var SIP_STATUS = {
+  "PENDING": { cls: "pend", text: "PLAN" },
+  "OPEN": { cls: "open", text: "OPEN" },
+  "STOPPED": { cls: "stop", text: "STOPPED" },
+  "EXITED": { cls: "exit", text: "FLAT 15:15" },
+  "NOT TRIGGERED": { cls: "none", text: "NEVER TRIGGERED" }
+};
+function sipR(v) { return v == null || !isFinite(v) ? "\u2013" : (v >= 0 ? "+" : "\u2212") + Math.abs(v).toFixed(2) + "R"; }
+function sipCell(txt, cls, sub, subCls) {
+  var td = cell(txt, cls);
+  if (sub) {
+    var d = document.createElement("div"); d.className = "tiny" + (subCls ? " " + subCls : ""); d.textContent = sub;
+    td.appendChild(d);
+  }
+  return td;
+}
+function drawSipChart(host, c) {
+  if (!window.NseChart || !window.NseSip) { host.textContent = "Chart engine failed to load. Refresh the page."; return; }
+  host.textContent = "Loading the 5-minute chart\u2026";
+  window.NseSip.load(c.sym, true).then(function (res) {
+    if (sipOpen !== c.sym || !host.isConnected) return;
+    if (res.error || !res.bars || !res.bars.length) { host.textContent = "Chart unavailable: " + (res.error || "no closed candles"); return; }
+    var h = window.NseChart.create(host, { bars: res.bars, timeframe: "5m", badge: { text: "5m session candles", side: "info" } });
+    window.NseSip.attach(h, c.sym, { bars: res.bars });
+  });
+}
+function sipRender() {
+  var m = SIP_META || {};
+  var bs = m.byStatus || {};
+  $("sipinfo").textContent = !SIP_META ? "" :
+    (m.sessionDate ? "Session " + m.sessionDate + (m.showingLastSession ? " (last session, not live)" : "") + " \u00b7 " : "") +
+    m.inPlay + " in play of " + m.evaluated + " scanned (" + m.universe + " F&O stocks" + (m.failed ? ", " + m.failed + " without data" : "") + ")" +
+    " \u00b7 " + (bs.PENDING || 0) + " plans waiting \u00b7 " + (bs.OPEN || 0) + " open \u00b7 " + (bs.STOPPED || 0) + " stopped out \u00b7 " +
+    (bs.EXITED || 0) + " flat at 15:15 \u00b7 " + (bs["NOT TRIGGERED"] || 0) + " never triggered" +
+    (m.asOf ? " \u00b7 prices as of " + m.asOf : "") + ".";
+  if (window.NseChart) NseChart.destroyAll($("siprows"));
+  $("siprows").textContent = "";
+  var rows = SIP_ROWS;
+  for (var i = 0; i < rows.length; i++) {
+    var c = rows[i];
+    var st = SIP_STATUS[c.status] || { cls: "none", text: c.status };
+    var open = c.status === "OPEN";
+    var tr = document.createElement("tr"); tr.className = "rowmain";
+    tr.appendChild(cell(c.rank == null ? "\u2013" : c.rank, "l"));
+    var cs = document.createElement("td"); cs.className = "l";
+    var chip = document.createElement("span"); chip.className = "chip " + (c.side === "long" ? "up" : "down");
+    chip.textContent = c.side === "long" ? "CE" : "PE";
+    chip.title = "side of the first candle; a stop order at its " + (c.side === "long" ? "high" : "low") + ". Not an order.";
+    cs.appendChild(chip); tr.appendChild(cs);
+    var cy = document.createElement("td"); cy.className = "l";
+    var sym = document.createElement("span"); sym.className = "sym"; sym.textContent = c.sym; cy.appendChild(sym);
+    var sub = document.createElement("div"); sub.className = "tiny"; sub.textContent = c.inTopN ? "top 20 \u00b7 click for chart" : c.inPlay ? "click for chart" : "under 1.0\u00d7 \u00b7 click for chart";
+    cy.appendChild(sub); tr.appendChild(cy);
+    tr.appendChild(cell(c.industry || "\u2013", "sector"));
+    var ct = document.createElement("td"); ct.className = "l";
+    var sc = document.createElement("span"); sc.className = "st " + st.cls; sc.textContent = st.text + (open ? " " + hm(c.entryMM) : "");
+    ct.appendChild(sc); tr.appendChild(ct);
+    tr.appendChild(sipCell(c.rvol.toFixed(1) + "\u00d7", "num", c.firstBar ? "vol " + Math.round(c.firstBar.vol).toLocaleString("en-IN") : ""));
+    tr.appendChild(sipCell(f2(c.level), "num", open ? "filled " + f2(c.entry) : c.side === "long" ? "buy-stop" : "sell-stop"));
+    tr.appendChild(sipCell(f2(open || c.stop != null ? c.stop : c.plannedStop), "num", open || c.stop != null ? "" : "if filled at the level"));
+    tr.appendChild(sipCell(f2(c.riskPerShare), "num", f2(c.riskPct) + "% of price"));
+    tr.appendChild(sipCell(f2(c.costR) + "R", "num", "round trip"));
+    tr.appendChild(sipCell(f2(c.ltp), "num", hm(c.ltpMM)));
+    tr.appendChild(sipCell(c.r == null ? "\u2013" : sipR(c.r), "num " + (c.r == null ? "" : c.r >= 0 ? "up" : "down")));
+    var cc = document.createElement("td"); cc.className = "l";
+    cc.textContent = c.cautions && c.cautions.length ? "\u26a0 " + c.cautions.length : "";
+    if (c.cautions && c.cautions.length) cc.title = c.cautions.join("\n");
+    tr.appendChild(cc);
+
+    var detail = document.createElement("tr");
+    var td = document.createElement("td"); td.colSpan = 13;
+    var wd = document.createElement("div"); wd.className = "readwrap";
+    var host = document.createElement("div"); host.className = "chartbox";
+    wd.appendChild(host);
+    var pan = document.createElement("div"); pan.className = "readpan";
+    var h4 = document.createElement("h4"); h4.textContent = "Plan \u00b7 " + c.sym; pan.appendChild(h4);
+    var line = document.createElement("div"); line.className = "frow";
+    var lf = document.createElement("span"); lf.className = "fl"; lf.textContent = "Rule";
+    var lv = document.createElement("span"); lv.className = "fv";
+    lv.textContent = (c.side === "long" ? "Buy-stop " : "Sell-stop ") + f2(c.level) + " \u00b7 stop loss " + f2(c.plannedStop) + " (10% of the 14-day ATR " + f2(c.atr) + ") \u00b7 no target \u00b7 flat 15:15 IST";
+    line.appendChild(lf); line.appendChild(lv); pan.appendChild(line);
+    if (c.cautions && c.cautions.length) {
+      var ul = document.createElement("ul"); ul.className = "cautlist";
+      c.cautions.forEach(function (t) { var li = document.createElement("li"); li.textContent = t; ul.appendChild(li); });
+      pan.appendChild(ul);
+    }
+    var note = document.createElement("p"); note.className = "readnote";
+    note.textContent = "Underlying share levels from closed candles; not an option price, a fill or a promise.";
+    pan.appendChild(note);
+    wd.appendChild(pan); td.appendChild(wd); detail.appendChild(td); detail.hidden = true;
+    (function (c2, detail2, host2) {
+      tr.addEventListener("click", function () {
+        detail2.hidden = !detail2.hidden;
+        sipOpen = detail2.hidden ? null : c2.sym;
+        if (detail2.hidden) { if (window.NseChart) window.NseChart.destroy(host2); }
+        else drawSipChart(host2, c2);
+      });
+    })(c, detail, host);
+    $("siprows").appendChild(tr);
+    $("siprows").appendChild(detail);
+    if (sipOpen === c.sym) { detail.hidden = false; drawSipChart(host, c); }
+  }
+  var has = rows.length > 0;
+  $("sipwrap").hidden = !has;
+  $("sipempty").hidden = has;
+  if (!has) $("sipempty").textContent = SIP_META ? "No stock is in play: no first candle traded at least its normal volume with a clear direction." + (SIP_META.showingLastSession ? " (Showing the last session.)" : "") : "";
+}
+function loadSip() {
+  if (sipLoading) return;
+  sipLoading = true;
+  getJSON("/api/sip" + ($("sipAll").checked ? "?minRvol=0" : "")).then(function (d) {
+    SIP_ROWS = d.calls || [];
+    SIP_META = d.meta || null;
+    if (window.NseSip) window.NseSip.seed(SIP_ROWS, SIP_META);
+    $("sipstate").textContent = "";
+    sipRender();
+  }).catch(function (e) {
+    $("sipstate").textContent = "Stocks in Play feed unavailable: " + e.message + " \u2014 retrying with the next refresh.";
+  }).then(function () { sipLoading = false; });
+}
+$("sipAll").addEventListener("change", loadSip);
+$("sipCopy").addEventListener("click", function () {
+  var lines = SIP_ROWS.map(function (c) {
+    return (c.side === "long" ? "CE " : "PE ") + c.sym + " (" + (c.industry || "?") + ") ORB " + (c.side === "long" ? "buy-stop " : "sell-stop ") + f2(c.level) +
+      " \u00b7 SL " + f2(c.stop != null ? c.stop : c.plannedStop) + " \u00b7 vol " + c.rvol.toFixed(1) + "\u00d7" + (c.rank != null ? " #" + c.rank : "") +
+      " \u00b7 " + c.status + (c.r != null ? " " + sipR(c.r) : "") + " \u00b7 risk " + f2(c.riskPct) + "% \u00b7 costs " + f2(c.costR) + "R \u00b7 underlying levels; not tested on NSE";
+  });
+  var text = lines.join("\n");
+  function done() { $("sipCopy").textContent = "Copied " + lines.length; setTimeout(function () { $("sipCopy").textContent = "Copy ORB list"; }, 1500); }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { window.prompt("Copy:", text); });
+  else window.prompt("Copy:", text);
+});
+
 // ---------- live auto-refresh (background tab polling may be throttled) ----------
 var SEC_MS = 60000, RETRY_MS = 20000;
 var live = true, nextAt = 0, loading = false;
 function load(auto, forceRank) {
   if (loading) return;
   loading = true;
+  loadSip(); // the Stocks in Play scan refreshes with the board
   var st = $("status");
   if (!auto) st.innerHTML = '<span class="spin"></span>Screening the hot sectors\u2026';
   var k = parseInt($("topSel").value, 10) || 6;

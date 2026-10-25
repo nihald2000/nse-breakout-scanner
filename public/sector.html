@@ -93,6 +93,7 @@
 
 <script src="/vendor/lightweight-charts.standalone.production.js"></script>
 <script src="/chart-lite.js"></script>
+<script src="/sip-overlay.js"></script>
 <script>
 "use strict";
 var $ = function (id) { return document.getElementById(id); };
@@ -223,7 +224,7 @@ function drawChart(host, r) {
     host.textContent = "Chart engine failed to load. Refresh the page.";
     return;
   }
-  window.NseChart.create(host, {
+  var handle = window.NseChart.create(host, {
     bars: (r && r.chart && r.chart.bars) || [],
     timeframe: (r && r.chart && r.chart.tf) || "15m",
     read: r && r.read,
@@ -235,6 +236,8 @@ function drawChart(host, r) {
     ],
     empty: "not enough closed candles yet"
   });
+  // Every stock chart also carries today's Stocks in Play plan for that stock (levels, fill/exit markers, status chip).
+  if (window.NseSip && r && r.sym) window.NseSip.attach(handle, r.sym, { bars: (r.chart && r.chart.bars) || [] });
 }
 
 function hm(mm) {

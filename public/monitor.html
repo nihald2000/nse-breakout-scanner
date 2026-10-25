@@ -7,14 +7,25 @@
   <title>NSE Trade Monitor</title>
   <script src="/vendor/lightweight-charts.standalone.production.js"></script>
   <script src="/chart-lite.js"></script>
+  <script src="/sip-overlay.js"></script>
+  <script src="/monitor-feed.js"></script>
   <script src="/index-chart-data.js"></script>
   <style>
-    :root{color-scheme:dark;--bg:#0b1020;--panel:#111a2c;--line:#27344c;--text:#e6edf8;--muted:#9aa9c2;--green:#38d783;--red:#ff7777;--blue:#78aaff}
+    :root{color-scheme:dark;--bg:#0b1020;--panel:#111a2c;--line:#27344c;--text:#e6edf8;--muted:#9aa9c2;--green:#38d783;--red:#ff7777;--blue:#78aaff;--amber:#f59e0b;--card:#0e1628}
     *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
     .page{max-width:1240px;margin:auto;padding:18px 18px 48px}.tabs{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 18px}.tabs a,.btn{color:var(--text);background:#17233a;border:1px solid var(--line);border-radius:8px;padding:7px 11px;text-decoration:none;cursor:pointer}.tabs a[aria-current=page],.btn.primary{background:#163b68;border-color:#3579c7}
     h1{font-size:26px;margin:0 0 2px}.sub,.muted{color:var(--muted)}.sub{margin:0 0 14px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}.row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.row h2{font-size:17px;margin:0 auto 0 0}.status{font-size:12px;color:var(--muted)}.banner{padding:10px;border:1px solid #765d28;background:#291f13;border-radius:8px;margin:10px 0;color:#f2d89c}.banner.err{border-color:#713f45;background:#2d171d;color:#ffc0c0}
     .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:9px}.card{display:block;width:100%;text-align:left;background:#0d1526;border:1px solid var(--line);border-radius:10px;padding:11px;color:var(--text);cursor:pointer}.card:hover,.card.active{border-color:#4c8ee4;background:#12213a}.card-top{display:flex;justify-content:space-between;gap:8px;align-items:center}.badge{font-weight:750}.up{color:var(--green)}.down{color:var(--red)}.levels{display:flex;gap:5px 12px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:7px;font-variant-numeric:tabular-nums}.reason{font-size:12px;color:var(--muted);margin-top:6px}.empty{padding:12px 0;color:var(--muted)}
     #chartHost{height:480px;min-height:300px}.details{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;color:var(--muted);font-size:12px}.charthead{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}.charthead h2{margin:0}.fineprint{font-size:12px;color:var(--muted);line-height:1.6}.pulse{width:8px;height:8px;background:var(--green);border-radius:50%;display:inline-block;margin-right:5px}.pill{border:1px solid var(--line);border-radius:99px;padding:2px 8px;color:var(--muted);font-size:12px}
+    .prefs{margin:6px 0 2px;color:var(--muted);font-size:13px}.prefs label{display:inline-flex;gap:5px;align-items:center;cursor:pointer}.st{font-size:11px;font-weight:650;border:1px solid var(--line);border-radius:6px;padding:0 6px;color:var(--muted)}.st.pend{color:#f2d89c;border-color:#765d28}.st.open{color:var(--green);border-color:#1d7a44}.cardnote{font-size:12px;color:#f2d89c;margin-top:6px}
+    /* Shared interactive chart (public/chart-lite.js); the same rules live in app.css for the other pages */
+    .nsechart-host{position:relative;width:100%}.nsechart{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+    .nsechart-head{display:flex;align-items:center;gap:8px;flex:none;padding:4px 7px;border-bottom:1px solid var(--line);font-size:11px;line-height:1.35}
+    .nsechart-badge{min-width:0;max-width:72%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 6px;border:1px solid var(--line);border-radius:5px;color:var(--muted)}
+    .nsechart-badge.up{color:var(--green);border-color:#1d7a44;background:rgba(34,197,94,.08)}.nsechart-badge.down{color:var(--red);border-color:#8a2b2b;background:rgba(239,68,68,.08)}.nsechart-badge.info{color:var(--blue);border-color:#2a3d6e;background:rgba(59,130,246,.08)}
+    .nsechart-meta{margin-left:auto;color:var(--muted);font-size:10px;white-space:nowrap}.nsechart-stage{position:relative;flex:1 1 0;min-height:0}.nsechart-canvas{position:absolute;inset:0}
+    .nsechart-legend{position:absolute;z-index:2;top:3px;left:5px;right:62px;display:flex;flex-wrap:wrap;gap:1px 8px;padding:2px 5px;border-radius:4px;background:rgba(14,22,40,.86);pointer-events:none;color:var(--text);font-size:10px;line-height:1.35;font-variant-numeric:tabular-nums}
+    .nsechart-legend b{color:var(--muted);font-weight:500}.nsechart-legend .trendline{color:var(--amber)}.nsechart-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;color:var(--muted);font-size:12px}
     @media(max-width:650px){.page{padding:12px}.panel{padding:11px}#chartHost{height:380px}}
   </style>
 </head>
@@ -24,15 +35,26 @@
     <a href="/monitor.html" aria-current="page">Trade Monitor</a><a href="/">Breakouts</a><a href="/sector.html">Sector Scope</a><a href="/calls.html">Live Calls</a><a href="/skew.html">Skew Map</a><a href="/indices.html">Index Options</a><a href="/chart.html">Full Chart</a><a href="/journal.html">Journal</a>
   </nav>
   <h1>Trade Monitor</h1>
-  <p class="sub">Your workday review screen: fresh index-option rule triggers to inspect first, followed by stock-side context watches. Every item opens its underlying chart. You decide whether to trade; this tool never places orders.</p>
+  <p class="sub">Your workday review screen: fresh index-option rule triggers, then Stocks in Play opening-range-breakout plans and fills across every F&amp;O stock, then stock context watches across every F&amp;O sector. Every item opens its underlying chart. You decide whether to trade; this tool never places orders.</p>
   <div class="banner">Free-data monitor: leave this page open in a browser and enable alerts. Background tabs can be throttled; closing the browser or shutting down the device stops monitoring. Quotes come from public sources and can be delayed. No option order price, liquidity, or fill is guaranteed.</div>
   <section class="panel">
-    <div class="row"><h2>Paper rule triggers <span class="muted" style="font-size:12px;font-weight:400">· every fresh trigger is listed · underlying levels only</span></h2><button class="btn primary" id="enable">Enable setup and watch alerts</button><button class="btn" id="refresh">Refresh now</button><span class="pill" id="poll">Starting…</span></div>
+    <div class="row"><h2>Paper rule triggers <span class="muted" style="font-size:12px;font-weight:400">· every fresh trigger is listed · underlying levels only</span></h2><button class="btn primary" id="enable">Enable alerts</button><button class="btn" id="refresh">Refresh now</button><span class="pill" id="poll">Starting…</span></div>
     <p class="fineprint" id="health">Waiting for public price feeds…</p>
+    <div class="row prefs" id="prefs"><span>Alert me on:</span>
+      <label><input type="checkbox" data-pref="index"> Index rule triggers</label>
+      <label><input type="checkbox" data-pref="sip"> Stocks in Play plans &amp; fills (all F&amp;O)</label>
+      <label><input type="checkbox" data-pref="ctx"> Stock context watches (all F&amp;O)</label>
+      <label><input type="checkbox" data-pref="weak"> include weak reads</label>
+    </div>
+    <p class="fineprint">A burst of stock alerts is sent as one summary notification; index triggers always come one by one. Switching a box off only silences the notification, the item is still listed below.</p>
     <p class="fineprint">These are closed-candle rule triggers with an entry reference, invalidation and targets. A trigger that fails a filter of the tested ruleset (risk cap, expiry day, RSI band, late entry, range size, choppy day) is still listed and carries a <b>⚠ caution</b> line; you decide. The saved holdout research has not validated these rules as profitable; check the timestamp and chart before deciding.</p>
     <div class="cards" id="cards"></div>
-    <h2 style="font-size:16px;margin:20px 0 4px">Stock context watches <span class="muted" style="font-size:12px;font-weight:400">· every fresh one-sided read, strong first · alerts for strong and moderate only · no entry or risk levels</span></h2>
-    <p class="fineprint">Every fresh one-sided stock read is listed (strong, then moderate, then weak). Strong and moderate reads can notify you to inspect the chart; weak reads are listed silently. A watch is not a trade trigger or strategy rating; no entry, stop, or target is implied. Candlestick labels are descriptive context only.</p>
+    <h2 style="font-size:16px;margin:20px 0 4px">Stocks in Play · opening range breakout <span class="muted" style="font-size:12px;font-weight:400">· all F&amp;O stocks · ranked by first-candle volume · live plans and fills</span></h2>
+    <p class="fineprint" id="sipInfo">Waiting for the Stocks in Play scan…</p>
+    <p class="fineprint">The first five-minute candle must trade at least its normal volume (1.0× the same candle's 14-session average). Its colour sets the side: a stop order at its high (CE) or low (PE), stop loss 10% of the 14-day ATR, no target, flat at 15:15 IST. <b>PLAN</b> means the order has not been touched yet; <b>OPEN</b> means a closed candle has touched it. From a US-equity study (Zarattini, Barbon &amp; Aziz, 2024); it has not been tested on NSE, and the tight stop means costs can eat a large part of an R, shown on each card.</p>
+    <div class="cards" id="sipCards"></div>
+    <h2 style="font-size:16px;margin:20px 0 4px">Stock context watches <span class="muted" style="font-size:12px;font-weight:400">· every fresh one-sided read in every F&amp;O sector, strong first · no entry or risk levels</span></h2>
+    <p class="fineprint" id="watchInfo">Every fresh one-sided stock read is listed (strong, then moderate, then weak) and can notify you to inspect the chart. A watch is not a trade trigger or strategy rating; no entry, stop, or target is implied. Candlestick labels are descriptive context only.</p>
     <div class="cards" id="watchCards"></div>
   </section>
   <section class="panel" id="chartPanel">
@@ -45,47 +67,138 @@
 <script>
 (function(){
   "use strict";
+  var MF=window.MonitorFeed;
   var $=function(id){return document.getElementById(id);};
-  var state={busy:false,refreshWaiters:[],timer:null,calls:[],indices:null,baseline:false,seen:{},selected:null,chart:null,failed:[]};
-  var STORE="nse-monitor-alerts-v1";
-  try{state.seen=JSON.parse(localStorage.getItem(STORE)||"{}");}catch(e){state.seen={};}
+  var SRC={index:"index",sip:"Stocks in Play",stk:"stock"};
+  var state={busy:false,refreshWaiters:[],timer:null,items:{index:[],sip:[],stk:[]},calls:[],base:{index:false,sip:false,stk:false},src:{index:null,sip:null,stk:null},seen:{},prefs:MF.withDefaults(),selected:null,chart:null,failed:{}};
+  var STORE="nse-monitor-alerts-v1",PREFS="nse-monitor-prefs-v1";
+  try{state.seen=JSON.parse(localStorage.getItem(STORE)||"{}")||{};}catch(e){state.seen={};}
+  try{state.prefs=MF.withDefaults(JSON.parse(localStorage.getItem(PREFS)||"{}"));}catch(e){state.prefs=MF.withDefaults();}
   function el(tag,cls,txt){var n=document.createElement(tag);if(cls)n.className=cls;if(txt!=null)n.textContent=txt;return n;}
   function nfmt(v,d){return Number.isFinite(v)?v.toLocaleString("en-IN",{minimumFractionDigits:d==null?2:d,maximumFractionDigits:d==null?2:d}):"–";}
+  function hm(mm){return Number.isFinite(mm)?String(Math.floor(mm/60)).padStart(2,"0")+":"+String(mm%60).padStart(2,"0"):"–";}
+  function signedR(r){return Number.isFinite(r)?(r>=0?"+":"−")+Math.abs(r).toFixed(2)+"R":"";}
   function get(url){return fetch(url,{cache:"no-store"}).then(function(r){return r.json().then(function(d){if(!r.ok)throw Error(d.error||("HTTP "+r.status));return d;});});}
   function istClock(){return new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kolkata",weekday:"short",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(new Date());}
   function isMarketOpen(){var p=istClock(),v={};p.forEach(function(x){v[x.type]=x.value;});var m=Number(v.hour)*60+Number(v.minute);return ["Mon","Tue","Wed","Thu","Fri"].includes(v.weekday)&&m>=555&&m<930;}
-  function dataAge(meta){var t=meta&&meta.asOf;if(!t)return null;var m=String(t).match(/^(\d{2})-([A-Za-z]{3})-(\d{4}) (\d{2}):(\d{2}) IST$/);if(!m)return null;var months={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};var ts=Date.UTC(+m[3],months[m[2]],+m[1],+m[4],+m[5])-330*60000;return Math.max(0,(Date.now()-ts)/60000);}
-  function idOf(c){return c.kind==="index"?"ix|"+dateKey()+"|"+c.ix.index+"|"+c.row.strategy+"|"+c.row.action:"stk|"+dateKey()+"|"+c.row.sym+"|"+c.side;}
+  function dataAge(meta){var ms=MF.asOfMs(meta&&meta.asOf);return ms==null?null:Math.max(0,(Date.now()-ms)/60000);}
   function dateKey(){return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());}
+  function idOf(c){return MF.idOf(c,dateKey());}
   function saveSeen(){try{localStorage.setItem(STORE,JSON.stringify(state.seen));}catch(e){}}
   function ageLabel(a){return a==null?"source time unavailable":a<1?"source under 1 min old":"source "+Math.floor(a)+" min old";}
   function fresh(meta){var a=dataAge(meta);return a!=null&&a<=5;}
-  function selectSectors(sectors){return(sectors||[]).filter(function(s){return s&&s.n>=2&&Number.isFinite(s.pct);}).sort(function(a,b){return Math.abs(b.pct)-Math.abs(a.pct);}).slice(0,8);}
   function timestampFresh(ts){return Number.isFinite(ts)&&ts>0&&(Date.now()-ts*1000)<=5*60000;}
-  function buildCandidates(indexData,callsData){var out=[],watches=[];var marketOpen=!!(indexData&&indexData.meta&&indexData.meta.marketOpen);
+  function fail(src,msg){(state.failed[src]=state.failed[src]||[]).push(msg);}
+
+  // ---------- candidates, one builder per source ----------
+  function buildIndex(indexData){var out=[],marketOpen=!!(indexData&&indexData.meta&&indexData.meta.marketOpen);
     (indexData&&indexData.indices||[]).forEach(function(ix){var ixFresh=marketOpen&&timestampFresh(ix.asOfTs);(ix.rows||[]).forEach(function(r){if(/^BUY (CE|PE)$/.test(r.action||"")&&!r.info&&ixFresh)out.push({kind:"index",ix:ix,row:r,side:r.action==="BUY CE"?"up":"down",fresh:true});});});
-    var callFresh=!!(callsData&&callsData.meta&&callsData.meta.marketOpen&&fresh(callsData.meta));
+    return out;}
+  var TIER={strong:0,moderate:1,weak:2};
+  function buildStocks(callsData){var watches=[];var callFresh=!!(callsData&&callsData.meta&&callsData.meta.marketOpen&&fresh(callsData.meta));
     (callsData&&callsData.signals||[]).forEach(function(r){var tv=r.read&&r.read.trend,bars=r.chart&&r.chart.bars,last=bars&&bars.length?bars[bars.length-1]:null;if(tv&&tv.side&&last&&callFresh&&timestampFresh(r.asOfTs))watches.push({kind:"stock",row:r,side:tv.side,barMM:last.mm,fresh:true});});
-    var TIER={strong:0,moderate:1,weak:2};
     watches.sort(function(a,b){var ta=a.row.read.trend,tb=b.row.read.trend;return (TIER[ta.tier]==null?3:TIER[ta.tier])-(TIER[tb.tier]==null?3:TIER[tb.tier])||tb.agree-ta.agree;});
-    return {setups:out,watches:watches};
-  }
-  function levels(c){if(c.kind==="index")return{entry:c.row.level,sl:c.row.sl,t1:c.row.t1,t2:c.row.t2};var bars=c.row.chart&&c.row.chart.bars,last=bars&&bars[bars.length-1];return{entry:last&&last.cl,sl:null,t1:null,t2:null,prevHi:c.row.prevHi,prevLo:c.row.prevLo};}
-  function notifiable(c){return c.kind==="index"||(c.row.read.trend.tier!=="weak");}
+    return watches;}
+  function buildSip(sip){var meta=sip&&sip.meta;var items=MF.sipItems(sip,!!(meta&&meta.marketOpen&&fresh(meta)));
+    items.sort(function(a,b){return (a.row.status==="OPEN"?0:1)-(b.row.status==="OPEN"?0:1)||(a.row.rank||999)-(b.row.rank||999);});
+    return items;}
+
+  function levels(c){
+    if(c.kind==="index")return{entry:c.row.level,sl:c.row.sl,t1:c.row.t1,t2:c.row.t2};
+    if(c.kind==="sip"){var r=c.row,open=r.status==="OPEN";return{entry:open?r.entry:r.level,sl:open?r.stop:r.plannedStop,t1:null,t2:null};}
+    var bars=c.row.chart&&c.row.chart.bars,last=bars&&bars[bars.length-1];return{entry:last&&last.cl,sl:null,t1:null,t2:null,prevHi:c.row.prevHi,prevLo:c.row.prevLo};}
   function sideName(c){return c.kind==="stock"?(c.side==="up"?"WATCH CE SIDE":"WATCH PE SIDE"):(c.side==="up"?"BUY CE":"BUY PE");}
   function candleContext(c){if(c.kind!=="stock")return"";return((c.row.read&&c.row.read.patterns)||[]).slice(0,2).map(function(p){return p.name;}).filter(Boolean).join(", ");}
-  function titleOf(c){return c.kind==="index"?c.ix.name+" · "+(c.row.label||c.row.strategy):c.row.sym+" · "+(c.row.industry||"F&O stock");}
-  function card(c){var id=idOf(c),l=levels(c),b=el("button","card"+(state.selected&&state.selected.id===id?" active":""));b.type="button";b.id="call-"+encodeURIComponent(id);var top=el("div","card-top");top.appendChild(el("b",null,titleOf(c)));top.appendChild(el("span","badge "+(c.side==="up"?"up":"down"),sideName(c)));b.appendChild(top);var lev=el("div","levels");if(Number.isFinite(l.entry))lev.appendChild(el("span",null,(c.kind==="stock"?"Last ref ":"Entry ")+nfmt(l.entry)));if(Number.isFinite(l.sl))lev.appendChild(el("span","down","SL "+nfmt(l.sl)));if(Number.isFinite(l.t1))lev.appendChild(el("span","up","T1 "+nfmt(l.t1)));if(Number.isFinite(l.t2))lev.appendChild(el("span","up","T2 "+nfmt(l.t2)));if(c.kind==="stock"&&Number.isFinite(l.prevHi))lev.appendChild(el("span","up","Prev high "+nfmt(l.prevHi)));if(c.kind==="stock"&&Number.isFinite(l.prevLo))lev.appendChild(el("span","down","Prev low "+nfmt(l.prevLo)));if(c.kind==="stock"&&c.row.option){var q=c.row.option;var spread=Number.isFinite(q.spreadPct)?"spread "+nfmt(q.spreadPct*100,1)+"%":"spread unavailable";lev.appendChild(el("span",null,"ATM NSE snapshot "+q.strike+" "+q.type+" ₹"+nfmt(q.premium)+" · "+ageLabel(dataAge({asOf:q.asOf}))+" · "+spread+" · "+(q.quality||"quality unavailable")));}b.appendChild(lev);var reason=c.kind==="index"?(c.row.state+" · "+(c.row.note||"")):(c.row.read.trend.tier+" directional watch · "+c.row.read.trend.agree+"/"+c.row.read.trend.total+" context checks · no validated entry/SL/target · "+(c.row.option?"NSE chain snapshot":"option quote unavailable"));var candles=candleContext(c);if(candles)reason+=" · candle context: "+candles;var cautions=c.kind==="index"&&c.row.cautions||[];if(cautions.length)reason+=" · ⚠ "+cautions.join(" · ⚠ ");b.appendChild(el("div","reason",reason));b.addEventListener("click",function(){focus(c);});return b;}
-  function draw(){var host=$("cards"),watchHost=$("watchCards");host.textContent="";watchHost.textContent="";var setups=state.calls.filter(function(c){return c.kind==="index";});var watches=state.calls.filter(function(c){return c.kind==="stock";});if(!setups.length)host.appendChild(el("div","empty","WAIT · No fresh index rule trigger. The list is not filled with directional guesses."));else setups.forEach(function(c){host.appendChild(card(c));});if(!watches.length)watchHost.appendChild(el("div","empty","No fresh stock context watches from the selected sectors."));else watches.forEach(function(c){watchHost.appendChild(card(c));});}
-  function focus(c){c.id=idOf(c);state.selected=c;draw();var t=titleOf(c),l=levels(c),pat=candleContext(c);$("chartTitle").textContent=t;$("chartType").textContent=sideName(c)+" · "+(c.kind==="index"?"index levels":"underlying share levels");$("chartDetails").textContent=c.kind==="stock"?"Directional watch only. Last close and prior-day high/low are chart references; candle context: "+(pat||"none detected")+". This score has no validated entry, stop or target. Review current price and build your own risk plan before deciding.":"Entry "+nfmt(l.entry)+" · stop "+nfmt(l.sl)+" · T1 "+nfmt(l.t1)+(Number.isFinite(l.t2)?" · T2 "+nfmt(l.t2):"")+" · Public-feed reference; inspect current chart and contract before deciding.";
-    if(c.kind==="stock"){var r=c.row;try{state.chart=window.NseChart.create($("chartHost"),{bars:r.chart.bars,timeframe:r.chart.tf,read:r.read,prevClose:r.prevClose,or:r.read&&r.read.or,lines:[{key:"t9",label:"Tenkan(9)",color:"#f59e0b",dashed:true},{key:"k26",label:"Kijun(26)",color:"#37d576",dashed:true}],levels:[{price:l.entry,title:"LAST REF",color:"#dbe6ff"},{price:l.prevHi,title:"PREV HIGH",color:"#22c55e",dashed:true},{price:l.prevLo,title:"PREV LOW",color:"#ef4444",dashed:true}]});}catch(e){$("chartHost").textContent="Chart unavailable: "+e.message;}}
-    else{get("/api/indexchart?index="+encodeURIComponent(c.ix.index)).then(function(d){if(!state.selected||state.selected.id!==idOf(c))return;var bars=window.IndexChartData.sessionBars(d);var side=c.side==="up"?"long":"short";var replay=(d.signals||[]).filter(function(s){return s.strategy===c.row.strategy&&s.side===side;});var overlay=window.IndexChartData.signalOverlays(replay,bars);var marks=overlay.markers.map(function(m){var time=window.NseChart.sessionTime(m.mm);return{time:time,position:m.side==="long"?"belowBar":"aboveBar",color:m.side==="long"?"#22c55e":"#ef4444",shape:m.side==="long"?"arrowUp":"arrowDown",text:(m.strategy==="orb_break"?"ORB":m.strategy)+" "+(m.side==="long"?"CE":"PE")};}).filter(function(m){return m.time!=null;});state.chart=window.NseChart.create($("chartHost"),{bars:bars,timeframe:"5m",prevClose:d.prevClose,lines:[{key:"vwap",label:d.vwapLabel||"Session average",color:"#f59e0b"}],levels:[{price:l.entry,title:"ENTRY REF",color:"#dbe6ff"},{price:l.sl,title:"STOP",color:"#ef4444",dashed:true},{price:l.t1,title:"T1",color:"#22c55e",dashed:true},{price:l.t2,title:"T2",color:"#22c55e",dashed:true}]});if(marks.length&&window.LightweightCharts&&window.LightweightCharts.createSeriesMarkers)state.chart.markers=window.LightweightCharts.createSeriesMarkers(state.chart.series,marks);var latest=bars.length?bars[bars.length-1].mm:null;var trigger=overlay.markers.length?overlay.markers[overlay.markers.length-1]:null;$("chartDetails").textContent="Entry reference "+nfmt(l.entry)+" · stop "+nfmt(l.sl)+" · T1 "+nfmt(l.t1)+(Number.isFinite(l.t2)?" · T2 "+nfmt(l.t2):"")+" · "+(trigger?"trigger candle marked at "+hm(trigger.mm)+"; ":"trigger did not reconcile to a replayed fill; no marker shown · ")+(latest==null?"no closed bars":"latest closed bar "+hm(latest)+"–"+hm(latest+5))+" · "+(d.asOf||"source time unavailable")+". Public-feed reference; inspect current chart and contract before deciding.";}).catch(function(e){$("chartHost").textContent="Index chart unavailable: "+e.message;});}
+  function titleOf(c){return c.kind==="index"?c.ix.name+" · "+(c.row.label||c.row.strategy):c.kind==="sip"?c.row.sym+" · "+(c.row.industry||"F&O stock")+" · ORB":c.row.sym+" · "+(c.row.industry||"F&O stock");}
+
+  // ---------- cards ----------
+  function shell(c){var id=idOf(c),b=el("button","card"+(state.selected&&state.selected.id===id?" active":""));b.type="button";b.id="call-"+encodeURIComponent(id);var top=el("div","card-top");top.appendChild(el("b",null,titleOf(c)));top.appendChild(el("span","badge "+(c.side==="up"?"up":"down"),sideName(c)));b.appendChild(top);b.addEventListener("click",function(){focus(c);});return b;}
+  function span(lev,cls,txt){lev.appendChild(el("span",cls,txt));}
+  function card(c){
+    var l=levels(c),b=shell(c),lev=el("div","levels");
+    if(Number.isFinite(l.entry))span(lev,null,(c.kind==="stock"?"Last ref ":"Entry ")+nfmt(l.entry));
+    if(Number.isFinite(l.sl))span(lev,"down","SL "+nfmt(l.sl));
+    if(Number.isFinite(l.t1))span(lev,"up","T1 "+nfmt(l.t1));
+    if(Number.isFinite(l.t2))span(lev,"up","T2 "+nfmt(l.t2));
+    if(c.kind==="stock"){
+      if(Number.isFinite(l.prevHi))span(lev,"up","Prev high "+nfmt(l.prevHi));
+      if(Number.isFinite(l.prevLo))span(lev,"down","Prev low "+nfmt(l.prevLo));
+      var q=c.row.option;if(q){var spread=Number.isFinite(q.spreadPct)?"spread "+nfmt(q.spreadPct*100,1)+"%":"spread unavailable";span(lev,null,"ATM NSE snapshot "+q.strike+" "+q.type+" ₹"+nfmt(q.premium)+" · "+ageLabel(dataAge({asOf:q.asOf}))+" · "+spread+" · "+(q.quality||"quality unavailable"));}}
+    b.appendChild(lev);
+    var reason=c.kind==="index"?(c.row.state+" · "+(c.row.note||"")):(c.row.read.trend.tier+" directional watch · "+c.row.read.trend.agree+"/"+c.row.read.trend.total+" context checks · no validated entry/SL/target · "+(c.row.option?"NSE chain snapshot":c.row.optionSkipped?"option quote not fetched here (see Live Calls)":"option quote unavailable"));
+    var candles=candleContext(c);if(candles)reason+=" · candle context: "+candles;
+    var cautions=c.kind==="index"&&c.row.cautions||[];if(cautions.length)reason+=" · ⚠ "+cautions.join(" · ⚠ ");
+    b.appendChild(el("div","reason",reason));return b;}
+  function sipCard(c){
+    var r=c.row,l=levels(c),b=shell(c),open=r.status==="OPEN",lev=el("div","levels");
+    lev.appendChild(el("span","st "+(open?"open":"pend"),open?"OPEN "+hm(r.entryMM):"PLAN"));
+    span(lev,null,(open?"Entry ":(r.side==="long"?"Buy-stop ":"Sell-stop "))+nfmt(l.entry));
+    span(lev,"down","SL "+nfmt(l.sl));
+    span(lev,null,"Risk/share "+nfmt(r.riskPerShare)+" ("+nfmt(r.riskPct)+"%)");
+    span(lev,null,"Costs ≈ "+nfmt(r.costR)+"R");
+    if(open&&Number.isFinite(r.r))span(lev,r.r>=0?"up":"down","Now "+signedR(r.r));
+    b.appendChild(lev);
+    var reason="ORB · "+nfmt(r.rvol,1)+"× normal first-candle volume · #"+r.rank+(r.inTopN?" (top 20)":"")+" · "+(open?"a closed candle touched the order":"stop order not touched yet")+" · levels are the underlying share";
+    if(r.cautions&&r.cautions.length)reason+=" · ⚠ "+r.cautions.join(" · ⚠ ");
+    b.appendChild(el("div","reason",reason));return b;}
+  function draw(){
+    var host=$("cards"),sipHost=$("sipCards"),watchHost=$("watchCards");host.textContent="";sipHost.textContent="";watchHost.textContent="";
+    var setups=state.calls.filter(function(c){return c.kind==="index";}),sips=state.calls.filter(function(c){return c.kind==="sip";}),watches=state.calls.filter(function(c){return c.kind==="stock";});
+    if(!setups.length)host.appendChild(el("div","empty","WAIT · No fresh index rule trigger. The list is not filled with directional guesses."));else setups.forEach(function(c){host.appendChild(card(c));});
+    if(!sips.length)sipHost.appendChild(el("div","empty",sipEmpty()));else sips.forEach(function(c){sipHost.appendChild(sipCard(c));});
+    if(!watches.length)watchHost.appendChild(el("div","empty","No fresh stock context watches right now."));else watches.forEach(function(c){watchHost.appendChild(card(c));});
+    sipInfo();}
+  function sipEmpty(){var m=state.src.sip&&state.src.sip.meta;if(!state.src.sip)return"Stocks in Play scan not loaded yet.";if(m&&!m.marketOpen)return"Market is closed or the feed is stale, so nothing is live. Plans appear from 09:20 IST, after the first candle closes.";return"No live Stocks in Play plan right now: none is pending or open.";}
+  function sipInfo(){var s=state.src.sip,m=s&&s.meta,box=$("sipInfo");if(!m){box.textContent="Waiting for the Stocks in Play scan…";return;}var bs=m.byStatus||{};
+    box.textContent=(m.sessionDate?"Session "+m.sessionDate+(m.showingLastSession?" (last session, not live)":"")+" · ":"")+m.inPlay+" in play of "+m.evaluated+" scanned (of "+m.universe+" F&O stocks"+(m.failed?", "+m.failed+" without data":"")+") · "+(bs.PENDING||0)+" plans waiting · "+(bs.OPEN||0)+" open · "+(bs.STOPPED||0)+" stopped out · "+(bs.EXITED||0)+" flat at 15:15 · "+(bs["NOT TRIGGERED"]||0)+" never triggered.";}
+  function rebuild(){state.calls=state.items.index.concat(state.items.sip,state.items.stk);draw();}
+
+  // ---------- chart ----------
+  function focus(c){c.id=idOf(c);state.selected=c;draw();var t=titleOf(c),l=levels(c),pat=candleContext(c);$("chartTitle").textContent=t;
+    $("chartType").textContent=sideName(c)+" · "+(c.kind==="index"?"index levels":"underlying share levels");
+    if(c.kind==="sip")$("chartDetails").textContent=sipDetails(c);
+    else $("chartDetails").textContent=c.kind==="stock"?"Directional watch only. Last close and prior-day high/low are chart references; candle context: "+(pat||"none detected")+". The ORB chip and lines show today's Stocks in Play plan for this stock if it has one. This score has no validated entry, stop or target. Review current price and build your own risk plan before deciding.":"Entry "+nfmt(l.entry)+" · stop "+nfmt(l.sl)+" · T1 "+nfmt(l.t1)+(Number.isFinite(l.t2)?" · T2 "+nfmt(l.t2):"")+" · Public-feed reference; inspect current chart and contract before deciding.";
+    if(c.kind==="stock"){var r=c.row;try{state.chart=window.NseChart.create($("chartHost"),{bars:r.chart.bars,timeframe:r.chart.tf,read:r.read,prevClose:r.prevClose,or:r.read&&r.read.or,lines:[{key:"t9",label:"Tenkan(9)",color:"#f59e0b",dashed:true},{key:"k26",label:"Kijun(26)",color:"#37d576",dashed:true}],levels:[{price:l.entry,title:"LAST REF",color:"#dbe6ff"},{price:l.prevHi,title:"PREV HIGH",color:"#22c55e",dashed:true},{price:l.prevLo,title:"PREV LOW",color:"#ef4444",dashed:true}]});if(window.NseSip)window.NseSip.attach(state.chart,r.sym,{bars:r.chart.bars});}catch(e){$("chartHost").textContent="Chart unavailable: "+e.message;}}
+    else if(c.kind==="sip"){$("chartHost").textContent="Loading the 5-minute chart…";window.NseSip.load(c.row.sym,true).then(function(res){if(!state.selected||state.selected.id!==idOf(c))return;if(res.error||!res.bars||!res.bars.length){$("chartHost").textContent="Chart unavailable: "+(res.error||"no closed candles");return;}
+      try{state.chart=window.NseChart.create($("chartHost"),{bars:res.bars,timeframe:"5m",badge:{text:"5m session candles",side:"info"}});window.NseSip.attach(state.chart,c.row.sym,{bars:res.bars});}catch(e){$("chartHost").textContent="Chart unavailable: "+e.message;}});}
+    else{get("/api/indexchart?index="+encodeURIComponent(c.ix.index)).then(function(d){if(!state.selected||state.selected.id!==idOf(c))return;var bars=window.IndexChartData.sessionBars(d);var side=c.side==="up"?"long":"short";var replay=(d.signals||[]).filter(function(s){return s.strategy===c.row.strategy&&s.side===side;});var overlay=window.IndexChartData.signalOverlays(replay,bars);var marks=overlay.markers.map(function(m){var time=window.NseChart.sessionTime(m.mm);return{time:time,position:m.side==="long"?"belowBar":"aboveBar",color:m.side==="long"?"#22c55e":"#ef4444",shape:m.side==="long"?"arrowUp":"arrowDown",text:(m.strategy==="orb_break"?"ORB":m.strategy)+" "+(m.side==="long"?"CE":"PE")};}).filter(function(m){return m.time!=null;});state.chart=window.NseChart.create($("chartHost"),{bars:bars,timeframe:"5m",prevClose:d.prevClose,lines:[{key:"vwap",label:d.vwapLabel||"Session average",color:"#f59e0b"}],levels:[{price:l.entry,title:"ENTRY REF",color:"#dbe6ff"},{price:l.sl,title:"STOP",color:"#ef4444",dashed:true},{price:l.t1,title:"T1",color:"#22c55e",dashed:true},{price:l.t2,title:"T2",color:"#22c55e",dashed:true}]});if(marks.length)state.chart.setMarkers(marks);var latest=bars.length?bars[bars.length-1].mm:null;var trigger=overlay.markers.length?overlay.markers[overlay.markers.length-1]:null;$("chartDetails").textContent="Entry reference "+nfmt(l.entry)+" · stop "+nfmt(l.sl)+" · T1 "+nfmt(l.t1)+(Number.isFinite(l.t2)?" · T2 "+nfmt(l.t2):"")+" · "+(trigger?"trigger candle marked at "+hm(trigger.mm)+"; ":"trigger did not reconcile to a replayed fill; no marker shown · ")+(latest==null?"no closed bars":"latest closed bar "+hm(latest)+"–"+hm(latest+5))+" · "+(d.asOf||"source time unavailable")+". Public-feed reference; inspect current chart and contract before deciding.";}).catch(function(e){$("chartHost").textContent="Index chart unavailable: "+e.message;});}
     $("chartPanel").scrollIntoView({behavior:"smooth",block:"start"});}
-  function notify(c){if(!('Notification'in window)||Notification.permission!=="granted")return;var id=idOf(c),l=levels(c),url=location.origin+"/monitor.html#call-"+encodeURIComponent(id);var body=c.kind==="stock"?"Fresh trend context watch · "+c.row.read.trend.tier+" · "+c.row.read.trend.agree+"/"+c.row.read.trend.total+" checks agree. No entry, stop, or target is validated. Open the chart and decide for yourself; no order was placed.":"Paper rule trigger · entry "+nfmt(l.entry)+" · SL "+nfmt(l.sl)+" · T1 "+nfmt(l.t1)+(c.row.cautions&&c.row.cautions.length?" · "+c.row.cautions.length+" caution"+(c.row.cautions.length>1?"s":""):"")+". Underlying index levels; open the chart and verify freshness. No order was placed.";try{var n=new Notification(sideName(c)+" · "+titleOf(c),{body:body,tag:id,data:{id:id,url:url}});n.onclick=function(){window.focus();refresh().then(function(){var current=state.calls.find(function(x){return idOf(x)===id;});if(current)focus(current);else{$("chartTitle").textContent="Setup no longer current";$ ("chartType").textContent="Expired or invalidated";$ ("chartDetails").textContent="This alert is no longer in the current fresh list. Refresh the data and review the chart before considering any trade.";}});};}catch(e){}}
-  function alertNew(){var day=dateKey(),doNotify=!!("Notification"in window&&isMarketOpen()&&state.baseline&&Notification.permission==="granted");state.calls.forEach(function(c){var id=day+"|"+idOf(c);if(state.seen[id])return;state.seen[id]=true;if(doNotify&&notifiable(c))notify(c);});state.baseline=true;saveSeen();}
-  async function refresh(){if(state.busy)return new Promise(function(resolve){state.refreshWaiters.push(resolve);});state.busy=true;$ ("poll").textContent="Updating…";state.failed=[];try{var ixP=get("/api/indices").catch(function(e){state.failed.push("index feed: "+e.message);return null;});var secP=get("/api/sectors").catch(function(e){state.failed.push("sector feed: "+e.message);return null;});var sec=await secP;var selected=selectSectors(sec&&sec.sectors);if(sec&&!selected.length)state.failed.push("sector feed returned no eligible groups");var callsP=selected.length?get("/api/calls?sectors="+encodeURIComponent(selected.map(function(s){return s.sector;}).join(","))+"&tf=15m").catch(function(e){state.failed.push("stock-call feed: "+e.message);return null;}):Promise.resolve(null);var ix=await ixP,calls=await callsP;state.indices=ix;var built=buildCandidates(ix,calls);state.calls=built.setups.concat(built.watches);draw();alertNew();var ages=[];if(ix&&ix.meta)ages.push("indices "+ageLabel(dataAge(ix.meta)));if(calls&&calls.meta)ages.push("stocks "+ageLabel(dataAge(calls.meta)));$("health").textContent=(isMarketOpen()?"Market session · ":"Market closed · ")+(ages.join(" · ")||"no source timestamps")+(state.failed.length?" · "+state.failed.join(" · "):"")+(ix&&ix.warnings&&ix.warnings.length?" · "+ix.warnings.join(" "):"")+(calls&&calls.meta&&calls.meta.option?" · option quotes "+calls.meta.option.loaded+" loaded, "+calls.meta.option.failed+" unavailable":"");$ ("poll").textContent="Updated "+new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kolkata",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).format(new Date())+" IST";}finally{state.busy=false;var waiters=state.refreshWaiters.splice(0);waiters.forEach(function(resolve){resolve();});}}
-  $("enable").addEventListener("click",function(){if(!("Notification"in window)){this.textContent="Alerts unavailable";this.disabled=true;return;}Notification.requestPermission().then(function(p){$("enable").textContent=p==="granted"?"Browser alerts on":p==="denied"?"Browser alerts blocked":"Enable setup and watch alerts";if(p==="granted")state.baseline=true;}).catch(function(){});});
+  function sipDetails(c){var r=c.row,open=r.status==="OPEN";return (open?"Triggered "+hm(r.entryMM)+" at "+nfmt(r.entry)+" · stop "+nfmt(r.stop):(r.side==="long"?"Buy-stop":"Sell-stop")+" order at "+nfmt(r.level)+" · stop loss "+nfmt(r.plannedStop))+" (10% of the 14-day ATR = "+nfmt(r.riskPerShare)+" per share, "+nfmt(r.riskPct)+"% of price; costs ≈ "+nfmt(r.costR)+"R) · no target, flat at 15:15 IST. Underlying share levels from closed 5-minute candles; check the first-candle volume on your broker's feed, then the option contract, spread and current price. No order is placed.";}
+
+  // ---------- notifications ----------
+  function notifyBase(c,title,body){if(!("Notification"in window)||Notification.permission!=="granted")return;var id=idOf(c),url=location.origin+"/monitor.html#call-"+encodeURIComponent(id);try{var n=new Notification(title,{body:body,tag:id,data:{id:id,url:url}});n.onclick=function(){window.focus();refresh().then(function(){var current=state.calls.find(function(x){return idOf(x)===id;});if(current)focus(current);else{$("chartTitle").textContent="Setup no longer current";$("chartType").textContent="Expired or invalidated";$("chartDetails").textContent="This alert is no longer in the current fresh list. Refresh the data and review the chart before considering any trade.";}});};}catch(e){}}
+  function notify(c){var l=levels(c);
+    if(c.kind==="sip")return notifyBase(c,MF.sipTitle(c),MF.sipBody(c));
+    var body=c.kind==="stock"?"Fresh trend context watch · "+c.row.read.trend.tier+" · "+c.row.read.trend.agree+"/"+c.row.read.trend.total+" checks agree. No entry, stop, or target is validated. Open the chart and decide for yourself; no order was placed.":"Paper rule trigger · entry "+nfmt(l.entry)+" · SL "+nfmt(l.sl)+" · T1 "+nfmt(l.t1)+(c.row.cautions&&c.row.cautions.length?" · "+c.row.cautions.length+" caution"+(c.row.cautions.length>1?"s":""):"")+". Underlying index levels; open the chart and verify freshness. No order was placed.";
+    notifyBase(c,sideName(c)+" · "+titleOf(c),body);}
+  function notifySummary(s){if(!("Notification"in window)||Notification.permission!=="granted")return;try{new Notification("Trade Monitor · "+s.count+" new alerts",{body:s.text,tag:"summary-"+Date.now(),data:{url:location.origin+"/monitor.html"}});}catch(e){}}
+  // Each source is its own baseline: the first successful load of a source only marks what is already there.
+  function alertSource(src){var first=!state.base[src];state.base[src]=true;
+    var enabled=!first&&("Notification"in window)&&isMarketOpen()&&Notification.permission==="granted";
+    var plan=MF.planAlerts(state.items[src],{day:dateKey(),seen:state.seen,enabled:enabled,prefs:state.prefs,maxEach:5});
+    plan.individual.forEach(notify);if(plan.summary)notifySummary(plan.summary);saveSeen();}
+
+  // ---------- loading, one loader per source so a slow scan never holds up the index alerts ----------
+  function done(src){rebuild();alertSource(src);updateHealth();}
+  function loadIndices(){return get("/api/indices").then(function(d){state.src.index=d;state.items.index=buildIndex(d);done("index");}).catch(function(e){fail("index","index feed: "+e.message);state.src.index=null;state.items.index=[];rebuild();});}
+  function loadSip(){return get("/api/sip").then(function(d){state.src.sip=d;state.items.sip=buildSip(d);done("sip");}).catch(function(e){fail("sip","Stocks in Play feed: "+e.message);state.src.sip=null;state.items.sip=[];rebuild();});}
+  function loadStocks(){return get("/api/sectors").then(function(sec){var batches=MF.batchSectors(sec&&sec.sectors);if(!batches.length)throw Error("sector feed returned no groups");
+      return Promise.all(batches.map(function(names,i){return get("/api/calls?sectors="+encodeURIComponent(names.join(","))+"&tf=15m"+(i?"&options=0":"")).then(function(d){return{data:d,optionsSkipped:i>0};}).catch(function(e){fail("stk","stock-call feed "+(i+1)+" of "+batches.length+": "+e.message);return{data:null};});}));
+    }).then(function(parts){var merged=MF.mergeCalls(parts);state.src.stk=merged;state.items.stk=merged?buildStocks(merged):[];done("stk");}).catch(function(e){fail("stk","sector feed: "+e.message);state.src.stk=null;state.items.stk=[];rebuild();});}
+  function updateHealth(){var ages=[],ix=state.src.index,sip=state.src.sip,stk=state.src.stk;
+    if(ix&&ix.meta)ages.push("indices "+ageLabel(dataAge(ix.meta)));
+    if(sip&&sip.meta)ages.push("Stocks in Play "+ageLabel(dataAge(sip.meta)));
+    if(stk&&stk.meta)ages.push("stocks "+ageLabel(dataAge(stk.meta))+" ("+stk.meta.loaded+" of "+stk.meta.wanted+" loaded, "+stk.meta.batches+" request"+(stk.meta.batches>1?"s":"")+(stk.meta.truncated?", some stocks over the per-request cap":"")+")");
+    var failed=[];Object.keys(state.failed).forEach(function(k){failed=failed.concat(state.failed[k]);});
+    $("health").textContent=(isMarketOpen()?"Market session · ":"Market closed · ")+(ages.join(" · ")||"no source timestamps")+(failed.length?" · "+failed.join(" · "):"")+(ix&&ix.warnings&&ix.warnings.length?" · "+ix.warnings.join(" "):"")+(stk&&stk.meta&&stk.meta.option?" · option quotes "+stk.meta.option.loaded+" loaded, "+stk.meta.option.failed+" unavailable (hottest sectors only)":"");}
+  async function refresh(){if(state.busy)return new Promise(function(resolve){state.refreshWaiters.push(resolve);});state.busy=true;$("poll").textContent="Updating…";state.failed={};
+    try{await Promise.all([loadIndices(),loadSip(),loadStocks()]);updateHealth();$("poll").textContent="Updated "+new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kolkata",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).format(new Date())+" IST";}
+    finally{state.busy=false;var waiters=state.refreshWaiters.splice(0);waiters.forEach(function(resolve){resolve();});}}
+
+  // ---------- controls ----------
+  $("enable").addEventListener("click",function(){if(!("Notification"in window)){this.textContent="Alerts unavailable";this.disabled=true;return;}Notification.requestPermission().then(function(p){$("enable").textContent=p==="granted"?"Browser alerts on":p==="denied"?"Browser alerts blocked":"Enable alerts";if(p==="granted")state.base={index:true,sip:true,stk:true};}).catch(function(){});});
   $("refresh").addEventListener("click",refresh);if("Notification"in window&&Notification.permission==="granted")$("enable").textContent="Browser alerts on";
+  Array.prototype.forEach.call(document.querySelectorAll("#prefs input[data-pref]"),function(box){box.checked=!!state.prefs[box.dataset.pref];box.addEventListener("change",function(){state.prefs[box.dataset.pref]=box.checked;try{localStorage.setItem(PREFS,JSON.stringify(state.prefs));}catch(e){}});});
   document.addEventListener("visibilitychange",function(){if(!document.hidden)refresh();});
   state.timer=setInterval(function(){if(isMarketOpen())refresh();},60000);refresh();
 })();
