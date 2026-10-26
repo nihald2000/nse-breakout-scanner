@@ -199,3 +199,76 @@ test("/api/orbstudy: returns the study, counts failed fetches and zero-volume 09
   const dbg = await get({ debug: "1" });
   assert.equal(dbg.body.note, "debug only");
 });
+
+// ----- feature study -----
+test("buildTrades attaches entry-time features with the right signs for long and short", () => {
+  const base = { 560: [101.8, 102.3, 101.7, 102.2] };
+  const up = cand(series([100, 102, 99.5, 101.5, 3000], base)); // bullish, closed in the top third of its range
+  const t = S.buildTrades([up], { topN: 10 }).trades.find((x) => x.dir === "with");
+  assert.ok(t.feat);
+  assert.ok(Math.abs(t.feat.closeStrength - (101.5 - 99.5) / 2.5) < 1e-9);
+  assert.ok(Math.abs(t.feat.bodyFrac - 1.5 / 2.5) < 1e-9);
+  assert.ok(Math.abs(t.feat.gapWith - (100 / 101 - 1) * 100) < 1e-9, "opened 1 below yesterday's 101 close: a gap against a long");
+  assert.equal(t.feat.sameShare, 1);
+  assert.equal(t.feat.priorRetWith, 0, "earlier sessions were flat");
+  assert.ok(Math.abs(t.feat.orWidthPct - (2.5 / 101.5) * 100) < 1e-9);
+  assert.equal(t.feat.brkVolRel, 1, "the entry candle's volume 100 equals its normal 100");
+  // a short: gap and close position are measured in the trade's direction
+  const dn = cand(series([100.5, 101, 98, 98.5, 3000], { 560: [98.4, 98.6, 97.9, 98.2] }));
+  const s = S.buildTrades([dn], { topN: 10 }).trades.find((x) => x.dir === "with");
+  assert.equal(s.side, "short");
+  assert.ok(Math.abs(s.feat.closeStrength - (101 - 98.5) / 3) < 1e-9);
+  assert.ok(s.feat.gapWith > 0, "gap down into a short is 'with' (100.5 vs 101 close)");
+});
+
+test("featureStudy: buckets, the interval, and the first-half choice tested on the second half", () => {
+  // 40 sessions x 4 trades. closeStrength > 0.8 wins about half the time in both halves; < 0.5 never wins.
+  const mk = (di, strong, win) => ({
+    dir: "with", di, d: "d" + di, sym: "S", rank: 1, metric: 2, side: "long", mfe: win ? 2 : 0.2, closePct: win ? 1 : -0.2,
+    cells: { "0.75/1.5": { res: win ? "T" : "S", pct: win ? 1.5 : -0.75, mm: 600 }, "1/2": { res: win ? "T" : "S", pct: win ? 2 : -1, mm: 600 } },
+    entryClose: 570,
+    feat: { gapWith: 0, closeStrength: strong ? 0.9 : 0.3, bodyFrac: 0.5, sameShare: 0.5, priorRetWith: 0, smaWith: 0, orWidthPct: 0.7, brkVolRel: null },
+  });
+  const trades = [];
+  for (let di = 0; di < 40; di++) {
+    trades.push(mk(di, true, di % 2 === 0), mk(di, true, di % 2 === 1), mk(di, false, false), mk(di, false, false));
+  }
+  const out = S.featureStudy(trades);
+  assert.equal(out.baseline.n, 160);
+  assert.equal(out.daysFirstHalf, 20);
+  const cs = out.features.find((f) => f.key === "closeStrength");
+  assert.equal(cs.buckets[2].n, 80);
+  assert.equal(cs.buckets[2].pTarget, 0.5);
+  assert.equal(cs.buckets[0].pTarget, 0);
+  assert.equal(cs.difference.best, "> 0.8");
+  assert.equal(cs.difference.sameSignBothHalves, true);
+  assert.ok(cs.difference.ciDifference[0] > 0, "the difference is clearly above zero when it is built in");
+  assert.equal(cs.coverage, 1);
+  const bv = out.features.find((f) => f.key === "brkVolRel");
+  assert.equal(bv.coverage, 0, "no usable breakout volume: reported as zero coverage, not guessed");
+  assert.equal(bv.difference, null);
+  const row = out.oos.rows.find((r) => r.feature === "closeStrength");
+  assert.equal(row.chosenOnFirstHalf, "> 0.8");
+  assert.equal(row.secondHalf.pTarget, 0.5);
+  assert.equal(row.avoidedSecondHalf.pTarget, 0);
+  assert.ok(out.oos.combinedFilter.features.some((x) => x.startsWith("closeStrength")));
+  assert.equal(out.oos.combinedFilter.secondHalf.pTarget, 0.5);
+  assert.deepEqual(S.featureStudy([]).features, []);
+});
+
+test("featureStudy: a feature with no real effect shows no lift on the held-out half", () => {
+  const mk = (di, k, win) => ({
+    dir: "with", di, d: "d" + di, sym: "S", rank: 1, metric: 2, side: "long", mfe: 1, closePct: 0,
+    cells: { "0.75/1.5": { res: win ? "T" : "S", pct: win ? 1.5 : -0.75, mm: 600 }, "1/2": { res: "S", pct: -1, mm: 600 } },
+    entryClose: 570,
+    feat: { gapWith: 0, closeStrength: k ? 0.9 : 0.3, bodyFrac: 0.5, sameShare: 0.5, priorRetWith: 0, smaWith: 0, orWidthPct: 0.7, brkVolRel: null },
+  });
+  const trades = [];
+  // first half: strong closes win more by luck (3 of 4); second half: the same bucket loses (1 of 4)
+  for (let di = 0; di < 40; di++) for (let j = 0; j < 4; j++) trades.push(mk(di, j < 2, di < 20 ? (j < 2 ? j !== 1 || di % 2 === 0 : j === 2) : j < 2 ? j === 0 && di % 2 === 0 : j === 2 || j === 3));
+  const out = S.featureStudy(trades);
+  const row = out.oos.rows.find((r) => r.feature === "closeStrength");
+  assert.ok(row.firstHalf.pTarget > row.avoidedFirstHalf.pTarget, "it looked good on the half it was chosen on");
+  assert.ok(row.secondHalf.pTarget < row.avoidedSecondHalf.pTarget, "and failed on the half it was tested on");
+  assert.equal(out.features.find((f) => f.key === "closeStrength").difference.sameSignBothHalves, false);
+});
