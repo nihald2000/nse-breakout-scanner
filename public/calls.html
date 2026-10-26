@@ -588,7 +588,7 @@ function sipRender() {
     var ct = document.createElement("td"); ct.className = "l";
     var sc = document.createElement("span"); sc.className = "st " + st.cls; sc.textContent = st.text + (open ? " " + hm(c.entryMM) : "");
     ct.appendChild(sc); tr.appendChild(ct);
-    tr.appendChild(sipCell(c.rvol.toFixed(1) + "\u00d7", "num", c.firstBar ? "vol " + Math.round(c.firstBar.vol).toLocaleString("en-IN") : ""));
+    tr.appendChild(sipCell(c.rvol.toFixed(1) + "\u00d7", "num", c.rankBy === "range" ? "first-candle range vs normal (not volume)" : c.firstBar ? "vol " + Math.round(c.firstBar.vol).toLocaleString("en-IN") : ""));
     tr.appendChild(sipCell(f2(c.level), "num", open ? "filled " + f2(c.entry) : c.side === "long" ? "buy-stop" : "sell-stop"));
     tr.appendChild(sipCell(f2(open || c.stop != null ? c.stop : c.plannedStop), "num", open || c.stop != null ? "" : "if filled at the level"));
     tr.appendChild(sipCell(f2(c.riskPerShare), "num", f2(c.riskPct) + "% of price"));
@@ -655,7 +655,7 @@ $("sipAll").addEventListener("change", loadSip);
 $("sipCopy").addEventListener("click", function () {
   var lines = SIP_ROWS.map(function (c) {
     return (c.side === "long" ? "CE " : "PE ") + c.sym + " (" + (c.industry || "?") + ") ORB " + (c.side === "long" ? "buy-stop " : "sell-stop ") + f2(c.level) +
-      " \u00b7 SL " + f2(c.stop != null ? c.stop : c.plannedStop) + " \u00b7 vol " + c.rvol.toFixed(1) + "\u00d7" + (c.rank != null ? " #" + c.rank : "") +
+      " \u00b7 SL " + f2(c.stop != null ? c.stop : c.plannedStop) + " \u00b7 " + (c.rankBy === "range" ? "range " : "vol ") + c.rvol.toFixed(1) + "\u00d7" + (c.rank != null ? " #" + c.rank : "") +
       " \u00b7 " + c.status + (c.r != null ? " " + sipR(c.r) : "") + " \u00b7 risk " + f2(c.riskPct) + "% \u00b7 costs " + f2(c.costR) + "R \u00b7 underlying levels; not tested on NSE";
   });
   var text = lines.join("\n");

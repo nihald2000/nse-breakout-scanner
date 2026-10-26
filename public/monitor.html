@@ -138,7 +138,7 @@
     span(lev,null,"Costs ≈ "+nfmt(r.costR)+"R");
     if(open&&Number.isFinite(r.r))span(lev,r.r>=0?"up":"down","Now "+signedR(r.r));
     b.appendChild(lev);
-    var reason="ORB · "+nfmt(r.rvol,1)+"× normal first-candle volume · #"+r.rank+(r.inTopN?" (top 20)":"")+" · "+(open?"a closed candle touched the order":"stop order not touched yet")+" · levels are the underlying share";
+    var reason="ORB · "+nfmt(r.rvol,1)+(r.rankBy==="range"?"× normal first-candle range (not volume) · #":"× normal first-candle volume · #")+r.rank+(r.inTopN?" (top 20)":"")+" · "+(open?"a closed candle touched the order":"stop order not touched yet")+" · levels are the underlying share";
     if(r.cautions&&r.cautions.length)reason+=" · ⚠ "+r.cautions.join(" · ⚠ ");
     b.appendChild(el("div","reason",reason));return b;}
   function draw(){

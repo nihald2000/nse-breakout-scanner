@@ -75,17 +75,20 @@ module.exports = async function handler(req, res) {
   if (q.mode === "study") return require("../lib/orbstudyroute")(req, res);
   if (q.sym != null && String(q.sym).trim() !== "") return oneStock(q.sym, nowSec, t0, res, q.debug != null && String(q.debug) !== "" && String(q.debug) !== "0");
 
-  const scan = await scanAll(nowSec, minRvol);
+  const rankParam = q.rank === "volume" || q.rank === "range" ? q.rank : "auto";
+  const scan = await scanAll(nowSec, minRvol, rankParam);
   if (scan.error) {
     res.setHeader("Cache-Control", "no-store");
     return res.status(scan.error.code).json({ error: scan.error.error, hint: scan.error.hint });
   }
-  const { universe, evaluated, ranked, skipped, failed, newestTs, sessionDate, byStatus } = scan;
+  const { universe, evaluated, ranked, skipped, failed, newestTs, sessionDate, byStatus, rankBy } = scan;
 
   res.setHeader("Cache-Control", "public, s-maxage=45, stale-while-revalidate=90");
   return res.status(200).json({
     meta: {
       ...feedMeta(sessionDate, newestTs, nowSec),
+      rankBy,
+      rankNote: rankBy === "range" ? "Ranked by first-candle range vs its normal, not volume: Yahoo has no usable 09:15 volume history. Not the paper's rule." : null,
       minRvol,
       topN: SIP.topN,
       universe: universe.length,

@@ -211,7 +211,7 @@
     } else {
       parts.push((r.side === "long" ? "Buy-stop" : "Sell-stop") + " at " + fmt(r.level) + " · stop loss " + fmt(r.plannedStop));
     }
-    parts.push((finite(r.rvol) ? r.rvol.toFixed(1) : "?") + "× normal first-candle volume" + (finite(r.rank) ? " (#" + r.rank + ")" : ""));
+    parts.push((finite(r.rvol) ? r.rvol.toFixed(1) : "?") + (r.rankBy === "range" ? "× normal first-candle range (not volume)" : "× normal first-candle volume") + (finite(r.rank) ? " (#" + r.rank + ")" : ""));
     if (r.cautions && r.cautions.length) parts.push(r.cautions.length + " caution" + (r.cautions.length > 1 ? "s" : ""));
     parts.push("Underlying levels; no order was placed.");
     return parts.join(" · ");

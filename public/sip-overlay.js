@@ -58,7 +58,7 @@
   function describe(call, skip) {
     if (!call) return { text: skip ? "ORB: no call — " + skip : "ORB: no call", side: "flat" };
     var ce = call.side === "long";
-    var bits = ["ORB " + (ce ? "CE" : "PE"), finite(call.rvol) ? call.rvol.toFixed(1) + "× vol" : null];
+    var bits = ["ORB " + (ce ? "CE" : "PE"), finite(call.rvol) ? call.rvol.toFixed(1) + (call.rankBy === "range" ? "× range" : "× vol") : null];
     if (finite(call.rank)) bits.push("#" + call.rank);
     var st = call.status;
     if (st === "PENDING") bits.push("stop order not touched yet");
